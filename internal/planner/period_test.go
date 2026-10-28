@@ -257,6 +257,28 @@ func TestDerivePeriod_CustomNoMatch(t *testing.T) {
 	}
 }
 
+// The no-match error names the time the period was derived from: the run
+// time by default, the HEAD commit time only under time_basis: commit.
+func TestDerivePeriod_CustomNoMatchNamesTimeBasis(t *testing.T) {
+	at := time.Date(2026, 3, 10, 0, 0, 0, 0, time.UTC)
+	for basis, want := range map[string]string{"": "run time", "wall_clock": "run time", "commit": "HEAD commit time"} {
+		cfg := &spec.PeriodConfig{
+			TimeBasis: basis,
+			FiscalCalendar: spec.FiscalCalendarConfig{
+				Type:    fiscalCustom,
+				Periods: []spec.CustomPeriod{{ID: period2026P01, Start: date2026Jan04, End: date2026Jan31}},
+			},
+		}
+		_, err := planner.DerivePeriod(cfg, at)
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("time_basis %q: error = %v; want it to name the %s", basis, err, want)
+		}
+		if basis != "commit" && err != nil && strings.Contains(err.Error(), "commit") {
+			t.Errorf("time_basis %q: error = %q mentions the commit", basis, err)
+		}
+	}
+}
+
 func TestDerivePeriod_UnknownType(t *testing.T) {
 	cfg := &spec.PeriodConfig{
 		FiscalCalendar: spec.FiscalCalendarConfig{Type: "lunar"},

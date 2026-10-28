@@ -41,7 +41,7 @@ this file lists the changes a user notices.
   `--capture-cloud-payload` still writes the file.
 - The audit period now comes from the run clock in UTC. Set `period.time_basis: commit` to keep
   the old behaviour (the `HEAD` commit time). A repository with no recent commits no longer stays
-  in an old quarter.
+  in an old quarter. The error for a time outside every custom period names the basis it used.
 - `--pr` runs, and any run in a GitHub pull-request or GitLab merge-request pipeline, no longer
   advance the cadence state.
 - A monthly cadence re-evaluates after 27 days 23 hours instead of 29 days 23 hours, so a daily

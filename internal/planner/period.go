@@ -250,7 +250,11 @@ func customPeriod(t time.Time, periods []spec.CustomPeriod, timeBasis string) (P
 			}, nil
 		}
 	}
-	return Period{}, fmt.Errorf("planner: commit time %s does not fall in any configured custom period", utc.Format(time.RFC3339))
+	basis := "run time"
+	if timeBasis == timeBasisCommit {
+		basis = "HEAD commit time"
+	}
+	return Period{}, fmt.Errorf("planner: %s %s does not fall in any configured custom period", basis, utc.Format(time.RFC3339))
 }
 
 var monthByName = map[string]time.Month{
