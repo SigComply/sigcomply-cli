@@ -190,32 +190,6 @@
       "resources_failed": 0
     }
   },
-  "iso27001.5.17.mfa_enforced": {
-    "compliant": {
-      "status": "pass",
-      "resources_evaluated": 3,
-      "resources_failed": 0
-    },
-    "noncompliant": {
-      "status": "fail",
-      "resources_evaluated": 9,
-      "resources_failed": 4,
-      "violated": [
-        "dave",
-        "erin",
-        "harry",
-        "root-2"
-      ]
-    },
-    "sparse": {
-      "status": "fail",
-      "resources_evaluated": 3,
-      "resources_failed": 1,
-      "violated": [
-        "ci-user"
-      ]
-    }
-  },
   "iso27001.5.18.access_rights_review": {
     "compliant": {
       "status": "pass",
@@ -555,27 +529,6 @@
       "resources_evaluated": 0,
       "resources_failed": 0,
       "reason": "manual evidence: no record collected (source not configured or collection failed)"
-    }
-  },
-  "iso27001.5.3.no_broad_admin_bindings": {
-    "compliant": {
-      "status": "pass",
-      "resources_evaluated": 3,
-      "resources_failed": 0
-    },
-    "noncompliant": {
-      "status": "fail",
-      "resources_evaluated": 5,
-      "resources_failed": 1,
-      "violated": [
-        "roles/owner|user:mallory@example.com"
-      ]
-    },
-    "sparse": {
-      "status": "skip",
-      "resources_evaluated": 0,
-      "resources_failed": 0,
-      "reason": "required slot has no records"
     }
   },
   "iso27001.5.30.ict_continuity_tested": {
@@ -1420,26 +1373,6 @@
       "reason": "manual evidence: no record collected (source not configured or collection failed)"
     }
   },
-  "iso27001.8.12.database_no_public_access": {
-    "compliant": {
-      "status": "pass",
-      "resources_evaluated": 1,
-      "resources_failed": 0
-    },
-    "noncompliant": {
-      "status": "fail",
-      "resources_evaluated": 2,
-      "resources_failed": 1,
-      "violated": [
-        "db-legacy"
-      ]
-    },
-    "sparse": {
-      "status": "pass",
-      "resources_evaluated": 1,
-      "resources_failed": 0
-    }
-  },
   "iso27001.8.12.no_public_container_repos": {
     "compliant": {
       "status": "pass",
@@ -1459,26 +1392,6 @@
       "resources_evaluated": 0,
       "resources_failed": 0,
       "reason": "required slot has no records"
-    }
-  },
-  "iso27001.8.12.storage_no_public_access": {
-    "compliant": {
-      "status": "pass",
-      "resources_evaluated": 1,
-      "resources_failed": 0
-    },
-    "noncompliant": {
-      "status": "fail",
-      "resources_evaluated": 2,
-      "resources_failed": 1,
-      "violated": [
-        "acme-public"
-      ]
-    },
-    "sparse": {
-      "status": "pass",
-      "resources_evaluated": 1,
-      "resources_failed": 0
     }
   },
   "iso27001.8.13.database_backup_enabled": {
@@ -1501,7 +1414,7 @@
       "resources_failed": 0
     }
   },
-  "iso27001.8.13.database_multi_az": {
+  "iso27001.8.13.nosql_table_pitr_enabled": {
     "compliant": {
       "status": "pass",
       "resources_evaluated": 1,
@@ -1512,14 +1425,14 @@
       "resources_evaluated": 2,
       "resources_failed": 1,
       "violated": [
-        "db-legacy"
+        "sessions"
       ]
     },
     "sparse": {
-      "status": "error",
-      "resources_evaluated": 1,
+      "status": "skip",
+      "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "policy references field \"payload.multi_az\" which is not present on record \"sql-reporting\" (type \"managed_database_instance\") — reference a field the evidence type guarantees, or guard it with is_set"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.13.storage_versioning_enabled": {
@@ -1543,7 +1456,7 @@
       "reason": "policy references field \"payload.versioning_enabled\" which is not present on record \"gcs-assets\" (type \"object_storage_bucket\") — reference a field the evidence type guarantees, or guard it with is_set"
     }
   },
-  "iso27001.8.14.nosql_table_pitr_enabled": {
+  "iso27001.8.14.database_multi_az": {
     "compliant": {
       "status": "pass",
       "resources_evaluated": 1,
@@ -1554,14 +1467,14 @@
       "resources_evaluated": 2,
       "resources_failed": 1,
       "violated": [
-        "sessions"
+        "db-legacy"
       ]
     },
     "sparse": {
-      "status": "skip",
-      "resources_evaluated": 0,
+      "status": "error",
+      "resources_evaluated": 1,
       "resources_failed": 0,
-      "reason": "required slot has no records"
+      "reason": "policy references field \"payload.multi_az\" which is not present on record \"sql-reporting\" (type \"managed_database_instance\") — reference a field the evidence type guarantees, or guard it with is_set"
     }
   },
   "iso27001.8.15.audit_log_encrypted": {
@@ -2109,26 +2022,6 @@
       "resources_failed": 0
     }
   },
-  "iso27001.8.25.branch_protection": {
-    "compliant": {
-      "status": "pass",
-      "resources_evaluated": 1,
-      "resources_failed": 0
-    },
-    "noncompliant": {
-      "status": "fail",
-      "resources_evaluated": 2,
-      "resources_failed": 1,
-      "violated": [
-        "acme/legacy"
-      ]
-    },
-    "sparse": {
-      "status": "pass",
-      "resources_evaluated": 1,
-      "resources_failed": 0
-    }
-  },
   "iso27001.8.25.no_force_push_to_main": {
     "compliant": {
       "status": "pass",
@@ -2488,27 +2381,6 @@
       "reason": "required slot has no records"
     }
   },
-  "iso27001.8.32.no_force_push": {
-    "compliant": {
-      "status": "pass",
-      "resources_evaluated": 1,
-      "resources_failed": 0
-    },
-    "noncompliant": {
-      "status": "fail",
-      "resources_evaluated": 2,
-      "resources_failed": 1,
-      "violated": [
-        "acme/legacy"
-      ]
-    },
-    "sparse": {
-      "status": "error",
-      "resources_evaluated": 1,
-      "resources_failed": 0,
-      "reason": "policy references field \"payload.allows_force_push\" which is not present on record \"group/service\" (type \"git_repository\") — reference a field the evidence type guarantees, or guard it with is_set"
-    }
-  },
   "iso27001.8.32.production_deploys_from_approved_changes": {
     "compliant": {
       "status": "pass",
@@ -2529,27 +2401,6 @@
       "resources_evaluated": 0,
       "resources_failed": 0,
       "reason": "required slot has no records"
-    }
-  },
-  "iso27001.8.32.required_code_reviews": {
-    "compliant": {
-      "status": "pass",
-      "resources_evaluated": 1,
-      "resources_failed": 0
-    },
-    "noncompliant": {
-      "status": "fail",
-      "resources_evaluated": 2,
-      "resources_failed": 1,
-      "violated": [
-        "acme/legacy"
-      ]
-    },
-    "sparse": {
-      "status": "error",
-      "resources_evaluated": 1,
-      "resources_failed": 0,
-      "reason": "policy references field \"payload.required_reviewers_count\" which is not present on record \"group/service\" (type \"git_repository\") — reference a field the evidence type guarantees, or guard it with is_set"
     }
   },
   "iso27001.8.33.test_information_policy": {
@@ -2744,51 +2595,6 @@
       "resources_evaluated": 0,
       "resources_failed": 0,
       "reason": "manual evidence: no record collected (source not configured or collection failed)"
-    }
-  },
-  "iso27001.8.7.no_critical_malware_findings": {
-    "compliant": {
-      "status": "pass",
-      "resources_evaluated": 3,
-      "resources_failed": 0
-    },
-    "noncompliant": {
-      "status": "fail",
-      "resources_evaluated": 5,
-      "resources_failed": 1,
-      "violated": [
-        "finding-crit-active"
-      ]
-    },
-    "sparse": {
-      "status": "skip",
-      "resources_evaluated": 0,
-      "resources_failed": 0,
-      "reason": "required slot has no records"
-    }
-  },
-  "iso27001.8.7.threat_detection_enabled": {
-    "compliant": {
-      "status": "pass",
-      "resources_evaluated": 1,
-      "resources_failed": 0
-    },
-    "noncompliant": {
-      "status": "fail",
-      "resources_evaluated": 2,
-      "resources_failed": 1,
-      "violated": [
-        "guardduty-eu-west-1"
-      ]
-    },
-    "sparse": {
-      "status": "fail",
-      "resources_evaluated": 0,
-      "resources_failed": 1,
-      "violated": [
-        ""
-      ],
-      "reason": "no threat_detection_service records: threat detection not enabled or not found"
     }
   },
   "iso27001.8.8.container_scan_on_push": {

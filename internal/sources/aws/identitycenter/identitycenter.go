@@ -55,10 +55,10 @@
 //   - iam_binding records mirror each assignment **as it was made**:
 //     principal_type is "user" for a direct assignment and "group" for a group
 //     assignment. Group assignments are NOT expanded into per-member records.
-//     That is not laziness — the least-privilege policies
-//     (iso27001.5.3.no_broad_admin_bindings, iso27001.8.3.no_broad_admin_iam_bindings)
-//     are phrased none(principal_type == "user" AND is_broad_admin_role AND
-//     NOT has_condition) and their remediation text says to grant admin through
+//     That is not laziness — the least-privilege policy
+//     (iso27001.8.3.no_broad_admin_iam_bindings, also filed under A.5.3)
+//     is phrased none(principal_type == "user" AND is_broad_admin_role AND
+//     NOT has_condition) and its remediation text says to grant admin through
 //     groups. Expanding a group grant into member records would report the
 //     recommended pattern as a violation of the policy that recommends it.
 //     It would also mis-key the roster join, whose account.non_human is derived

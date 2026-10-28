@@ -25,13 +25,6 @@ func organizationalAutomatedPolicies() []core.Policy {
 			clause:  all(leaf("payload.deletion_protection", "eq", true), "table {{.payload.name}} does not have deletion protection enabled"),
 		}.policy(),
 		autoPolicy{
-			id: "iso27001.5.3.no_broad_admin_bindings", control: "A.5.3", severity: core.SeverityHigh, category: catAccess, cadence: cadenceDaily,
-			accepts: []string{etIAMBinding},
-			desc:    "No individual user holds an unconditional broad-admin role (segregation of duties).",
-			rem:     "Grant admin roles to conditional group bindings, not directly to users.",
-			clause:  noneWhere(leaf("payload.principal_type", "eq", "user"), allOf(leaf("payload.is_broad_admin_role", "eq", true), leaf("payload.has_condition", "eq", false)), "user {{.payload.principal_id}} holds unconditional broad-admin role {{.payload.role}}"),
-		}.policy(),
-		autoPolicy{
 			id: "iso27001.5.16.inactive_user_accounts", control: ctrlIdentityManagement, severity: core.SeverityMedium, category: catAccess, cadence: cadenceDaily,
 			accepts: []string{etDirectoryUserV2},
 			desc:    "No active user account has been unused for more than 90 days (identity management).",
@@ -46,13 +39,6 @@ func organizationalAutomatedPolicies() []core.Policy {
 			// aws.iam emits directory_user.v2 today and it always
 			// populates both.
 			clause: allWhere(allOf(isSet("payload.is_active"), leaf("payload.is_active", "eq", true)), allOf(leaf("payload.unused_days", "gte", 0), leaf("payload.unused_days", "lte", 90)), "user {{.payload.display_name}} has been inactive for more than 90 days (or never logged in)"),
-		}.policy(),
-		autoPolicy{
-			id: "iso27001.5.17.mfa_enforced", control: "A.5.17", severity: core.SeverityCritical, category: catAccess, cadence: cadenceDaily,
-			accepts: directoryUserTypes,
-			desc:    "All users have MFA enabled (authentication information).",
-			rem:     "Enable MFA for every user.",
-			clause:  all(leaf("payload.mfa_enabled", "eq", true), "user {{.payload.display_name}} does not have MFA enabled"),
 		}.policy(),
 		autoPolicy{
 			id: "iso27001.5.15.repo_default_permission_least_privilege", control: "A.5.15", severity: core.SeverityMedium, category: catAccess, cadence: cadenceDaily,

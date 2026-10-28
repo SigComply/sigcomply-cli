@@ -13,7 +13,6 @@ func TestPresencePolicies(t *testing.T) {
 		"iso27001.8.16.security_aggregation_enabled",
 		"iso27001.8.16.threat_detection_active",
 		"iso27001.8.5.password_minimum_length",
-		"iso27001.8.7.threat_detection_enabled",
 		"iso27001.8.9.config_recording_enabled",
 	}
 	var got []string
