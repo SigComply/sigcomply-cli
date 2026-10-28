@@ -15,6 +15,8 @@ interactions:
                 - "1"
             per_page:
                 - "100"
+            with_shared:
+                - "false"
         headers:
             Accept:
                 - application/json
@@ -22,7 +24,7 @@ interactions:
                 - REDACTED
             User-Agent:
                 - go-gitlab
-        url: https://gitlab.com/api/v4/groups/e2e-group/projects?include_subgroups=true&page=1&per_page=100
+        url: https://gitlab.com/api/v4/groups/e2e-group/projects?include_subgroups=true&page=1&per_page=100&with_shared=false
         method: GET
       response:
         proto: HTTP/2.0
@@ -51,7 +53,7 @@ interactions:
             Gitlab-Sv:
                 - api-gke-us-east1-d
             Link:
-                - <https://gitlab.com/api/v4/groups/e2e-group/projects?id=e2e-group&include_ancestor_groups=false&include_subgroups=true&order_by=created_at&owned=false&page=1&per_page=100&simple=false&sort=desc&starred=false&with_custom_attributes=false&with_issues_enabled=false&with_merge_requests_enabled=false&with_security_reports=false&with_shared=true>; rel="first", <https://gitlab.com/api/v4/groups/e2e-group/projects?id=e2e-group&include_ancestor_groups=false&include_subgroups=true&order_by=created_at&owned=false&page=1&per_page=100&simple=false&sort=desc&starred=false&with_custom_attributes=false&with_issues_enabled=false&with_merge_requests_enabled=false&with_security_reports=false&with_shared=true>; rel="last"
+                - <https://gitlab.com/api/v4/groups/e2e-group/projects?id=e2e-group&include_ancestor_groups=false&include_subgroups=true&order_by=created_at&owned=false&page=1&per_page=100&simple=false&sort=desc&starred=false&with_custom_attributes=false&with_issues_enabled=false&with_merge_requests_enabled=false&with_security_reports=false&with_shared=false>; rel="first", <https://gitlab.com/api/v4/groups/e2e-group/projects?id=e2e-group&include_ancestor_groups=false&include_subgroups=true&order_by=created_at&owned=false&page=1&per_page=100&simple=false&sort=desc&starred=false&with_custom_attributes=false&with_issues_enabled=false&with_merge_requests_enabled=false&with_security_reports=false&with_shared=false>; rel="last"
             Nel:
                 - '{"max_age": 0}'
             Ratelimit-Limit:

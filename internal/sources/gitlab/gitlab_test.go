@@ -382,6 +382,9 @@ func TestSDKAPI_ListRepos_HappyPath(t *testing.T) {
 		"/api/v4/projects/8/push_rule":               true,
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == pathGroupProjects && r.URL.Query().Get("with_shared") != "false" {
+			t.Errorf("group projects listed without with_shared=false: %s", r.URL.RawQuery)
+		}
 		if body, ok := responses[r.URL.Path]; ok {
 			_, _ = w.Write([]byte(body)) //nolint:errcheck // test handler
 			return
@@ -433,6 +436,8 @@ func TestSDKAPI_ListRepos_HappyPath(t *testing.T) {
 		{"web.DependabotAlertsEnabled", web.DependabotAlertsEnabled, false},
 		// "api": public, unprotected default branch, no push rule.
 		{"api.ProtectionOn", byName["acme/api"].ProtectionOn, false},
+		// GitLab lets Developers force push to an unprotected branch.
+		{"api.AllowsForcePush", byName["acme/api"].AllowsForcePush, true},
 		{"api.IsPrivate", byName["acme/api"].IsPrivate, false},
 		{"api.RequiresLinearHistory", byName["acme/api"].RequiresLinearHistory, false},
 		{"api.RequiresSignedCommits", byName["acme/api"].RequiresSignedCommits, false},
@@ -445,6 +450,19 @@ func TestSDKAPI_ListRepos_HappyPath(t *testing.T) {
 	}
 	if got := byName["acme/api"].RequiredReviews; got != 0 {
 		t.Errorf("api.RequiredReviews = %d; want 0", got)
+	}
+}
+
+// A token that cannot read the default branch's protection learns
+// nothing about force pushes. Zero values would read as "force push
+// forbidden" and pass the no-force-push policies, so the listing fails.
+func TestSDKAPI_ListRepos_ProtectionReadDeniedErrors(t *testing.T) {
+	api := newTestSDKAPI(t, map[string]string{
+		pathGroupProjects: `[{"id":7,"path_with_namespace":"acme/web","default_branch":"main"}]`,
+	}, map[string]bool{"/api/v4/projects/7/protected_branches/main": true})
+	_, err := api.ListRepos(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "acme/web") {
+		t.Fatalf("ListRepos err = %v; want an error naming acme/web", err)
 	}
 }
 
@@ -1059,7 +1077,7 @@ func TestCaveats_DeclaresEveryUnobservedField(t *testing.T) {
 	}
 
 	want := [][2]string{
-		// Conditional: readable only by a group-owner / instance-admin token.
+		// Readable only by an instance-admin token: never on gitlab.com.
 		{EvidenceTypeDirectoryUser, "mfa_enabled"},
 		// Absolute: pipeline scanning lives in .gitlab-ci.yml, so these three
 		// can only ever fail their policy, never pass it.

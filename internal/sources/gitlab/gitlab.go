@@ -35,10 +35,13 @@
 // directory_user (WU-2.2): the plugin also lists the group's members and
 // emits one directory_user per member, mapping AccessLevel ≥ Maintainer
 // (or instance-admin) → is_admin, account state → is_active, and the
-// user's two_factor_enabled → mfa_enabled. 2FA and instance-admin status
-// are only readable with a group-owner / instance-admin token (via the
-// Users API); without that privilege the sdkAPI degrades gracefully and
-// mfa_enabled is best-effort false — documented in docs/configuration.md.
+// user's two_factor_enabled → mfa_enabled. GitLab returns 2FA and
+// instance-admin status from the Users API only to an instance
+// administrator, so on gitlab.com mfa_enabled is always false (it can
+// fail an MFA policy, never pass one) — the mfa_enabled caveat and
+// docs/reference/sources.md say so. Only members of the configured group
+// (direct, inherited from ancestors, or invited) are listed; people who
+// are members only of a subgroup or a project are not.
 package gitlab
 
 import (
@@ -282,12 +285,18 @@ func (*Plugin) Emits() []string {
 //     plugin hardcodes false (see mapProject). Their policies therefore cannot
 //     pass on a GitLab estate — only ever fail — so the honest remedy is a
 //     documented exception or a compensating check, not a token change.
-//   - CONDITIONAL — mfa_enabled, and the three protection/approval fields. The
-//     read IS possible; a lesser-privileged token or a free-tier project just
-//     gets a 403/404 that the sdkAPI deliberately swallows so the listing still
-//     succeeds. What is left behind is the zero value, which is indistinguishable
-//     from a measured "not configured". Provisioning the right token (or tier)
-//     makes the value real.
+//   - mfa_enabled is absolute on gitlab.com: GitLab returns two_factor_enabled
+//     only to an instance administrator, which no gitlab.com customer is (the
+//     recorded cassette's owner-token read has no such field). Only a
+//     self-managed instance-admin token makes the value real.
+//   - CONDITIONAL — the three protection/approval fields. The read IS
+//     possible; a free-tier project (or, for approvals and push rules, a
+//     lesser-privileged token) gets a 403/404 that the sdkAPI deliberately
+//     swallows so the listing still succeeds. What is left behind is the zero
+//     value, which is indistinguishable from a measured "not configured".
+//     Provisioning the right tier (or token) makes the value real. The
+//     default-branch protection read itself is not swallowed: a non-404
+//     error there fails the listing (see mapProject).
 //
 // The conditional ones are declared unconditionally because privilege and tier
 // are not known at plan time: those reads happen during collection, long after
@@ -302,9 +311,11 @@ func (*Plugin) Caveats() []core.SourceCaveat {
 	return []core.SourceCaveat{{
 		EvidenceType: EvidenceTypeDirectoryUser,
 		Field:        "mfa_enabled",
-		Detail: "GitLab exposes two_factor_enabled only to a group-owner / instance-admin token; " +
-			"with a lesser-privileged token the per-member read is refused and mfa_enabled falls " +
-			"back to false, so provision an owner token where MFA policies matter",
+		Detail: "GitLab returns a user's two_factor_enabled only to an instance administrator; a " +
+			"group-owner token does not see it, so on gitlab.com mfa_enabled is always false and its " +
+			"MFA policies can only fail. On self-managed GitLab an instance-admin token reads the real " +
+			"value. On gitlab.com, treat the finding as a documented exception and enforce 2FA with " +
+			"the group's \"require two-factor authentication\" setting",
 	}, {
 		EvidenceType: EvidenceTypeRepository,
 		Field:        "secret_scanning_enabled",
@@ -332,9 +343,10 @@ func (*Plugin) Caveats() []core.SourceCaveat {
 	}, {
 		EvidenceType: EvidenceTypeRepository,
 		Field:        "require_code_owner_reviews",
-		Detail: "code-owner approval is read from the default branch's protection rule; a token without " +
-			"privilege to read it gets a 403 that leaves require_code_owner_reviews false, so give the " +
-			"token Maintainer on each project where this policy matters",
+		Detail: "code-owner approval is a Premium setting read from the default branch's protection " +
+			"rule; on Free tier, or when the default branch has no exact-name protection rule, " +
+			"require_code_owner_reviews is false, so confirm the project's tier before treating a " +
+			"failure as a real gap",
 	}, {
 		EvidenceType: EvidenceTypeRepository,
 		Field:        "required_reviewers_count",
@@ -771,6 +783,10 @@ func (s *sdkAPI) ListRepos(ctx context.Context) ([]Repo, error) {
 	opt := &gitlab.ListGroupProjectsOptions{
 		ListOptions:      gitlab.ListOptions{PerPage: 100, Page: 1},
 		IncludeSubGroups: new(true),
+		// GitLab defaults with_shared to true, which adds projects other
+		// namespaces shared into the group: outside the estate the operator
+		// chose, and often unreadable for protection or deployments.
+		WithShared: new(false),
 	}
 	var out []Repo
 	for {
@@ -779,7 +795,11 @@ func (s *sdkAPI) ListRepos(ctx context.Context) ([]Repo, error) {
 			return nil, fmt.Errorf("gitlab: list group projects: %w", err)
 		}
 		for _, proj := range projects {
-			out = append(out, s.mapProject(ctx, proj))
+			r, merr := s.mapProject(ctx, proj)
+			if merr != nil {
+				return nil, merr
+			}
+			out = append(out, r)
 		}
 		if resp.NextPage == 0 {
 			break
@@ -790,8 +810,10 @@ func (s *sdkAPI) ListRepos(ctx context.Context) ([]Repo, error) {
 }
 
 // mapProject normalizes one GitLab project into the git_repository
-// contract, issuing the per-project follow-up reads.
-func (s *sdkAPI) mapProject(ctx context.Context, proj *gitlab.Project) Repo {
+// contract, issuing the per-project follow-up reads. Only the
+// default-branch protection read can fail the listing; see the comment
+// at that read for why.
+func (s *sdkAPI) mapProject(ctx context.Context, proj *gitlab.Project) (Repo, error) {
 	r := Repo{
 		Name:          proj.PathWithNamespace,
 		DefaultBranch: proj.DefaultBranch,
@@ -812,19 +834,26 @@ func (s *sdkAPI) mapProject(ctx context.Context, proj *gitlab.Project) Repo {
 	}
 
 	// Branch protection on the default branch. A 404 means the default
-	// branch carries no exact-name protection rule (treat as unprotected);
-	// any other error also leaves the protection fields at false.
+	// branch carries no exact-name protection rule: GitLab then lets any
+	// Developer push, force push included, so allows_force_push is true.
+	// (A wildcard rule such as "main*" also 404s here; reading it as
+	// unprotected can only fail a policy, never pass one.) Any other
+	// error, a 403 above all, means protection is unknown. Leaving the
+	// zero values would read as "force push forbidden" and pass the
+	// no-force-push policies, so the listing fails instead.
 	if proj.DefaultBranch != "" {
 		pb, resp, err := s.client.ProtectedBranches.GetProtectedBranch(
 			proj.ID, proj.DefaultBranch, gitlab.WithContext(ctx))
-		if err == nil && pb != nil {
+		switch {
+		case err == nil && pb != nil:
 			r.ProtectionOn = true
 			r.AllowsForcePush = pb.AllowForcePush
 			r.RequireCodeOwnerReviews = pb.CodeOwnerApprovalRequired
-		} else if !isNotFound(resp) {
-			// Non-404 (e.g. 403 insufficient privilege): leave unprotected
-			// rather than failing the run; the gap surfaces via the policy.
-			_ = err
+		case isNotFound(resp):
+			r.AllowsForcePush = true
+		default:
+			return Repo{}, fmt.Errorf("gitlab: read protection of %s branch %q: %w",
+				proj.PathWithNamespace, proj.DefaultBranch, err)
 		}
 	}
 
@@ -852,7 +881,7 @@ func (s *sdkAPI) mapProject(ctx context.Context, proj *gitlab.Project) Repo {
 		r.RequiresSignedCommits = pr.RejectUnsignedCommits
 	}
 
-	return r
+	return r, nil
 }
 
 // ListMembers lists the configured group's members, normalizing each into
@@ -898,10 +927,11 @@ func (s *sdkAPI) mapMember(ctx context.Context, m *gitlab.GroupMember) Member {
 		IsActive: m.State == "active",
 	}
 	// two_factor_enabled and is_admin (instance) are only on the User
-	// object, readable via the Users API with a group-owner / instance-admin
-	// token. Any error (403 insufficient privilege, 404) leaves mfa_enabled
-	// best-effort false rather than failing the listing — documented as a
-	// known v1 visibility gap in docs/configuration.md.
+	// object, and GitLab returns them only to an instance administrator;
+	// a group-owner token gets the public profile without them. Absent
+	// fields and any error (403, 404) leave mfa_enabled false rather than
+	// failing the listing. directory_user requires mfa_enabled, and false
+	// can only fail an MFA policy; the mfa_enabled caveat says so.
 	if u, _, err := s.client.Users.GetUser(m.ID, &gitlab.GetUserOptions{}, gitlab.WithContext(ctx)); err == nil && u != nil {
 		mem.MFAEnabled = u.TwoFactorEnabled
 		if u.IsAdmin {
@@ -928,6 +958,10 @@ func (s *sdkAPI) projectIndex(ctx context.Context) (paths map[int64]string, ids 
 	opt := &gitlab.ListGroupProjectsOptions{
 		ListOptions:      gitlab.ListOptions{PerPage: 100, Page: 1},
 		IncludeSubGroups: new(true),
+		// GitLab defaults with_shared to true, which adds projects other
+		// namespaces shared into the group: outside the estate the operator
+		// chose, and often unreadable for protection or deployments.
+		WithShared: new(false),
 	}
 	paths = map[int64]string{}
 	for {

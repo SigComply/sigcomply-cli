@@ -25,12 +25,12 @@ A conditional caveat means a more privileged token or a higher product tier can 
 |---|---|---|---|
 | `aws.identity_center` | `directory_user.mfa_enabled` | Absolute | AWS publishes no per-user MFA API for Identity Center. |
 | `github` | `source_control_org_policy.two_factor_required` | Conditional | GitHub returns the org 2FA requirement only to a token with `admin:org`. |
-| `gitlab` | `directory_user.mfa_enabled` | Conditional | Readable only with a group-owner or instance-admin token. |
+| `gitlab` | `directory_user.mfa_enabled` | Absolute on gitlab.com | GitLab returns a member's 2FA state only to an instance administrator. A group-owner token does not see it, so on gitlab.com the field is always `false`. On self-managed GitLab an instance-admin token reads it. |
 | `gitlab` | `git_repository.secret_scanning_enabled` | Absolute | Secret Detection is configured in `.gitlab-ci.yml`; no settings API exposes it. |
 | `gitlab` | `git_repository.code_scanning_enabled` | Absolute | Same, for SAST. |
 | `gitlab` | `git_repository.dependabot_alerts_enabled` | Absolute | Same, for Dependency Scanning. |
 | `gitlab` | `git_repository.requires_signed_commits` | Conditional | A Premium push rule; on Free, or with no push rule, the read returns 404. |
-| `gitlab` | `git_repository.require_code_owner_reviews` | Conditional | Needs Maintainer on the project to read branch protection. |
+| `gitlab` | `git_repository.require_code_owner_reviews` | Conditional | A Premium protection setting; on Free, or with no exact-name rule on the default branch, it reads `false`. |
 | `gitlab` | `git_repository.required_reviewers_count` | Conditional | Approval rules are Premium; on Free the count reads `0`. |
 | `azure.keyvault` | `secret.rotation_enabled` | Absolute | Key Vault has no API-readable secret rotation policy. |
 | `azure.cosmos` | `nosql_table.deletion_protection` | Absolute | Cosmos DB has no deletion-protection property; Azure uses resource locks, which this source does not read. |
@@ -322,14 +322,17 @@ Source ID: `gitlab`. Emits `git_repository`, `directory_user`, `pull_request`, `
 
 | Key | Required | Default | Effect |
 |---|---|---|---|
-| `group` | yes | none | Group ID or full path (`my-group/sub-group`). Subgroups are included. |
+| `group` | yes | none | Group ID or full path (`my-group/sub-group`). Projects in subgroups are included; projects other groups share into it are not. |
 | `token` | no | none | Personal, group, or project access token. Prefer `token_env` or `GITLAB_TOKEN`. |
 | `token_env` | no | none | Name of an environment variable holding the token. An empty or unset variable is an error. |
 | `base_url` | no | `https://gitlab.com` | URL of a self-managed instance. |
 
 Token lookup order: `token`, then `token_env`, then `GITLAB_TOKEN`. The token needs the `read_api`
-scope, and its user needs at least Reporter on each project. Maintainer is needed to read
-code-owner approval settings, and a group-owner or instance-admin token to read member MFA.
+scope, and its user needs Maintainer on each project to read the default branch's protection. If
+that read is refused, the source stops with an error rather than report force pushes as
+forbidden. A default branch with no protection rule is reported as unprotected, with force pushes
+allowed, which is GitLab's behaviour. Member MFA is readable only by an instance-admin token on
+self-managed GitLab.
 
 Caveats:
 
@@ -338,6 +341,12 @@ Caveats:
 - On Free tier, approval rules read as zero required approvals. The approver list is readable on
   Free, and GitLab records no approval time, so an approval counts as before the merge.
 - Member email is returned only to privileged tokens, so `email` may be absent.
+- `directory_user` lists the members of the configured group: direct members, members inherited
+  from its parent groups, and invited groups. People who are members only of a subgroup or of a
+  single project are not listed, so MFA and admin policies do not cover them.
+- On gitlab.com every member reads `mfa_enabled: false`, so MFA policies bound to GitLab fail.
+  Bind those policies to your identity provider with `bindings:`, or enable the group's "Require
+  two-factor authentication" setting and record an exception.
 
 ## Okta
 

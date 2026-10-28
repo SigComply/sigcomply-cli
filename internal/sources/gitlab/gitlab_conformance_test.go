@@ -93,19 +93,28 @@ func TestGitLabConformance(t *testing.T) {
 	// also carries transient deletion_scheduled projects, so don't pin a count).
 	assertProtected(t, repos, repoProtected, true)
 	assertProtected(t, repos, repoUnprotected, false)
+	// The cassette's unprotected project 404s on the protection read:
+	// GitLab then permits force pushes, so the record must say so.
+	if got := repos[repoUnprotected]; !got.AllowsForcePush {
+		t.Errorf("%s allows_force_push = false, want true (unprotected branch)", repoUnprotected)
+	}
 	if got := repos[repoProtected]; !got.IsPrivate {
 		t.Errorf("%s is_private = false, want true", repoProtected)
 	}
 
-	// The group Owner: is_admin (AccessLevel >= Maintainer), active. MFA is
-	// best-effort false on gitlab.com (two_factor_enabled needs an
-	// instance-admin token — the documented group-owner-token caveat).
+	// The group Owner: is_admin (AccessLevel >= Maintainer), active. The
+	// owner token's /users/:id read carries no two_factor_enabled (GitLab
+	// returns it only to instance admins), so mfa_enabled is false on
+	// gitlab.com whatever the member's real 2FA state: the mfa_enabled caveat.
 	got, ok := users[memberOwner]
 	if !ok {
 		t.Fatalf("missing directory_user %q; got %v", memberOwner, keys(users))
 	}
 	if !got.IsAdmin || !got.IsActive || got.Username != memberOwner {
 		t.Errorf("%s = %+v; want is_admin && is_active && username %q", memberOwner, got, memberOwner)
+	}
+	if got.MFAEnabled {
+		t.Errorf("%s mfa_enabled = true; an owner token cannot read 2FA on gitlab.com", memberOwner)
 	}
 }
 

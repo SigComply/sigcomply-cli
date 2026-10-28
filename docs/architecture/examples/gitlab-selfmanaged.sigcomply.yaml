@@ -13,8 +13,9 @@
 # policies are satisfied by GitHub or Okta elsewhere; only the binding
 # changes (substitutability — see 04a-evidence-type-registry.md).
 #
-# Credentials are NEVER in this file. Provide GITLAB_TOKEN (a group-owner
-# or instance-admin token; scope read_api) via the CI environment.
+# Credentials are NEVER in this file. Provide GITLAB_TOKEN (scope
+# read_api; Maintainer on each project; an instance-admin token to read
+# member 2FA) via the CI environment.
 
 schema_version: project.v1
 
@@ -33,7 +34,8 @@ vault:
 # ---------------------------------------------------------------------
 # Sources. One `gitlab` plugin emits both git_repository and
 # directory_user, so it is the only API source this org needs.
-#   group    — required; group ID or full path (subgroups are included).
+#   group    — required; group ID or full path (projects in subgroups are
+#              included; members of only a subgroup or project are not).
 #   base_url — optional; set for a self-managed instance (default
 #              https://gitlab.com). token comes from GITLAB_TOKEN.
 # ---------------------------------------------------------------------
@@ -54,9 +56,9 @@ sources:
 # ---------------------------------------------------------------------
 policies:
   # directory_user — MFA on admins. mfa_enabled comes from each member's
-  # two_factor_enabled, readable only with a group-owner / instance-admin
-  # token; with a lesser token it degrades to best-effort false. Provision
-  # an owner/admin token where MFA-enforcement policies matter.
+  # two_factor_enabled, which GitLab returns only to an instance-admin
+  # token (self-managed); with any other token it reads false, so the
+  # policy fails. On gitlab.com no customer token can read it.
   soc2.cc6.1.mfa_enforced_admins:
     bindings:
       evidence: [gitlab]
