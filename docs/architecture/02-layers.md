@@ -32,6 +32,7 @@ Support packages (outside the numbered stack):
 | `internal/sources/manual` (+ `builtin`, `s3`, `gcs`, `azureblob`, `fileconv`, `pdfmerge`) | The `manual.pdf` plugin and its reader backends | L4 |
 | `internal/sources/sourcetest` | Shared plugin test harness (conformance, cassettes, spec validation) | tests |
 | `internal/vault/vaulttest` | Backend-agnostic vault test suite | tests |
+| `internal/storagetest` | Fake GCS, Azure Blob and S3 servers for running the vault and manual-reader adapters through the real SDKs | tests |
 | `internal/manualcatalog` | The SPA-facing catalog export type and derive helpers | `evidence catalog` |
 | `internal/manualdue` | `sigcomply evidence due`: lists manual entries whose current folder is empty | `evidence due` |
 | `internal/vendorfanout` | Resolves fan-out catalog entries against `experimental.vendors` | L9 |
