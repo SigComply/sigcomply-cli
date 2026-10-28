@@ -512,3 +512,38 @@ func TestGoRule_DelegatesToFn(t *testing.T) {
 		t.Errorf("status = %q", out.Status)
 	}
 }
+
+// A waiver removes resources, not violations: resource A fails two
+// clauses, B one, and waiving A leaves exactly one failed resource. The
+// old subtraction (violations waived from unique resources) reported 0
+// failed on a policy that still fails.
+func TestEvaluate_ResourceWaiverRecountsUniqueResources(t *testing.T) {
+	rule := makeRule("rules.r.v1", core.RuleResult{
+		Status: core.StatusFail,
+		Violations: []core.Violation{
+			{ResourceID: "A", Reason: "clause 1"},
+			{ResourceID: "A", Reason: "clause 2"},
+			{ResourceID: "B", Reason: "clause 1"},
+		},
+	}, nil)
+	set := setupRules(t, rule)
+	pp := makePlannedPolicy("p1", "C1", "rules.r.v1", "u")
+	pp.Exceptions = []*planner.Exception{{State: core.StatusWaived, ResourceID: "A"}}
+	in := &Input{
+		Plan:  &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
+		Rules: set.Rules,
+		RecordsByPolicy: map[string]map[string][]core.EvidenceRecord{
+			"p1": {"u": {{ID: "A"}, {ID: "B"}, {ID: "C"}}},
+		},
+	}
+	res, err := Evaluate(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Evaluate: %v", err)
+	}
+	if res[0].Status != core.StatusFail {
+		t.Fatalf("status = %q; want fail", res[0].Status)
+	}
+	if res[0].ResourcesFailed != 1 || res[0].ResourcesEvaluated != 3 {
+		t.Errorf("counts = %d evaluated, %d failed; want 3, 1", res[0].ResourcesEvaluated, res[0].ResourcesFailed)
+	}
+}

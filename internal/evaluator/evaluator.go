@@ -250,19 +250,22 @@ func countResources(slots map[string][]core.EvidenceRecord, violations []core.Vi
 		}
 		evaluated += len(recs)
 	}
+	return evaluated, failedResources(violations)
+}
+
+// failedResources counts the unique resource IDs in violations. A
+// policy-level failure (violations with no resource scope) counts as one.
+func failedResources(violations []core.Violation) int {
 	failedIDs := map[string]struct{}{}
 	for _, v := range violations {
 		if v.ResourceID != "" {
 			failedIDs[v.ResourceID] = struct{}{}
 		}
 	}
-	failed = len(failedIDs)
-	if failed == 0 && len(violations) > 0 {
-		// Policy-level failure (no per-resource scope); count it as
-		// one logical failure.
-		failed = 1
+	if len(failedIDs) == 0 && len(violations) > 0 {
+		return 1
 	}
-	return evaluated, failed
+	return len(failedIDs)
 }
 
 // applyResourceExceptions reclassifies violations matching any
@@ -291,9 +294,10 @@ func applyResourceExceptions(result *core.PolicyResult, excs []*planner.Exceptio
 		}
 		result.Diag["waived_count"] = waived
 	}
-	// Recompute counts.
-	if result.ResourcesFailed >= waived {
-		result.ResourcesFailed -= waived
+	// Recount from what is left, by resource: a waived resource may have
+	// failed several clauses, so subtracting violations undercounts.
+	if waived > 0 {
+		result.ResourcesFailed = failedResources(kept)
 	}
 }
 
