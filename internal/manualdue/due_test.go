@@ -254,8 +254,56 @@ func TestFormatText_NothingDue(t *testing.T) {
 	if err := manualdue.FormatText(&buf, rep); err != nil {
 		t.Fatalf("FormatText: %v", err)
 	}
-	if !strings.Contains(buf.String(), "no manual evidence is due") {
+	if !strings.Contains(buf.String(), "every folder for the current period has a file") {
 		t.Errorf("missing all-clear line:\n%s", buf.String())
+	}
+}
+
+// With every folder empty but none closing inside --within-days, the old
+// output said "no manual evidence is due" — the step the daily CI job
+// runs told the operator nothing was missing while every manual policy
+// failed.
+func TestFormatText_EmptyFoldersOutsideTheLeadTimeAreNotAllClear(t *testing.T) {
+	in := baseInput(t, map[string]manual.InMemoryFile{}, mustTime(t, "2026-01-05T00:00:00Z"))
+	in.Unfiltered = false
+	in.WithinDays = 30
+	rep, err := manualdue.Scan(context.Background(), &in)
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	for name, format := range map[string]func(*bytes.Buffer) error{
+		"text":     func(b *bytes.Buffer) error { return manualdue.FormatText(b, rep) },
+		"markdown": func(b *bytes.Buffer) error { return manualdue.FormatMarkdown(b, rep) },
+	} {
+		var buf bytes.Buffer
+		if err := format(&buf); err != nil {
+			t.Fatal(err)
+		}
+		out := buf.String()
+		if strings.Contains(out, "no manual evidence is due") || strings.Contains(out, "Nothing due") {
+			t.Errorf("%s: all-clear printed with every folder empty:\n%s", name, out)
+		}
+		for _, want := range []string{"2 of 2", "30 days", "--all"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("%s: output missing %q:\n%s", name, want, out)
+			}
+		}
+	}
+}
+
+// Rows shown plus folders held back by the lead time: the count says so.
+func TestFormatText_NamesFoldersHeldBack(t *testing.T) {
+	rep := &manualdue.Report{PeriodID: testPeriodQ1, Checked: 3, Suppressed: 2, WithinDays: 30,
+		Missing: []manualdue.Entry{{CatalogID: testCatalogAccess, PeriodID: testPeriodQ1, DaysLeft: 3}}}
+	var buf bytes.Buffer
+	if err := manualdue.FormatText(&buf, rep); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "2 more empty folder") {
+		t.Errorf("held-back folders not mentioned:\n%s", buf.String())
+	}
+	if strings.Contains(buf.String(), "HEAD commit") {
+		t.Errorf("footer still talks about the HEAD commit:\n%s", buf.String())
 	}
 }
 

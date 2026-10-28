@@ -79,9 +79,11 @@ type Entry struct {
 	// runs derive the next period and stop reading this folder.
 	PeriodEnd time.Time `json:"period_end"`
 
-	// WindowCloses is period end plus the entry's grace period — the
-	// last instant an upload can still satisfy the temporal-window
-	// check, for a run that still derives this period.
+	// WindowCloses is period end plus the entry's grace period: the
+	// temporal-window check's upper bound. The grace only absorbs clock
+	// lag. Runs take their period from the run clock by default, so once
+	// PeriodEnd passes no run reads this folder again; it is not a
+	// deadline for a late upload. Upload before PeriodEnd.
 	WindowCloses time.Time `json:"window_closes"`
 
 	// DaysLeft counts down to PeriodEnd from the same reference clock the
@@ -119,6 +121,11 @@ type Report struct {
 	// "nothing due yet" rather than "nothing examined".
 	Suppressed int `json:"suppressed"`
 
+	// WithinDays is the lead time the scan filtered with, so the text
+	// can say why Suppressed folders were not listed. Not set (and not
+	// meaningful) for an unfiltered scan.
+	WithinDays int `json:"within_days,omitempty"`
+
 	Missing []Entry `json:"missing"`
 }
 
@@ -138,6 +145,9 @@ func Scan(ctx context.Context, in *Input) (*Report, error) {
 		Framework: in.Framework,
 		PeriodID:  runPeriod.ID,
 		PeriodEnd: runPeriod.End,
+	}
+	if !in.Unfiltered {
+		rep.WithinDays = in.WithinDays
 	}
 	for _, id := range manual.SortedCatalogIDs(in.Catalog) {
 		entry := in.Catalog[id]
@@ -232,8 +242,16 @@ func FormatText(w io.Writer, rep *Report) error {
 		return nil
 	}
 	if len(rep.Missing) == 0 {
+		if rep.Suppressed > 0 {
+			// Not an all-clear: these folders are empty and their policies
+			// fail in every run until a file lands.
+			_, err := fmt.Fprintf(w,
+				"manual evidence: %d of %d entr%s have no upload for the current period (run period %s); none closes within %s (use --all to list them)\n",
+				rep.Suppressed, rep.Checked, plural(rep.Checked), rep.PeriodID, withinLabel(rep.WithinDays))
+			return err
+		}
 		_, err := fmt.Fprintf(w,
-			"manual evidence: no manual evidence is due — %d entr%s checked, run period %s\n",
+			"manual evidence: every folder for the current period has a file — %d entr%s checked, run period %s\n",
 			rep.Checked, plural(rep.Checked), rep.PeriodID)
 		return err
 	}
@@ -260,9 +278,34 @@ func FormatText(w io.Writer, rep *Report) error {
 	if err := tw.Flush(); err != nil {
 		return err
 	}
+	if rep.Suppressed > 0 {
+		if _, err := fmt.Fprintf(w,
+			"manual evidence: %d more empty folder%s close later than %s (use --all to list them)\n",
+			rep.Suppressed, pluralS(rep.Suppressed), withinLabel(rep.WithinDays)); err != nil {
+			return err
+		}
+	}
 	_, err := fmt.Fprintf(w,
-		"manual evidence: deadlines are measured from the HEAD commit's period; this notice does not fail the build.\n")
+		"manual evidence: upload during the period; once it ends, runs read the next period's folder. This notice does not fail the build.\n")
 	return err
+}
+
+// withinLabel renders the lead time for the summary lines.
+func withinLabel(days int) string {
+	if days <= 0 {
+		return "today"
+	}
+	if days == 1 {
+		return "1 day"
+	}
+	return fmt.Sprintf("%d days", days)
+}
+
+func pluralS(n int) string {
+	if n == 1 {
+		return ""
+	}
+	return "s"
 }
 
 // FormatJSON writes the report for scripted consumers.
@@ -311,7 +354,12 @@ func FormatMarkdown(w io.Writer, rep *Report) error {
 		return nil
 	}
 	if len(rep.Missing) == 0 {
-		_, err := fmt.Fprintf(w, "## Manual evidence\n\nNothing due — %d entr%s checked, run period `%s`.\n",
+		if rep.Suppressed > 0 {
+			_, err := fmt.Fprintf(w, "## Manual evidence\n\n%d of %d entr%s have no upload for the current period (run period `%s`); none closes within %s. Run `sigcomply evidence due --all` to list them.\n",
+				rep.Suppressed, rep.Checked, plural(rep.Checked), rep.PeriodID, withinLabel(rep.WithinDays))
+			return err
+		}
+		_, err := fmt.Fprintf(w, "## Manual evidence\n\nEvery folder for the current period has a file — %d entr%s checked, run period `%s`.\n",
 			rep.Checked, plural(rep.Checked), rep.PeriodID)
 		return err
 	}

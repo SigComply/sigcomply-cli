@@ -260,6 +260,12 @@ cadence window (an annual entry's runs to 31 December), measured on the same clo
 
 It only lists the storage. It downloads nothing, writes nothing and contacts no cloud API.
 
+When empty folders exist but none closes within `--within-days`, it says so, for example
+`2 of 50 entries have no upload for the current period; none closes within 30 days`; it prints
+an all-clear only when every folder has a file. The `DUE IN` column counts to the end of the
+entry's period. Upload during the period: once it ends, runs read the next period's folder, so a
+late upload into the old folder is never checked.
+
 | Flag | Short | Default | Meaning |
 |---|---|---|---|
 | `--config <path>` | `-c` | `.sigcomply.yaml` | Config file |

@@ -268,7 +268,7 @@ mutually exclusive with every filter flag, so that path is unreachable from the 
 
 ### Manual evidence due (`sigcomply evidence due`)
 
-A separate, advisory command. The scaffolded daily workflow runs it as a non-failing step.
+A separate, advisory command. The scaffolded scheduled workflow runs it as a non-failing step.
 
 ```
 manual evidence: 3 of 50 entries have an empty folder (run period 2026-Q3)
@@ -281,6 +281,11 @@ Rules it follows (`internal/manualdue`):
 
 - It lists only entries whose current folder is empty; an entry disappears once a file lands.
   Fan-out entries are checked once per member.
+- Empty folders outside `--within-days` are counted (`Report.Suppressed`) and named in the
+  summary line ("N of M entries have no upload for the current period; none closes within D
+  days"). The all-clear line appears only when every folder has a file.
+- `window_closes` (period end plus grace) is the temporal-window bound, not a late-upload
+  deadline: under the default run-clock basis no run reads a folder after its period ends.
 - It exits 0 whatever it finds and 3 on a config error
   ([commands](../reference/commands.md#sigcomply-evidence-due)). A storage failure is reported
   as "could not verify", not as a deadline, and still exits 0.
