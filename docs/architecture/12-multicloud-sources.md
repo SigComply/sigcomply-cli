@@ -156,6 +156,12 @@ Known limits:
   This can only fail a policy. An estate that needs a real verdict binds the IdP (`okta`,
   `azure.entra`, `gcp.directory`) to the MFA policies' slot with a `bindings:` override
   ([pin a policy to one source](../guides/configure-sources.md#pin-a-policy-to-one-source)).
+- `gitlab` gets a member's `two_factor_enabled` only with an instance-admin token, which no
+  gitlab.com customer has, so on gitlab.com it emits `mfa_enabled: false` for every member. The
+  remedy is the same `bindings:` override. It lists members of the configured group only (direct,
+  inherited from ancestors, invited), not people who are members only of a subgroup or project.
+- `okta` counts a factor towards `mfa_enabled` unless it is a security question or email
+  (knowledge factor; no device possession, NIST SP 800-63B 5.1.3.1).
 - A permission set that grants admin through an inline or customer-managed policy with an
   unremarkable name reads as not broad. Closing it means parsing IAM policy documents.
 

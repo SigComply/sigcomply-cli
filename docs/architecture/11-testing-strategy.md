@@ -85,10 +85,10 @@ cassettes and L4b.
    | email address | `user-<hash>@example.com`, distinct per address so identity-bearing sources do not alias members |
    | username or login | `example-user` |
 
-   The hook does not catch a person's name, an avatar URL (a gravatar hash identifies the
+   The hook does not catch a person's name, an avatar URL (its image hash identifies the
    person), or an Azure tenant, principal or object GUID (in bodies and in the
    `X-Ms-Operation-Identifier` header). Replace those by hand after recording: names with
-   `Example`-style placeholders, the gravatar hash with zeros, and each GUID with a
+   `Example`-style placeholders, the avatar hash with zeros, and each GUID with a
    repeated-letter one (`aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`). A repeated-digit GUID trips
    the 12-digit account-ID check.
 
