@@ -231,7 +231,8 @@ reach for the `rule:` escape hatch only for logic the DSL can't express.
    no golden entry. Add records to
    `internal/frameworks/testdata/policy-outcomes/records.json` so the new
    policy passes in the `compliant` scenario and fails in `noncompliant`
-   (values on and one past any threshold), then run
+   (values on and one past any threshold; the test enforces both, and
+   each record must name a source that emits its type), then run
    `go test ./internal/frameworks/ -run TestPolicyOutcomesGolden -update`
    and check the new entries say what the control means.
 

@@ -21,6 +21,9 @@ import (
 	_ "github.com/sigcomply/sigcomply-cli/internal/frameworks/builtin" // registers every framework
 	"github.com/sigcomply/sigcomply-cli/internal/planner"
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
+	"github.com/sigcomply/sigcomply-cli/internal/sources"
+	"github.com/sigcomply/sigcomply-cli/internal/sources/azure/entra"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/builtin" // registers every source factory
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
 
@@ -33,7 +36,17 @@ import (
 // change or a regression.
 var updatePolicyOutcomes = flag.Bool("update", false, "regenerate the policy outcome goldens")
 
-const outcomesDir = "testdata/policy-outcomes"
+const (
+	outcomesDir          = "testdata/policy-outcomes"
+	scenarioCompliant    = "compliant"
+	scenarioNoncompliant = "noncompliant"
+
+	// pluginSourcePrefix marks a record standing in for a project-local
+	// plugin: input the schema allows that no in-tree source produces.
+	pluginSourcePrefix = "plugin."
+	pluginWhyPrefix    = "project-local plugin: "
+	manualSourceID     = "manual.pdf"
+)
 
 // outcomeRecord is one evidence record in records.json. Scenarios names
 // the scenarios it belongs to; Why says what it is there to prove and is
@@ -49,12 +62,9 @@ type outcomeRecord struct {
 
 type outcomeFixture struct {
 	Scenarios []string `json:"scenarios"`
-	// Roster is the experimental.roster block every scenario runs with.
-	Roster struct {
-		Source   string                       `json:"source"`
-		Aliases  map[string]map[string]string `json:"aliases"`
-		NonHuman map[string][]string          `json:"non_human"`
-	} `json:"roster"`
+	// Roster is the experimental.roster block of the project config every
+	// scenario runs with.
+	Roster map[string]any `json:"roster"`
 	// Manual maps a scenario to the signed_document payload every manual
 	// policy receives in it. A scenario that is absent gets no record.
 	Manual  map[string]json.RawMessage `json:"manual"`
@@ -82,17 +92,26 @@ type policyOutcome struct {
 // a policy decides. This does, for every policy at once.
 //
 // The fixture (testdata/policy-outcomes/records.json) has three scenarios:
-// "compliant" (every automated policy should pass, with values on the
-// threshold where a policy has one), "noncompliant" (adds or swaps in
-// records that break each policy, values one past the threshold) and
-// "sparse" (most evidence types absent, optional fields left out, older
-// type versions), which pins skip, error and vacuous outcomes. Records are
-// synthetic and validated against their evidence-type schema.
+// "compliant" (every policy passes, with values on the threshold where a
+// policy has one), "noncompliant" (adds or swaps in records that break each
+// policy, values one past the threshold) and "sparse" (most evidence types
+// absent, optional fields left out, older type versions), which pins skip,
+// error and vacuous outcomes. Records are synthetic, validated against their
+// evidence-type schema, and attributed to a source that emits their type.
+//
+// The run is planned by the real planner from a project config that lists
+// every source in the fixture, so bindings, the roster link and parameters
+// are what a fully configured project gets. The collector step is the only
+// one replaced: each binding receives the fixture records of its source and
+// accepted types.
 //
 // A policy with no golden entry fails the test, so a new policy cannot ship
-// without a pinned outcome.
+// without a pinned outcome. Independently of the golden, every policy must
+// pass in "compliant" and fail in "noncompliant": regenerating cannot pin a
+// policy that never passes or never fails.
 func TestPolicyOutcomesGolden(t *testing.T) {
 	fixture := loadOutcomeFixture(t)
+	plugins := fixtureSources(t, fixture)
 
 	ids := fwregistry.IDs()
 	if len(ids) == 0 {
@@ -100,18 +119,41 @@ func TestPolicyOutcomesGolden(t *testing.T) {
 	}
 	for _, fwID := range ids {
 		t.Run(fwID, func(t *testing.T) {
-			policies := frameworkPolicies(t, fwID)
+			plan := planFixtureRun(t, fwID, fixture, plugins)
 			got := map[string]map[string]policyOutcome{}
 			for _, scenario := range fixture.Scenarios {
-				for id, out := range evaluateScenario(t, fixture, scenario, policies) {
+				for id, out := range evaluateScenario(t, fixture, scenario, plan) {
 					if got[id] == nil {
 						got[id] = map[string]policyOutcome{}
 					}
 					got[id][scenario] = out
 				}
 			}
+			checkEveryPolicyPassesAndFails(t, plan, got)
 			compareOutcomeGolden(t, filepath.Join(outcomesDir, fwID+"_golden.json"), got)
 		})
+	}
+}
+
+// checkEveryPolicyPassesAndFails holds the fixture, not the golden, to the
+// two outcomes that make a pinned verdict worth having: each policy passes
+// on compliant evidence and fails on noncompliant evidence.
+func checkEveryPolicyPassesAndFails(t *testing.T, plan *planner.RunPlan, got map[string]map[string]policyOutcome) {
+	t.Helper()
+	var bad []string
+	for i := range plan.Policies {
+		id := plan.Policies[i].Spec.ID
+		c, n := got[id][scenarioCompliant], got[id][scenarioNoncompliant]
+		if c.Status != core.StatusPass {
+			bad = append(bad, fmt.Sprintf("%s: %s in %s; want pass", id, c.Status, scenarioCompliant))
+		}
+		if n.Status != core.StatusFail {
+			bad = append(bad, fmt.Sprintf("%s: %s in %s; want fail", id, n.Status, scenarioNoncompliant))
+		}
+	}
+	if len(bad) > 0 {
+		sort.Strings(bad)
+		t.Errorf("%d policy outcome(s) break the fixture invariant; extend records.json:\n  %s", len(bad), strings.Join(bad, "\n  "))
 	}
 }
 
@@ -200,27 +242,133 @@ func frameworkPolicies(t *testing.T, fwID string) []core.Policy {
 	return policies
 }
 
-// evaluateScenario runs every policy against the scenario's records and
-// returns each policy's outcome.
-func evaluateScenario(t *testing.T, f *outcomeFixture, scenario string, policies []core.Policy) map[string]policyOutcome {
+// fixtureSources builds the source plugin behind every source ID the
+// fixture names, and fails unless it emits the type of each record
+// attributed to it. In-tree sources are built from their factories with
+// static dummy settings (no network call); azure.entra cannot be built
+// without a credential, so its static Emits() is read from a bare
+// instance. A plugin.* source is a stub emitting exactly its records'
+// types.
+func fixtureSources(t *testing.T, f *outcomeFixture) map[string]core.SourcePlugin {
 	t.Helper()
-	records := scenarioRecords(f, scenario)
-	roster := &planner.RosterLink{Source: f.Roster.Source, Aliases: f.Roster.Aliases, NonHuman: f.Roster.NonHuman}
+	t.Setenv("AWS_ACCESS_KEY_ID", "test-access-key")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "test-secret")
+	t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
+	env := sources.Env{Config: map[string]any{
+		"region": "us-east-1", "org": "acme", "group": "acme", "token": "dummy",
+		"org_url": "https://example.okta.com", "api_token": "dummy",
+	}}
 
-	plan := &planner.RunPlan{}
-	byPolicy := map[string]map[string][]core.EvidenceRecord{}
-	for i := range policies {
-		p := &policies[i]
-		pp := planner.PlannedPolicy{Spec: *p, Parameters: map[string]any{}, ShouldEvaluate: true}
-		for _, slot := range p.Slots {
-			if slot.Role != core.SlotRoleNone {
-				pp.Roster = roster
+	pluginTypes := map[string][]string{}
+	for i := range f.Records {
+		r := &f.Records[i]
+		if strings.HasPrefix(r.SourceID, pluginSourcePrefix) {
+			if !strings.HasPrefix(r.Why, pluginWhyPrefix) {
+				t.Errorf("records.json: %s/%s: a %s* record must say why in a why starting %q", r.SourceID, r.ID, pluginSourcePrefix, pluginWhyPrefix)
+			}
+			if !slices.Contains(pluginTypes[r.SourceID], r.Type) {
+				pluginTypes[r.SourceID] = append(pluginTypes[r.SourceID], r.Type)
 			}
 		}
-		plan.Policies = append(plan.Policies, pp)
-		byPolicy[p.ID] = slotRecords(p, records, f, scenario)
 	}
 
+	out := map[string]core.SourcePlugin{manualSourceID: stubSource{id: manualSourceID, emits: []string{"signed_document"}}}
+	for i := range f.Records {
+		id := f.Records[i].SourceID
+		if _, done := out[id]; done {
+			continue
+		}
+		switch {
+		case strings.HasPrefix(id, pluginSourcePrefix):
+			out[id] = stubSource{id: id, emits: pluginTypes[id]}
+		case id == entra.SourceID:
+			out[id] = entra.New(entra.Options{})
+		default:
+			p, err := sources.Build(context.Background(), id, env)
+			if err != nil {
+				t.Fatalf("records.json: source %q: %v (name an in-tree source, or %s<name> for plugin-shaped input)", id, err, pluginSourcePrefix)
+			}
+			out[id] = p
+		}
+	}
+	for i := range f.Records {
+		r := &f.Records[i]
+		if !slices.Contains(out[r.SourceID].Emits(), r.Type) {
+			t.Errorf("records.json: %s/%s: source %s does not emit %s (it emits %v)", r.SourceID, r.ID, r.SourceID, r.Type, out[r.SourceID].Emits())
+		}
+	}
+	if t.Failed() {
+		t.FailNow()
+	}
+	return out
+}
+
+// stubSource stands in for a source that cannot be built here. The planner
+// reads only ID and Emits; nothing collects.
+type stubSource struct {
+	id    string
+	emits []string
+}
+
+func (s stubSource) ID() string                               { return s.id }
+func (s stubSource) Emits() []string                          { return s.emits }
+func (stubSource) Init(context.Context, map[string]any) error { return nil }
+func (s stubSource) Collect(context.Context, core.SlotRequest) ([]core.EvidenceRecord, error) {
+	return nil, fmt.Errorf("stub source %s does not collect", s.id)
+}
+
+// planFixtureRun plans a first run of the framework for a project that
+// configures every fixture source and the fixture's roster block.
+func planFixtureRun(t *testing.T, fwID string, f *outcomeFixture, plugins map[string]core.SourcePlugin) *planner.RunPlan {
+	t.Helper()
+	fw, ok := fwregistry.Lookup(fwID)
+	if !ok {
+		t.Fatalf("framework %q not registered", fwID)
+	}
+	set := registry.NewSet()
+	if err := evidencetypes.Register(set); err != nil {
+		t.Fatal(err)
+	}
+	if err := fw.Register(set); err != nil {
+		t.Fatalf("register %s: %v", fwID, err)
+	}
+	cfg := &spec.ProjectConfig{
+		Framework:    fwID,
+		Sources:      map[string]map[string]any{},
+		Experimental: map[string]any{spec.RosterKey: f.Roster},
+	}
+	for id, p := range plugins {
+		if err := set.Sources.Register(p); err != nil {
+			t.Fatal(err)
+		}
+		cfg.Sources[id] = map[string]any{}
+	}
+	now := time.Date(2026, 9, 18, 0, 0, 0, 0, time.UTC)
+	plan, err := planner.Plan(&planner.Input{Config: cfg, Registries: set, CommitTime: now, Now: now})
+	if err != nil {
+		t.Fatalf("plan %s: %v", fwID, err)
+	}
+	if len(plan.Policies) == 0 {
+		t.Fatalf("framework %q planned no policies", fwID)
+	}
+	for i := range plan.Policies {
+		if !plan.Policies[i].ShouldEvaluate {
+			t.Fatalf("%s: planned as not due on a first run", plan.Policies[i].Spec.ID)
+		}
+	}
+	return plan
+}
+
+// evaluateScenario runs the plan against the scenario's records and
+// returns each policy's outcome.
+func evaluateScenario(t *testing.T, f *outcomeFixture, scenario string, plan *planner.RunPlan) map[string]policyOutcome {
+	t.Helper()
+	records := scenarioRecords(f, scenario)
+	byPolicy := map[string]map[string][]core.EvidenceRecord{}
+	for i := range plan.Policies {
+		pp := &plan.Policies[i]
+		byPolicy[pp.Spec.ID] = boundRecords(pp, records, f, scenario)
+	}
 	results, err := evaluator.Evaluate(context.Background(), &evaluator.Input{
 		Plan:            plan,
 		RecordsByPolicy: byPolicy,
@@ -250,30 +398,25 @@ func scenarioRecords(f *outcomeFixture, scenario string) []core.EvidenceRecord {
 	return records
 }
 
-// slotRecords feeds a policy's slots the way a run with every source
-// configured would: a slot receives every record whose type it accepts,
-// except that a roster slot binds only the roster source and a
-// roster_subject slot never does (the planner keeps the two disjoint). A
-// manual policy gets the scenario's signed_document record, if any.
-func slotRecords(p *core.Policy, records []core.EvidenceRecord, f *outcomeFixture, scenario string) map[string][]core.EvidenceRecord {
+// boundRecords stands in for the collector: each binding of a slot gets
+// the records of its source whose type the binding accepts. A manual
+// policy gets the scenario's signed_document record, if any.
+func boundRecords(pp *planner.PlannedPolicy, records []core.EvidenceRecord, f *outcomeFixture, scenario string) map[string][]core.EvidenceRecord {
 	slots := map[string][]core.EvidenceRecord{}
-	if p.EvidenceMode == core.EvidenceModeManual {
+	if pp.Spec.EvidenceMode == core.EvidenceModeManual {
 		if payload, ok := f.Manual[scenario]; ok {
 			slots[spec.ManualSlotName] = []core.EvidenceRecord{{
-				Type: "signed_document", ID: "manual/" + p.CatalogEntry, SourceID: "manual", Payload: payload,
+				Type: "signed_document", ID: "manual/" + pp.Spec.CatalogEntry, SourceID: manualSourceID, Payload: payload,
 			}}
 		}
+		return slots
 	}
-	for name, slot := range p.Slots {
-		for i := range records {
-			rec := &records[i]
-			fromRoster := rec.SourceID == f.Roster.Source
-			switch {
-			case !slices.Contains(slot.Accepts, rec.Type):
-			case slot.Role == core.SlotRoleRosterSubject && fromRoster:
-			case slot.Role == core.SlotRoleRoster && !fromRoster:
-			default:
-				slots[name] = append(slots[name], *rec)
+	for slot, bindings := range pp.Bindings {
+		for _, b := range bindings {
+			for i := range records {
+				if records[i].SourceID == b.SourceID && slices.Contains(b.AcceptedTypes, records[i].Type) {
+					slots[slot] = append(slots[slot], records[i])
+				}
 			}
 		}
 	}

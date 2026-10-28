@@ -156,8 +156,8 @@
       "resources_evaluated": 14,
       "resources_failed": 3,
       "violated": [
-        "gcp.iam/roles/owner|user:mallory@example.com",
-        "gcp.iam/roles/viewer|allUsers",
+        "aws.identity_center/roles/owner|user:mallory@example.com",
+        "aws.identity_center/roles/viewer|allUsers",
         "github/dave"
       ]
     },
@@ -187,10 +187,7 @@
     "sparse": {
       "status": "pass",
       "resources_evaluated": 1,
-      "resources_failed": 0,
-      "vacuous_slots": [
-        "evidence"
-      ]
+      "resources_failed": 0
     }
   },
   "iso27001.5.17.mfa_enforced": {
@@ -572,7 +569,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.5.30.ict_continuity_tested": {
@@ -679,7 +676,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.5.34.privacy_and_pii_protection": {
@@ -1455,7 +1452,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.12.storage_no_public_access": {
@@ -1558,7 +1555,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.15.audit_log_encrypted": {
@@ -1579,7 +1576,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.15.audit_log_integrity": {
@@ -1600,7 +1597,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.15.audit_logging_enabled": {
@@ -1621,7 +1618,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.15.log_retention_min_365d": {
@@ -1644,7 +1641,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.16.compute_monitoring_enabled": {
@@ -1665,7 +1662,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.16.security_aggregation_enabled": {
@@ -1709,7 +1706,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.17.clock_synchronization": {
@@ -1791,21 +1788,20 @@
       ]
     },
     "sparse": {
-      "status": "error",
+      "status": "pass",
       "resources_evaluated": 3,
-      "resources_failed": 0,
-      "reason": "policy references field \"payload.is_admin\" which is not present on record \"gina-gh\" (type \"directory_user\") — reference a field the evidence type guarantees, or guard it with is_set"
+      "resources_failed": 0
     }
   },
   "iso27001.8.20.no_unrestricted_database_ports": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 3,
+      "resources_evaluated": 4,
       "resources_failed": 0
     },
     "noncompliant": {
       "status": "fail",
-      "resources_evaluated": 10,
+      "resources_evaluated": 11,
       "resources_failed": 3,
       "violated": [
         "sg-all-open",
@@ -1817,18 +1813,18 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.20.no_unrestricted_rdp": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 3,
+      "resources_evaluated": 4,
       "resources_failed": 0
     },
     "noncompliant": {
       "status": "fail",
-      "resources_evaluated": 10,
+      "resources_evaluated": 11,
       "resources_failed": 2,
       "violated": [
         "sg-all-open",
@@ -1839,18 +1835,18 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.20.no_unrestricted_ssh": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 3,
+      "resources_evaluated": 4,
       "resources_failed": 0
     },
     "noncompliant": {
       "status": "fail",
-      "resources_evaluated": 10,
+      "resources_evaluated": 11,
       "resources_failed": 2,
       "violated": [
         "sg-all-open",
@@ -1861,7 +1857,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.20.vpc_flow_logs_enabled": {
@@ -1882,7 +1878,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.21.tls_auto_renew_enabled": {
@@ -1944,7 +1940,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.22.private_kubernetes_endpoint": {
@@ -2009,7 +2005,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.24.database_encryption_at_rest": {
@@ -2073,7 +2069,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.24.storage_encryption_at_rest": {
@@ -2326,7 +2322,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.3.storage_no_public_access": {
@@ -2409,7 +2405,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.32.change_management_policy": {
@@ -2451,7 +2447,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.32.changes_passed_checks": {
@@ -2472,7 +2468,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.32.no_force_push": {
@@ -2671,16 +2667,16 @@
   "iso27001.8.5.password_complexity": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 2,
+      "resources_evaluated": 3,
       "resources_failed": 0
     },
     "noncompliant": {
       "status": "fail",
-      "resources_evaluated": 4,
+      "resources_evaluated": 5,
       "resources_failed": 2,
       "violated": [
-        "entra-tenant",
-        "okta-contractors"
+        "okta-contractors",
+        "okta-legacy"
       ]
     },
     "sparse": {
@@ -2692,15 +2688,15 @@
   "iso27001.8.5.password_minimum_length": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 2,
+      "resources_evaluated": 3,
       "resources_failed": 0
     },
     "noncompliant": {
       "status": "fail",
-      "resources_evaluated": 4,
+      "resources_evaluated": 5,
       "resources_failed": 1,
       "violated": [
-        "entra-tenant"
+        "okta-legacy"
       ]
     },
     "sparse": {
@@ -2751,7 +2747,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.7.threat_detection_enabled": {
@@ -2772,7 +2768,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.8.container_scan_on_push": {
@@ -2793,7 +2789,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.8.no_critical_vulnerabilities": {
@@ -2814,7 +2810,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.9.config_all_resources": {
@@ -2835,7 +2831,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.8.9.config_recording_enabled": {
@@ -2856,7 +2852,7 @@
       "status": "skip",
       "resources_evaluated": 0,
       "resources_failed": 0,
-      "reason": "no source bound to any slot"
+      "reason": "required slot has no records"
     }
   },
   "iso27001.clause.10.2.corrective_action": {

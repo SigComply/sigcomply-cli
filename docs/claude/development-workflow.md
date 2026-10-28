@@ -190,7 +190,10 @@ Which tests to add:
   resource IDs against the evidence in `internal/frameworks/testdata/policy-outcomes/records.json`.
   Regenerate with `go test ./internal/frameworks/ -run TestPolicyOutcomesGolden -update` and
   read the diff: each changed entry is a verdict that changed. A new policy has no entry and
-  fails until you regenerate; add records so it gets a non-pass outcome too.
+  fails until you regenerate, and the test also fails unless every policy passes in the
+  `compliant` scenario and fails in `noncompliant`, so add records for it. Each record must name
+  a source that emits its type, or a `plugin.<name>` source for input no in-tree source
+  produces.
 - New command, flag, exit code or output: a test in `cmd/sigcomply/` that runs the command and
   checks output and exact exit code, and a case in `e2e_test.go` when the behaviour depends on
   the process (exit code mapping, environment, files written).
