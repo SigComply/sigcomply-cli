@@ -127,7 +127,10 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		if err != nil {
 			return nil, fmt.Errorf("aws.acm: describe certificate: %w", err)
 		}
-		if detail == nil {
+		// A certificate that was never issued (pending or failed
+		// validation) has no expiry and secures nothing: it is not
+		// evidence about certificates in use.
+		if detail == nil || detail.NotAfter == nil {
 			continue
 		}
 		id := safeString(detail.CertificateArn)
@@ -164,10 +167,12 @@ func buildPayload(detail *acmtypes.CertificateDetail, now time.Time) certPayload
 		IsManaged:       isManaged,
 	}
 	if isManaged {
-		// AWS-managed (AMAZON_ISSUED) certificates auto-renew; imported
-		// certs omit the field entirely.
-		t := true
-		payload.AutoRenew = &t
+		// ACM renews an Amazon-issued certificate only while it is
+		// renewal-eligible (in use by an AWS service); one that is not
+		// associated with a resource expires. Imported certs omit the
+		// field entirely.
+		eligible := detail.RenewalEligibility == acmtypes.RenewalEligibilityEligible
+		payload.AutoRenew = &eligible
 	}
 	return payload
 }
@@ -178,7 +183,14 @@ func (p *Plugin) listAllCertificateARNs(ctx context.Context) ([]string, error) {
 		token *string
 	)
 	for {
-		page, err := p.api.ListCertificates(ctx, &awsacm.ListCertificatesInput{NextToken: token})
+		page, err := p.api.ListCertificates(ctx, &awsacm.ListCertificatesInput{
+			NextToken: token,
+			// Without these filters ACM lists only RSA_1024 and RSA_2048
+			// certificates and leaves out ACME-origin ones, so ECDSA and
+			// larger RSA certificates would expire unevaluated.
+			Includes:                  &acmtypes.Filters{KeyTypes: acmtypes.KeyAlgorithm("").Values()},
+			CertificateKeyPairOrigins: acmtypes.CertificateKeyPairOrigin("").Values(),
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -207,8 +219,8 @@ func (p *Plugin) describe(ctx context.Context, arn string) (*acmtypes.Certificat
 	return resp.Certificate, nil
 }
 
-// formatNotAfter renders the expiry timestamp as RFC3339 (UTC). Empty when
-// the certificate has no NotAfter (e.g. pending validation).
+// formatNotAfter renders the expiry timestamp as RFC3339 (UTC). Collect
+// skips certificates without one, so the empty result is never emitted.
 func formatNotAfter(t *time.Time) string {
 	if t == nil {
 		return ""

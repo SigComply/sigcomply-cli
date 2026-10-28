@@ -6,9 +6,9 @@ interactions:
         proto: ""
         proto_major: 0
         proto_minor: 0
-        content_length: 2
+        content_length: 188
         host: ""
-        body: '{}'
+        body: '{"CertificateKeyPairOrigins":["AWS_MANAGED","ACME","CUSTOMER_PROVIDED"],"Includes":{"keyTypes":["RSA_1024","RSA_2048","RSA_3072","RSA_4096","EC_prime256v1","EC_secp384r1","EC_secp521r1"]}}'
         headers:
             Amz-Sdk-Invocation-Id:
                 - 9b9dc55e-fe78-40a9-839e-84bf0b80acc1

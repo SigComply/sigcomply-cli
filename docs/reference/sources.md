@@ -112,6 +112,10 @@ For `role_arn`, the target role's trust policy must allow the ambient principal 
   emails, so they join the roster directly. It can be the roster source. Used only as the roster,
   it needs just `sso:ListInstances` and `identitystore:ListUsers`.
 - `aws.identity_center` cannot read per-user MFA. See [Source caveats](#source-caveats).
+- `aws.acm` lists certificates of every key type. A certificate that was never issued (pending or
+  failed validation) has no expiry date and emits no record. `auto_renew` is true only while ACM
+  reports the certificate as eligible for renewal; an Amazon-issued certificate that no AWS
+  resource uses is not renewed and reports `false`.
 - `aws.kms` reports `rotation_enabled: false` for customer-managed keys that KMS cannot rotate
   automatically (asymmetric, HMAC, imported key material, custom key store) without asking KMS.
   The shipped rotation policies check only enabled customer-managed keys, so keys that are disabled

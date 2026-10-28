@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -23,6 +24,7 @@ type fakeCert struct {
 	notAfter *time.Time
 	status   acmtypes.CertificateStatus
 	certType acmtypes.CertificateType
+	renewal  acmtypes.RenewalEligibility
 }
 
 type fakeAPI struct {
@@ -32,10 +34,12 @@ type fakeAPI struct {
 
 	listCalls int
 	descCalls int
+	lastList  *awsacm.ListCertificatesInput
 }
 
-func (f *fakeAPI) ListCertificates(_ context.Context, _ *awsacm.ListCertificatesInput, _ ...func(*awsacm.Options)) (*awsacm.ListCertificatesOutput, error) {
+func (f *fakeAPI) ListCertificates(_ context.Context, in *awsacm.ListCertificatesInput, _ ...func(*awsacm.Options)) (*awsacm.ListCertificatesOutput, error) {
 	f.listCalls++
+	f.lastList = in
 	if f.listErr != nil {
 		return nil, f.listErr
 	}
@@ -63,11 +67,12 @@ func (f *fakeAPI) DescribeCertificate(_ context.Context, in *awsacm.DescribeCert
 			continue
 		}
 		return &awsacm.DescribeCertificateOutput{Certificate: &acmtypes.CertificateDetail{
-			CertificateArn: ptr(c.arn),
-			DomainName:     ptr(c.domain),
-			NotAfter:       c.notAfter,
-			Status:         c.status,
-			Type:           c.certType,
+			CertificateArn:     ptr(c.arn),
+			DomainName:         ptr(c.domain),
+			NotAfter:           c.notAfter,
+			Status:             c.status,
+			Type:               c.certType,
+			RenewalEligibility: c.renewal,
 		}}, nil
 	}
 	return &awsacm.DescribeCertificateOutput{}, nil
@@ -117,7 +122,7 @@ func twoCertFake() *fakeAPI {
 	importedExpiry := fixedNow.Add(10 * 24 * time.Hour)
 	return &fakeAPI{certs: []fakeCert{
 		{arn: "arn:zeta", domain: "zeta.example.com", notAfter: &importedExpiry, status: acmtypes.CertificateStatusIssued, certType: acmtypes.CertificateTypeImported},
-		{arn: "arn:alpha", domain: "alpha.example.com", notAfter: &managedExpiry, status: acmtypes.CertificateStatusIssued, certType: acmtypes.CertificateTypeAmazonIssued},
+		{arn: "arn:alpha", domain: "alpha.example.com", notAfter: &managedExpiry, status: acmtypes.CertificateStatusIssued, certType: acmtypes.CertificateTypeAmazonIssued, renewal: acmtypes.RenewalEligibilityEligible},
 	}}
 }
 
@@ -323,7 +328,7 @@ func TestCollect_SkipsCertWithEmptyARN(t *testing.T) {
 	// empty ARN is filtered after.
 	fake := &fakeAPI{certs: []fakeCert{
 		{arn: ""},
-		{arn: "arn:ok", certType: acmtypes.CertificateTypeAmazonIssued},
+		{arn: "arn:ok", certType: acmtypes.CertificateTypeAmazonIssued, notAfter: ptr(fixedNow.Add(24 * time.Hour))},
 	}}
 	p := New(Options{API: fake, Now: func() time.Time { return fixedNow }})
 	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
@@ -358,5 +363,54 @@ func TestNewFromAWS_SmokeTest(t *testing.T) {
 	}
 	if p.ID() != SourceID {
 		t.Errorf("ID = %q", p.ID())
+	}
+}
+
+// Without filters ACM lists only RSA_1024/RSA_2048 certificates and leaves
+// out ACME-origin ones; the plugin must ask for every key type and origin.
+func TestCollect_ListsEveryKeyTypeAndOrigin(t *testing.T) {
+	fake := twoCertFake()
+	if _, err := New(Options{API: fake, Now: func() time.Time { return fixedNow }}).Collect(context.Background(),
+		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}}); err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	in := fake.lastList
+	if in == nil || in.Includes == nil {
+		t.Fatal("ListCertificates sent without Includes")
+	}
+	if !slices.Contains(in.Includes.KeyTypes, acmtypes.KeyAlgorithmEcPrime256v1) ||
+		!slices.Contains(in.Includes.KeyTypes, acmtypes.KeyAlgorithmRsa4096) {
+		t.Errorf("KeyTypes = %v; want every key algorithm", in.Includes.KeyTypes)
+	}
+	if !slices.Contains(in.CertificateKeyPairOrigins, acmtypes.CertificateKeyPairOriginAcme) {
+		t.Errorf("CertificateKeyPairOrigins = %v; want ACME included", in.CertificateKeyPairOrigins)
+	}
+}
+
+// A certificate never issued has no expiry (the schema requires a
+// date-time not_after) and secures nothing: it emits no record. A managed
+// certificate ACM will not renew (not in use) reports auto_renew false.
+func TestCollect_SkipsUnissuedAndReadsRenewalEligibility(t *testing.T) {
+	expiry := fixedNow.Add(200 * 24 * time.Hour)
+	fake := &fakeAPI{certs: []fakeCert{
+		{arn: "arn:pending", domain: "p.example.com", status: acmtypes.CertificateStatusPendingValidation, certType: acmtypes.CertificateTypeAmazonIssued},
+		{arn: "arn:failed", domain: "f.example.com", status: acmtypes.CertificateStatusFailed, certType: acmtypes.CertificateTypeAmazonIssued},
+		{arn: "arn:unused", domain: "u.example.com", notAfter: &expiry, status: acmtypes.CertificateStatusIssued,
+			certType: acmtypes.CertificateTypeAmazonIssued, renewal: acmtypes.RenewalEligibilityIneligible},
+	}}
+	recs, err := New(Options{API: fake, Now: func() time.Time { return fixedNow }}).Collect(context.Background(),
+		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if len(recs) != 1 || recs[0].ID != "arn:unused" {
+		t.Fatalf("records = %v; want only the issued certificate", recs)
+	}
+	var p certPayload
+	if err := json.Unmarshal(recs[0].Payload, &p); err != nil {
+		t.Fatal(err)
+	}
+	if p.AutoRenew == nil || *p.AutoRenew {
+		t.Errorf("auto_renew = %v; want false for a renewal-ineligible certificate", p.AutoRenew)
 	}
 }
