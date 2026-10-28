@@ -5,6 +5,9 @@ import (
 	"context"
 	"testing"
 
+	pdfapi "github.com/pdfcpu/pdfcpu/pkg/api"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
+
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual/fileconv"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual/pdfmerge"
 )
@@ -84,5 +87,39 @@ func minimalPNG() []byte {
 		0x00, 0x00, 0x00, 0x00,
 		0x49, 0x45, 0x4E, 0x44,
 		0xAE, 0x42, 0x60, 0x82,
+	}
+}
+
+// encrypt protects pdf with the given passwords (AES-256).
+func encrypt(t *testing.T, pdf []byte, userPW, ownerPW string) []byte {
+	t.Helper()
+	conf := model.NewAESConfiguration(userPW, ownerPW, 256)
+	var out bytes.Buffer
+	if err := pdfapi.Encrypt(context.Background(), bytes.NewReader(pdf), &out, conf); err != nil {
+		t.Fatalf("encrypt: %v", err)
+	}
+	return out.Bytes()
+}
+
+// A PDF with only an owner password opens in every viewer without a
+// password (vendor SOC 2 reports and pentest reports often ship this way).
+// It passes on its own, so it must also merge with other files.
+func TestMerge_OwnerPasswordOnlyPDF(t *testing.T) {
+	secured := encrypt(t, realPDF(t), "", "owner-secret")
+	out, err := pdfmerge.Merge(context.Background(), [][]byte{realPDF(t), secured})
+	if err != nil {
+		t.Fatalf("Merge(plain, owner-password-only): %v", err)
+	}
+	if n, err := pdfapi.PageCount(context.Background(), bytes.NewReader(out), model.NewDefaultConfiguration()); err != nil || n != 2 {
+		t.Errorf("merged page count = %d (%v); want 2", n, err)
+	}
+}
+
+// A PDF that needs a password to open cannot be merged: that stays a
+// merge failure.
+func TestMerge_UserPasswordPDFStillFails(t *testing.T) {
+	locked := encrypt(t, realPDF(t), "user-secret", "owner-secret")
+	if _, err := pdfmerge.Merge(context.Background(), [][]byte{realPDF(t), locked}); err == nil {
+		t.Fatal("Merge = nil error; want a failure for a PDF that needs a password to open")
 	}
 }

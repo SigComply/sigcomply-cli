@@ -119,6 +119,9 @@ Rules for the files:
 - The CLI ignores hidden files (names starting with `.`, such as `.DS_Store`), `Thumbs.db`,
   `desktop.ini`, the empty folder object that the S3 or GCS console's "Create folder" makes, and
   everything in subfolders. Put the evidence files directly in the period folder.
+- A PDF that opens without a password is accepted even if it carries an owner password that
+  restricts printing or editing, as many vendor and penetration-test reports do. The merged copy
+  in the vault is stored without that restriction; the record hashes the file as uploaded.
 - Upload during the period the document covers. The upload time is the object's last-modified
   time (a local file's modification time), so uploading a file again resets it. It must fall
   between the start of

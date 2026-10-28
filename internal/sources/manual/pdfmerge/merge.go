@@ -13,6 +13,27 @@ import (
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 )
 
+// openable returns the PDF decrypted when it is encrypted with an owner
+// password only, which every viewer opens without asking for a password
+// (vendor SOC 2 and penetration-test reports often ship this way).
+// pdfcpu refuses to merge an encrypted file, so the merged copy carries
+// the decrypted content; the original bytes are what the record hashes.
+// Anything else (not encrypted, or needing a user password) is returned
+// unchanged, and a PDF that needs a password still fails the merge.
+func openable(ctx context.Context, pdf []byte) []byte {
+	if !bytes.Contains(pdf, []byte("/Encrypt")) {
+		return pdf
+	}
+	conf := model.NewDefaultConfiguration()
+	conf.ValidationMode = model.ValidationRelaxed
+	conf.UserPW = ""
+	var out bytes.Buffer
+	if err := pdfapi.Decrypt(ctx, bytes.NewReader(pdf), &out, conf); err != nil {
+		return pdf
+	}
+	return out.Bytes()
+}
+
 // Merge takes one or more PDF byte slices and returns a single merged
 // PDF. Order is preserved. A single-element input is returned as-is
 // without invoking pdfcpu. Returns an error if any input cannot be
@@ -26,13 +47,13 @@ func Merge(ctx context.Context, pdfs [][]byte) ([]byte, error) {
 		return pdfs[0], nil
 	}
 
-	rsc := make([]io.ReadSeeker, len(pdfs))
-	for i, p := range pdfs {
-		rsc[i] = bytes.NewReader(p)
-	}
-
 	conf := model.NewDefaultConfiguration()
 	conf.ValidationMode = model.ValidationRelaxed
+
+	rsc := make([]io.ReadSeeker, len(pdfs))
+	for i, p := range pdfs {
+		rsc[i] = bytes.NewReader(openable(ctx, p))
+	}
 
 	var out bytes.Buffer
 	if err := pdfapi.MergeRaw(ctx, rsc, &out, false, conf); err != nil {
