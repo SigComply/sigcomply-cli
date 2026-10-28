@@ -158,8 +158,10 @@ func TestPredefinedPoliciesShape(t *testing.T) {
 		t.Errorf("RetryNone.MaxAttempts = %d; want 1", RetryNone.MaxAttempts)
 	}
 	for name, p := range map[string]RetryPolicy{"PR": RetryPR, "Scheduled": RetryScheduled} {
-		if len(p.Backoff) < p.MaxAttempts-1 {
-			t.Errorf("%s: backoff length %d < MaxAttempts-1 (%d)", name, len(p.Backoff), p.MaxAttempts-1)
+		// Exactly one wait per retry: a longer list documents a budget
+		// the policy never spends.
+		if len(p.Backoff) != p.MaxAttempts-1 {
+			t.Errorf("%s: backoff length %d != MaxAttempts-1 (%d)", name, len(p.Backoff), p.MaxAttempts-1)
 		}
 	}
 }

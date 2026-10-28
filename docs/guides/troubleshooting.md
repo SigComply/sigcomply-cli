@@ -43,7 +43,8 @@ A listed source has no credential. Supply one (variables per source:
 The credential resolved but the API rejected it, or it lacks read access. Grant the read-only
 permissions in the [sources reference](../reference/sources.md). Permission errors (`401`, `403`,
 AWS `AccessDenied`) are reported after one attempt. Throttling, `5xx` and network errors are
-retried; with `--pr` the retry budget is about eight minutes per slot.
+retried: with `--pr` up to 5 attempts per slot with about 3 minutes of waits, with `--scheduled` up
+to 3 attempts with 40 seconds of waits, and not at all on a plain `check`.
 
 ### GitLab job: AWS sources report no usable credentials
 

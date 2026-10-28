@@ -24,8 +24,11 @@ type RetryPolicy struct {
 	Backoff     []time.Duration
 }
 
-// Per-mode default policies. Total wall-clock budget per slot:
-// PR mode = ~8 min, scheduled = ~2 min, none = 0.
+// Per-mode default policies. The waits between attempts set the budget
+// per slot, on top of the time the attempts themselves take: PR mode
+// waits 5+15+45+120 s, about 3 minutes over 5 attempts; scheduled mode
+// waits 10+30 s over 3 attempts; none makes one attempt. A Backoff list
+// needs MaxAttempts-1 entries; more would never be used.
 var (
 	RetryPR = RetryPolicy{
 		MaxAttempts: 5,
@@ -34,7 +37,6 @@ var (
 			15 * time.Second,
 			45 * time.Second,
 			2 * time.Minute,
-			5 * time.Minute,
 		},
 	}
 	RetryScheduled = RetryPolicy{
@@ -42,7 +44,6 @@ var (
 		Backoff: []time.Duration{
 			10 * time.Second,
 			30 * time.Second,
-			90 * time.Second,
 		},
 	}
 	RetryNone = RetryPolicy{MaxAttempts: 1}

@@ -45,7 +45,7 @@ The period is taken from the timestamp of the HEAD commit (configurable with
 | `--cadence <value>` | | | Only evaluate policies whose effective cadence matches: `continuous`, `hourly`, `daily`, `weekly`, `monthly`, `quarterly`, `annual` |
 | `--cadences <list>` | | | Comma-separated cadence set; a policy matches if any of its cadences is in the set. `on_push` selects on-push policies. |
 | `--on-push` | | | Only evaluate policies whose `on_push` attribute is true |
-| `--pr` | | | Pull request mode: on-push policies, with a retry budget of about 8 minutes per slot |
+| `--pr` | | | Pull request mode: on-push policies. A slot that fails with a throttling, `5xx` or network error is tried up to 5 times, with about 3 minutes of waits in total. |
 | `--scheduled` | | | Run whichever cadences are due according to the vault's execution state, then advance the state |
 | `--cloud` | | | Submit even outside CI. Needs an OIDC token and `cloud.base_url` (or `--cloud-url`); without a URL it warns and skips. |
 | `--no-cloud` | | | Never submit |

@@ -67,7 +67,7 @@ func newCheckCmd() *cobra.Command {
 	cmd.Flags().StringVar(&flags.cadence, "cadence", "", "Only evaluate policies whose effective cadence matches (continuous|hourly|daily|weekly|monthly|quarterly|annual)")
 	cmd.Flags().BoolVar(&flags.onPush, "on-push", false, "Only evaluate policies whose on_push attribute is true")
 	cmd.Flags().StringSliceVar(&flags.cadences, "cadences", nil, "Comma-separated cadence set (intersect: a policy matches if any of its effective cadences is in this set; 'on_push' is the virtual cadence value for the on_push axis)")
-	cmd.Flags().BoolVar(&flags.pr, "pr", false, "PR-mode run: filter to on_push policies and use a generous slot retry budget (~8 min/slot)")
+	cmd.Flags().BoolVar(&flags.pr, "pr", false, "PR-mode run: filter to on_push policies and retry a failing slot up to 5 times, waiting about 3 min in total")
 	cmd.Flags().BoolVar(&flags.scheduled, "scheduled", false, "Scheduled-mode run: consult the per-framework execution-state, run whichever cadences are due, advance the state on success")
 	cmd.MarkFlagsMutuallyExclusive("cadence", "on-push", "cadences", "pr", "scheduled")
 	return cmd
