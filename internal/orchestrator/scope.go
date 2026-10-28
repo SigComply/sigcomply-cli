@@ -16,7 +16,7 @@ import (
 // Returns nil only when the declaration cannot be read at all; an absent
 // declaration still yields a report (status undeclared), because the
 // unbound-policy count it carries is worth surfacing either way.
-func evaluateScope(opts *Options, plan *planner.RunPlan, records map[string]map[string][]core.EvidenceRecord) *scope.Report {
+func evaluateScope(opts *Options, plan, fullPlan *planner.RunPlan, records map[string]map[string][]core.EvidenceRecord) *scope.Report {
 	sc, err := spec.LoadScopeConfig(opts.Config)
 	if err != nil {
 		// spec.LoadProjectConfig rejects a malformed declaration (exit
@@ -30,6 +30,7 @@ func evaluateScope(opts *Options, plan *planner.RunPlan, records map[string]map[
 	in := &scope.Input{
 		Configured:      opts.Config.Sources,
 		Plan:            plan,
+		FullPlan:        fullPlan,
 		RecordsByPolicy: records,
 	}
 	if sc != nil {
@@ -55,6 +56,8 @@ func scopeStateExplanation(s scope.SourceState) string {
 		return "configured, but no policy slot accepts what it emits — never consulted"
 	case scope.SourceNoRecords:
 		return "bound but returned zero records — check credentials and permissions"
+	case scope.SourceNotInRun:
+		return "no policy this run collected from it (filtered out, carried forward or excepted)"
 	default:
 		return "covered"
 	}

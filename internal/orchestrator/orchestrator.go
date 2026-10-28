@@ -150,13 +150,13 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 	if err != nil {
 		return Result{ExitCode: ExitConfig}, fmt.Errorf("plan: %w", err)
 	}
+	fullPlan := plan
+	if filter.IsExplicit() {
+		fullPlan = planFull(opts, startedAt, schemaDigests, plan)
+	}
 	emitPlanWarnings(opts.Logger, plan, startedAt)
 	emitRosterWarnings(opts.Logger, opts.Config, opts.Registries)
-	// A filtered run reads a subset of policies; a source only other
-	// cadences read is not unused, so the warning is for the full plan.
-	if !filter.IsExplicit() {
-		emitUnboundSourceWarnings(opts.Logger, opts.Config, plan)
-	}
+	emitUnboundSourceWarnings(opts.Logger, opts.Config, fullPlan)
 	emitSourceCaveatWarnings(opts.Logger, plan)
 	emitVendorWarnings(opts.Logger, opts.Config)
 	emitRiskWarnings(opts.Logger, opts.Config, opts.Registries, plan)
@@ -187,7 +187,7 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 	}
 	emitRosterUsageWarnings(opts.Stdout, rosterUsage)
 
-	scopeReport := evaluateScope(opts, plan, collectOut.RecordsByPolicy)
+	scopeReport := evaluateScope(opts, plan, fullPlan, collectOut.RecordsByPolicy)
 
 	completedAt := nowOrFallback(opts.Now)
 	stampNextDue(results, plan, startedAt)
@@ -224,6 +224,27 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 		Submitted:   submitted,
 		SubmittedAt: submittedAt,
 	}, nil
+}
+
+// planFull plans the whole framework for a filtered run, so the scope
+// verdict and the unbound-source warning see every binding rather than
+// only the filtered subset's. On the rare error (the run's own plan
+// already succeeded on the same config) it falls back to the run plan,
+// which errs toward reporting a source as unbound, never toward hiding
+// one.
+func planFull(opts *Options, startedAt time.Time, schemaDigests map[string]string, runPlan *planner.RunPlan) *planner.RunPlan {
+	full, err := planner.PlanFull(&planner.Input{
+		Config:        opts.Config,
+		Registries:    opts.Registries,
+		CommitTime:    opts.CommitTime,
+		Now:           startedAt,
+		SchemaDigests: schemaDigests,
+	})
+	if err != nil {
+		opts.Logger.Warnf("scope: could not plan the full framework, judging scope on this run's policies only: %s", err.Error())
+		return runPlan
+	}
+	return full
 }
 
 // runtimeState captures whatever the orchestrator preloaded before

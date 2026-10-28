@@ -62,6 +62,12 @@ const (
 	// resolve to an empty account, a failed collection, or a permission
 	// that silently returns nothing.
 	SourceNoRecords SourceState = "no_records"
+	// SourceNotInRun means the framework binds the source, but no policy
+	// this run collected from it: a filter (--cadence, --pr) left those
+	// policies out, they carried forward under --scheduled, or a
+	// whole-policy exception decided them. The run cannot judge the
+	// source, so it does not count as missing.
+	SourceNotInRun SourceState = "not_in_run"
 )
 
 // SourceReport is the per-source verdict.
@@ -116,9 +122,14 @@ type Input struct {
 	DeclaredAt string
 	// Configured is the key set of `sources:` in the project config.
 	Configured map[string]map[string]any
-	// Plan is the resolved run plan, read for bindings and for required
-	// slots that bound nothing.
+	// Plan is the resolved run plan, read for the sources this run
+	// consulted and for required slots that bound nothing.
 	Plan *planner.RunPlan
+	// FullPlan plans every policy of the framework, ignoring the run's
+	// filter. Whether a declared source is bound at all is judged on it,
+	// so a filtered run does not call a source unbound because the
+	// policies that use it were filtered out. Nil means Plan.
+	FullPlan *planner.RunPlan
 	// RecordsByPolicy is the collector's output. Records carry the
 	// SourceID that produced them, which is how a source that was bound
 	// but returned nothing is told apart from one that worked.
@@ -128,11 +139,13 @@ type Input struct {
 // Evaluate judges one run against its declared estate.
 //
 // A declared source must clear three bars to count as covered: it is
-// configured, some policy slot actually bound it, and it returned at
-// least one record. Stopping at the first bar would make this a lint on
-// a single YAML file — it would report success for a source whose
+// configured, some policy slot of the framework binds it, and it returned
+// at least one record. Stopping at the first bar would make this a lint
+// on a single YAML file — it would report success for a source whose
 // credentials are absent, whose plugin emits nothing any policy accepts,
-// or whose every collection failed.
+// or whose every collection failed. The record bar applies only to a
+// source some policy in this run actually collected from (see
+// SourceNotInRun).
 func Evaluate(in *Input) *Report {
 	unbound := 0
 	if in.Plan != nil {
@@ -147,7 +160,12 @@ func Evaluate(in *Input) *Report {
 		return &Report{Status: StatusUndeclared, PoliciesUnbound: unbound}
 	}
 
-	bound := BoundSources(in.Plan)
+	full := in.FullPlan
+	if full == nil {
+		full = in.Plan
+	}
+	bound := BoundSources(full)
+	consulted := collectingSources(in.Plan)
 	producing := producingSources(in.RecordsByPolicy)
 
 	rep := &Report{
@@ -156,9 +174,9 @@ func Evaluate(in *Input) *Report {
 		PoliciesUnbound: unbound,
 	}
 	for _, id := range in.Declared {
-		state := classify(id, in.Configured, bound, producing)
+		state := classify(id, in.Configured, bound, consulted, producing)
 		rep.Sources = append(rep.Sources, SourceReport{SourceID: id, State: state})
-		if state != SourceOK {
+		if state != SourceOK && state != SourceNotInRun {
 			rep.Missing = append(rep.Missing, id)
 		}
 	}
@@ -172,12 +190,15 @@ func Evaluate(in *Input) *Report {
 	return rep
 }
 
-func classify(id string, configured map[string]map[string]any, bound, producing map[string]struct{}) SourceState {
+func classify(id string, configured map[string]map[string]any, bound, consulted, producing map[string]struct{}) SourceState {
 	if _, ok := configured[id]; !ok {
 		return SourceNotConfigured
 	}
 	if _, ok := bound[id]; !ok {
 		return SourceNotBound
+	}
+	if _, ok := consulted[id]; !ok {
+		return SourceNotInRun
 	}
 	if _, ok := producing[id]; !ok {
 		return SourceNoRecords
@@ -195,6 +216,29 @@ func BoundSources(plan *planner.RunPlan) map[string]struct{} {
 	}
 	for i := range plan.Policies {
 		for _, bs := range plan.Policies[i].Bindings {
+			for j := range bs {
+				out[bs[j].SourceID] = struct{}{}
+			}
+		}
+	}
+	return out
+}
+
+// collectingSources is the set of source IDs bound to a policy this run
+// collects for: one it evaluates (not carried forward) and that no
+// whole-policy exception decides. The collector skips the others, so
+// their sources are never asked for records.
+func collectingSources(plan *planner.RunPlan) map[string]struct{} {
+	out := map[string]struct{}{}
+	if plan == nil {
+		return out
+	}
+	for i := range plan.Policies {
+		pp := &plan.Policies[i]
+		if !pp.ShouldEvaluate || pp.WholePolicyException() != nil {
+			continue
+		}
+		for _, bs := range pp.Bindings {
 			for j := range bs {
 				out[bs[j].SourceID] = struct{}{}
 			}

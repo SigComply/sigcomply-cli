@@ -425,17 +425,18 @@ func TestEmitPlanWarnings_RosterSlotIsNotACoverageGap(t *testing.T) {
 	}
 }
 
-// A cadence-filtered run selects a subset of policies, so a source the
-// subset does not read is not "never consulted": other cadences read it.
-// The unbound-source warning is for the full plan only.
-func TestRun_UnboundSourceWarningOnlyOnUnfilteredRuns(t *testing.T) {
+// The unbound-source warning is judged against the full plan, so a
+// filtered run warns about a source no policy in the framework reads, the
+// same as an unfiltered run. (A source that only other cadences read is
+// covered by the scope tests: it is not reported.)
+func TestRun_UnboundSourceWarningJudgedOnFullPlan(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		filter planner.Filter
 		want   bool
 	}{
 		{"unfiltered warns", planner.Filter{}, true},
-		{"cadence-filtered does not", planner.Filter{Cadence: "weekly"}, false},
+		{"cadence-filtered warns too", planner.Filter{Cadence: "weekly"}, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			regs := registry.NewSet()

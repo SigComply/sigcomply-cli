@@ -23,6 +23,7 @@ func planWith(bindings map[string][]planner.Binding, unbound []string) *planner.
 		Spec:                 core.Policy{ID: "p1"},
 		Bindings:             bindings,
 		UnboundRequiredSlots: unbound,
+		ShouldEvaluate:       true,
 	}}}
 }
 
@@ -170,5 +171,73 @@ func TestReport_NilIsComplete(t *testing.T) {
 	var r *scope.Report
 	if !r.Complete() {
 		t.Error("nil Report must be Complete")
+	}
+}
+
+// A filtered run (--cadence weekly) plans only the policies it selects. A
+// declared source that only out-of-filter policies use was neither bound
+// nor consulted by this run, and the framework does bind it: the run
+// cannot judge it, so it is not missing.
+func TestEvaluate_SourceBoundOnlyOutsideTheFilterIsNotMissing(t *testing.T) {
+	full := planWith(map[string][]planner.Binding{testSlotUsers: {{SourceID: testSourceOkta}}}, nil)
+	got := scope.Evaluate(&scope.Input{
+		Declared:        []string{testSourceOkta},
+		Configured:      map[string]map[string]any{testSourceOkta: {}},
+		Plan:            &planner.RunPlan{},
+		FullPlan:        full,
+		RecordsByPolicy: recordsFrom(),
+	})
+	if !got.Complete() || len(got.Missing) != 0 {
+		t.Fatalf("Status = %q, Missing = %v; want nothing missing", got.Status, got.Missing)
+	}
+	if len(got.Sources) != 1 || got.Sources[0].State != scope.SourceNotInRun {
+		t.Errorf("Sources = %+v; want %q", got.Sources, scope.SourceNotInRun)
+	}
+}
+
+// The framework binding nothing to a source is still not_bound, whatever
+// the run's filter.
+func TestEvaluate_NotBoundJudgedOnTheFullPlan(t *testing.T) {
+	full := planWith(map[string][]planner.Binding{testSlotUsers: {{SourceID: testSourceAWSIAM}}}, nil)
+	got := scope.Evaluate(&scope.Input{
+		Declared:   []string{testSourceOkta},
+		Configured: map[string]map[string]any{testSourceOkta: {}},
+		Plan:       &planner.RunPlan{},
+		FullPlan:   full,
+	})
+	if len(got.Sources) != 1 || got.Sources[0].State != scope.SourceNotBound {
+		t.Errorf("Sources = %+v; want %q", got.Sources, scope.SourceNotBound)
+	}
+}
+
+// Under --scheduled, a policy that carries forward or a whole-policy
+// exception collects nothing; its source returning no records this run is
+// not a collection failure.
+func TestEvaluate_SourceOnlyUsedByPoliciesThatCollectNothing(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		pp   planner.PlannedPolicy
+	}{
+		{"carried forward", planner.PlannedPolicy{ShouldEvaluate: false}},
+		{"whole-policy exception", planner.PlannedPolicy{ShouldEvaluate: true,
+			Exceptions: []*planner.Exception{{State: core.StatusNA, Reason: "r"}}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			pp := tc.pp
+			pp.Spec = core.Policy{ID: "p1"}
+			pp.Bindings = map[string][]planner.Binding{testSlotUsers: {{SourceID: testSourceOkta}}}
+			got := scope.Evaluate(&scope.Input{
+				Declared:        []string{testSourceOkta},
+				Configured:      map[string]map[string]any{testSourceOkta: {}},
+				Plan:            &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
+				RecordsByPolicy: recordsFrom(),
+			})
+			if !got.Complete() {
+				t.Fatalf("Missing = %v; want nothing missing", got.Missing)
+			}
+			if got.Sources[0].State != scope.SourceNotInRun {
+				t.Errorf("state = %q; want %q", got.Sources[0].State, scope.SourceNotInRun)
+			}
+		})
 	}
 }

@@ -106,6 +106,35 @@ func Plan(in *Input) (*RunPlan, error) {
 	}, nil
 }
 
+// PlanFull plans every policy of the framework, ignoring in.Filter and
+// in.PolicyStates, and without requiring a manual.pdf source. It answers
+// "which sources does this framework bind at all?", so a filtered run
+// judges experimental.scope and warns about unbound sources against the
+// whole framework, not the subset it happens to evaluate. Never use it to
+// collect or evaluate.
+func PlanFull(in *Input) (*RunPlan, error) {
+	full := *in
+	full.Filter = Filter{}
+	full.PolicyStates = nil
+	framework, ok := full.Registries.Frameworks.Lookup(full.Config.Framework)
+	if !ok {
+		return nil, fmt.Errorf("planner: framework %q not registered", full.Config.Framework)
+	}
+	roster, err := loadRoster(full.Config, framework, full.Registries)
+	if err != nil {
+		return nil, err
+	}
+	period, err := DerivePeriod(&full.Config.Period, PeriodTime(&full.Config.Period, full.CommitTime, full.Now))
+	if err != nil {
+		return nil, err
+	}
+	policies, err := planPolicies(framework, &full, roster)
+	if err != nil {
+		return nil, err
+	}
+	return &RunPlan{Framework: framework.ID(), Period: period, Policies: policies}, nil
+}
+
 func validateFilter(f *Filter) error {
 	count := 0
 	if len(f.Policies) > 0 {

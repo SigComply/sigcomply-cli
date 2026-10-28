@@ -2,15 +2,18 @@ package orchestrator
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/log"
 	"github.com/sigcomply/sigcomply-cli/internal/planner"
 	"github.com/sigcomply/sigcomply-cli/internal/scope"
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
+	"github.com/sigcomply/sigcomply-cli/internal/submitter"
 )
 
 func incompleteReport() *scope.Report {
@@ -132,9 +135,74 @@ func TestSummaryFromResults_ScopePersisted(t *testing.T) {
 }
 
 func TestScopeStateExplanation_CoversEveryState(t *testing.T) {
-	for _, s := range []scope.SourceState{scope.SourceNotConfigured, scope.SourceNotBound, scope.SourceNoRecords} {
+	for _, s := range []scope.SourceState{scope.SourceNotConfigured, scope.SourceNotBound, scope.SourceNoRecords, scope.SourceNotInRun} {
 		if got := scopeStateExplanation(s); got == "" || got == "covered" {
 			t.Errorf("state %q has no actionable explanation (got %q)", s, got)
+		}
+	}
+}
+
+// scopeConfig is schedConfig with aws.iam declared as the estate.
+func scopeConfig() *spec.ProjectConfig {
+	cfg := schedConfig()
+	cfg.Experimental = map[string]any{"scope": map[string]any{"required_sources": []any{sourceAWSIAM}}}
+	return cfg
+}
+
+// A filtered run selects a subset of policies. A declared source that
+// only the filtered-out policies use was judged "never consulted" and
+// failed every non-daily scaffolded run with exit 1, and the
+// unbound-source warning claimed no slot accepted it.
+func TestRun_ScopeAndUnboundWarningIgnoreTheFilter(t *testing.T) {
+	var stdout, logs bytes.Buffer
+	res, err := Run(context.Background(), &Options{
+		Config:        scopeConfig(),
+		Registries:    schedRegistries(t, &schedSource{}),
+		Vault:         newListVault(),
+		Filter:        planner.Filter{Cadence: "weekly"}, // the fixture's one policy is daily
+		Stdout:        &stdout,
+		Logger:        log.New(&logs, false),
+		Now:           func() time.Time { return time.Date(2026, 5, 24, 9, 0, 0, 0, time.UTC) },
+		SubmitterOpts: submitter.Options{Disable: true},
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if res.ExitCode != ExitOK {
+		t.Errorf("ExitCode = %d; want %d\n%s", res.ExitCode, ExitOK, stdout.String())
+	}
+	if strings.Contains(stdout.String(), "SCOPE INCOMPLETE") {
+		t.Errorf("filtered run reported an incomplete scope:\n%s", stdout.String())
+	}
+	if strings.Contains(logs.String(), "unbound-source") {
+		t.Errorf("unbound-source warning for a source the framework binds:\n%s", logs.String())
+	}
+}
+
+// Under --scheduled the carried-forward policies collect nothing, so their
+// sources return no records; that is not an incomplete estate.
+func TestRun_ScopeCompleteWhenPoliciesCarryForward(t *testing.T) {
+	regs := schedRegistries(t, &schedSource{})
+	v := newListVault()
+	base := time.Date(2026, 5, 24, 9, 0, 0, 0, time.UTC)
+	for i, now := range []time.Time{base, base.Add(time.Minute)} {
+		var stdout bytes.Buffer
+		res, err := Run(context.Background(), &Options{
+			Config:        scopeConfig(),
+			Registries:    regs,
+			Vault:         v,
+			Mode:          ModeScheduled,
+			Stdout:        &stdout,
+			Logger:        log.New(&bytes.Buffer{}, false),
+			CommitTime:    base,
+			Now:           func() time.Time { return now },
+			SubmitterOpts: submitter.Options{Disable: true},
+		})
+		if err != nil {
+			t.Fatalf("run %d: %v", i+1, err)
+		}
+		if res.ExitCode != ExitOK || strings.Contains(stdout.String(), "SCOPE INCOMPLETE") {
+			t.Errorf("run %d: exit %d\n%s", i+1, res.ExitCode, stdout.String())
 		}
 	}
 }

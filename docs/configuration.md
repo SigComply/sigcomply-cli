@@ -270,7 +270,12 @@ causes skipped policies, not failures.
 |---|---|---|
 | `declared_by` | string | Who made the declaration. Stays in the vault. |
 | `declared_at` | string | `YYYY-MM-DD`. |
-| `required_sources` | list of source keys | Each must be configured, bound to at least one policy slot, and return at least one record. Otherwise the run prints `SCOPE INCOMPLETE` and exits `1` (see `ci.fail_on_violation`). |
+| `required_sources` | list of source keys | Each must be configured, bound to at least one policy slot of the framework, and return at least one record when the run collects from it. Otherwise the run prints `SCOPE INCOMPLETE` and exits `1` (see `ci.fail_on_violation`). |
+
+Bindings are judged against every policy of the framework, not only the ones a run evaluates. A
+source used only by policies that a run leaves out (a `--cadence` or `--pr` filter), carries
+forward (`--scheduled`) or excepts entirely is recorded as `not_in_run` and does not make the
+scope incomplete.
 
 A malformed block (not a mapping, `required_sources` empty, not a list, blank or duplicated
 entries, a bad `declared_at` date) is a config error, exit `3`, before any source is read. The
