@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -52,7 +53,10 @@ func TestHandleSubmission_SubmitsSuccessfully(t *testing.T) {
 	payload := &core.SubmissionPayload{Schema: "sigcomply.cloud.v5", RunID: "r1"}
 	completedAt := time.Date(2026, 5, 24, 9, 0, 0, 0, time.UTC)
 
-	submitted, at := handleSubmission(context.Background(), opts, payload, completedAt)
+	submitted, at, err := handleSubmission(context.Background(), opts, payload, completedAt)
+	if err != nil {
+		t.Fatalf("handleSubmission: %v", err)
+	}
 	if !submitted {
 		t.Fatalf("submitted = false; want true. log=%s", logBuf.String())
 	}
@@ -82,25 +86,32 @@ func TestHandleSubmission_ServerErrorIsNonFatal(t *testing.T) {
 			TokenProvider: stubTokenProvider{},
 		},
 	}
-	submitted, _ := handleSubmission(context.Background(), opts,
+	submitted, _, err := handleSubmission(context.Background(), opts,
 		&core.SubmissionPayload{Schema: "x"}, time.Now())
 	if submitted {
 		t.Error("submitted = true; want false on 4xx")
 	}
+	if err != nil {
+		t.Errorf("a refused submission must not change the exit code; got %v", err)
+	}
 }
 
-// The capture-payload branch with an unwritable path logs a warning and
-// reports submitted=false (the directory does not exist).
-func TestHandleSubmission_CaptureWriteFailureIsNonFatal(t *testing.T) {
+// The capture file is what the operator explicitly asked for (the
+// auditor's view of what would be sent), so failing to write it is an
+// error the run reports, not a warning it exits 0 past.
+func TestHandleSubmission_CaptureWriteFailureIsAnError(t *testing.T) {
 	var logBuf bytes.Buffer
 	opts := &Options{
 		Logger:             log.New(&logBuf, false),
 		CapturePayloadPath: "/nonexistent-dir-xyz/captured.json",
 	}
-	submitted, _ := handleSubmission(context.Background(), opts,
+	submitted, _, err := handleSubmission(context.Background(), opts,
 		&core.SubmissionPayload{Schema: "x"}, time.Now())
 	if submitted {
 		t.Error("submitted = true; want false (capture path takes precedence)")
+	}
+	if err == nil || !strings.Contains(err.Error(), "captured.json") {
+		t.Errorf("want an error naming the capture path; got %v", err)
 	}
 }
 

@@ -14,6 +14,7 @@ package vault
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"sync"
 
@@ -29,7 +30,51 @@ type Factory func(ctx context.Context, cfg *spec.VaultConfig) (core.Vault, error
 var (
 	mu        sync.RWMutex
 	factories = map[string]Factory{}
+	keys      = map[string][]string{}
 )
+
+// RegisterBackendKeys records the config keys a backend reads besides
+// `backend`, so ConfigWarnings can name a mistyped one. Optional: a
+// backend that registers none is never warned about, which keeps a
+// project-local backend unaffected.
+func RegisterBackendKeys(id string, configKeys ...string) {
+	mu.Lock()
+	defer mu.Unlock()
+	keys[id] = append([]string(nil), configKeys...)
+}
+
+// ConfigWarnings reports vault keys the configured backend does not
+// read. The vault block is an open bag, so `bakend: s3` used to load
+// with no word and the run wrote to the default local folder.
+//
+// Warning, never error: the same tolerance the sources: block has.
+func ConfigWarnings(cfg *spec.VaultConfig) []string {
+	if cfg == nil {
+		return nil
+	}
+	mu.RLock()
+	known := keys[cfg.Backend]
+	mu.RUnlock()
+	if len(known) == 0 {
+		return nil
+	}
+	set := make(map[string]struct{}, len(known))
+	for _, k := range known {
+		set[k] = struct{}{}
+	}
+	names := make([]string, 0, len(cfg.Config))
+	for k := range cfg.Config {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+	var out []string
+	for _, k := range names {
+		if _, ok := set[k]; !ok {
+			out = append(out, fmt.Sprintf("vault: unrecognized key %q, so it was ignored; backend %q reads %v", k, cfg.Backend, known))
+		}
+	}
+	return out
+}
 
 // RegisterBackend adds a Factory under id. Intended for an init() call
 // in the backend's package. Duplicate IDs panic at process start —

@@ -35,6 +35,9 @@ func validateProjectReferences(cfg *spec.ProjectConfig, framework core.Framework
 			return fmt.Errorf("project config: policies[%q]: no such policy in framework %q%s",
 				id, framework.ID(), didYouMean(id, policyIDs))
 		}
+		if err := checkAutomatedOverride(id, cfg.Policies[id].EvidenceMode, set); err != nil {
+			return err
+		}
 	}
 	for id := range cfg.Controls {
 		if _, ok := controlIDs[id]; !ok {
@@ -199,4 +202,21 @@ func min3(a, b, c int) int {
 		m = c
 	}
 	return m
+}
+
+// checkAutomatedOverride rejects `evidence_mode: automated` on a policy
+// that has nothing to evaluate in automated mode: no pass_when and no
+// rule. Every shipped manual-only policy is like that, and the override
+// used to load cleanly and then error on every run with `rule "" not
+// registered` (exit 2), which names neither the config key nor the fix.
+func checkAutomatedOverride(id, mode string, set *registry.Set) error {
+	if mode != string(core.EvidenceModeAutomated) {
+		return nil
+	}
+	policy, ok := set.Policies.Lookup(id)
+	if !ok || policy.PassWhen != nil || policy.RuleRef != "" {
+		return nil
+	}
+	return fmt.Errorf("project config: policies[%q].evidence_mode: %q has no automated check (no pass_when and no rule), "+
+		"so it can only be evaluated from manual evidence; remove the override", id, core.EvidenceModeAutomated)
 }

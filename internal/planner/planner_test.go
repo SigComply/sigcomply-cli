@@ -610,6 +610,9 @@ func TestPlan_PolicyOverride_ManualToAutomated(t *testing.T) {
 		EvidenceMode: core.EvidenceModeManual,
 		CatalogEntry: catalogAccessReview,
 		Cadence:      cadenceQuarterly,
+		// An automated check to switch to; without one the override is
+		// a config error (TestPlan_AutomatedOverrideWithoutCheckRejected).
+		RuleRef: "access_review.rule",
 		Slots: map[string]core.Slot{
 			"review_doc": {
 				Accepts:     []string{evDirectoryUser},
@@ -666,6 +669,37 @@ func TestPlan_PolicyOverride_ManualToAutomated(t *testing.T) {
 	}
 	if _, ok := pp.Bindings["review_doc"]; !ok {
 		t.Error("expected automated bindings under review_doc slot")
+	}
+}
+
+// A manual-only policy has nothing to run in automated mode; the
+// override must fail at load (exit 3) naming the key, not error on every
+// run with an empty rule reference.
+func TestPlan_AutomatedOverrideWithoutCheckRejected(t *testing.T) {
+	manualPolicy := core.Policy{
+		ID:           accessReviewPolicyID,
+		Controls:     []core.ControlRef{{ControlID: ctrlSOC2CC61}},
+		EvidenceMode: core.EvidenceModeManual,
+		CatalogEntry: catalogAccessReview,
+		Cadence:      cadenceQuarterly,
+	}
+	set := registry.NewSet()
+	if err := set.Policies.Register(manualPolicy); err != nil {
+		t.Fatal(err)
+	}
+	if err := set.Frameworks.Register(&fakeFramework{
+		id: fwSOC2, version: "2017", policies: []core.PolicyRef{{PolicyID: manualPolicy.ID}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &spec.ProjectConfig{
+		SchemaVersion: schemaProjectV1, Framework: fwSOC2,
+		Policies: map[string]spec.PolicyConfig{accessReviewPolicyID: {EvidenceMode: "automated"}},
+	}
+	commit := commitFixture(t)
+	_, err := planner.Plan(&planner.Input{Config: cfg, Registries: set, CommitTime: commit, Now: commit})
+	if err == nil || !strings.Contains(err.Error(), "evidence_mode") || !strings.Contains(err.Error(), accessReviewPolicyID) {
+		t.Fatalf("want an evidence_mode config error naming the policy; got %v", err)
 	}
 }
 

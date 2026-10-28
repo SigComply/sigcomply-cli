@@ -11,9 +11,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
 	"os"
 	"strings"
 	"time"
@@ -113,6 +115,9 @@ func Submit(ctx context.Context, opts Options, payload *core.SubmissionPayload) 
 	if err != nil {
 		return Response{}, fmt.Errorf("submitter: marshal payload: %w", err)
 	}
+	if err := ValidateBaseURL(opts.BaseURL); err != nil {
+		return Response{}, err
+	}
 	tokenProvider := opts.TokenProvider
 	if tokenProvider == nil {
 		tokenProvider = DefaultTokenProvider()
@@ -136,6 +141,13 @@ func Submit(ctx context.Context, opts Options, payload *core.SubmissionPayload) 
 	if client == nil {
 		client = &http.Client{Timeout: 30 * time.Second}
 	}
+	// Never follow a redirect: Go turns a POST into a GET on 301/302 and
+	// forwards the Authorization header, so the bearer token would go to
+	// the redirect target and no payload would arrive. Copying the client
+	// keeps a caller's transport and timeout.
+	noRedirect := *client
+	noRedirect.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	client = &noRedirect
 	resp, err := client.Do(req) //nolint:gosec // #nosec G107 -- url is from project config (cfg.cloud.base_url), not user input; vetted at config-load time
 	if err != nil {
 		return Response{}, fmt.Errorf("submitter: post %s: %w", url, err)
@@ -146,10 +158,39 @@ func Submit(ctx context.Context, opts Options, payload *core.SubmissionPayload) 
 		return Response{StatusCode: resp.StatusCode}, fmt.Errorf("submitter: read response body: %w", readErr)
 	}
 	out := Response{StatusCode: resp.StatusCode, Body: respBody}
+	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
+		return out, fmt.Errorf("submitter: %s answered %d with a redirect to %q; nothing was submitted. "+
+			"Set cloud.base_url to the final https URL", url, resp.StatusCode, resp.Header.Get("Location"))
+	}
 	if resp.StatusCode >= 400 {
 		return out, fmt.Errorf("submitter: %s returned %d: %s", url, resp.StatusCode, string(respBody))
 	}
 	return out, nil
+}
+
+// ValidateBaseURL accepts an https URL with a host, or plain http to a
+// loopback host for local testing. Anything else would send the OIDC
+// bearer token in cleartext.
+func ValidateBaseURL(raw string) error {
+	u, err := neturl.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("cloud base URL %q: %w", raw, err)
+	}
+	if u.Host == "" {
+		return fmt.Errorf("cloud base URL %q: want https://<host>", raw)
+	}
+	switch u.Scheme {
+	case "https":
+		return nil
+	case "http":
+		switch u.Hostname() {
+		case "localhost", "127.0.0.1", "::1":
+			return nil
+		}
+		return fmt.Errorf("cloud base URL %q: must use https; plain http would send the OIDC token unencrypted (http is accepted only for localhost)", raw)
+	default:
+		return fmt.Errorf("cloud base URL %q: want https://<host>", raw)
+	}
 }
 
 // Response is the parsed cloud response.
@@ -200,12 +241,17 @@ type chainProvider struct {
 }
 
 func (c *chainProvider) Token(ctx context.Context, audience string) (token, providerName string, err error) {
+	// A provider that found its environment but failed (GitHub refusing
+	// the audience, say) carries the error worth reporting; a later
+	// provider that is simply absent must not replace it with ErrNoToken.
 	for _, p := range c.providers {
 		t, name, e := p.Token(ctx, audience)
 		if e == nil {
 			return t, name, nil
 		}
-		err = e
+		if err == nil || (errors.Is(err, ErrNoToken) && !errors.Is(e, ErrNoToken)) {
+			err = e
+		}
 	}
 	if err == nil {
 		err = ErrNoToken

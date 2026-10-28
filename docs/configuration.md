@@ -30,8 +30,16 @@ skipped. A full example is at the [end of this page](#full-example).
 |---|---|---|
 | Top level, `period`, `policies`, `controls`, `cloud`, `ci` | Config error, exit `3` | Config error, exit `3` |
 | `sources.<id>` | Warning: `unrecognized key ..., so it was ignored` | Warning for a non-string value of a string key; the source's own check may then fail with exit `3` |
-| `vault` | Ignored with no warning | The backend reports missing required keys, exit `3` |
+| `vault` | Warning: `vault: unrecognized key ..., so it was ignored` (built-in backends) | The backend reports missing required keys, exit `3` |
+| `experimental` | Warning: `experimental: unrecognized key ..., so it was ignored` | See each block. |
 | `experimental.scope`, `.vendors`, `.risks`, `.roster` | Warning | See each block. A malformed `experimental.scope` is a config error, exit `3`. |
+
+Unknown keys under `sources`, `vault` and `experimental` warn rather than fail, so a config
+written for a newer CLI still runs on an older one.
+
+Relative paths in the file (`vault.path`, the `manual.pdf` `path`) resolve against the directory
+you run `sigcomply` in, not the directory of the config file. Run from the project root, or use
+absolute paths.
 
 A policy ID or control ID that the framework does not define is a config error with a "did you
 mean" suggestion.
@@ -171,7 +179,7 @@ the policy IDs it evaluated.
 | `bindings` | map of slot name to list | every source whose types the slot accepts | Limits a slot to the listed sources. An entry is a source key (`okta`) or a map `{source: okta, slot_params: {...}}`. `slot_params` are passed to that source for this binding. Slot names appear in the `check` output, for example `(slot "evidence")`. |
 | `parameters` | map | none | Overrides a parameter the policy declares. Shipped SOC 2 and ISO 27001 policies declare none, so this works only for project-local policies. An unknown parameter is a config error. |
 | `cadence` | string | the framework's cadence | How often the policy is re-evaluated. See [cadence values](#cadence-values). For a manual policy, it does not move the upload folder. |
-| `evidence_mode` | string | the framework's mode | `automated` or `manual`. Switches the policy to the other flow. The result records that the mode was overridden. |
+| `evidence_mode` | string | the framework's mode | `automated` or `manual`. Switches the policy to the other flow. The result records that the mode was overridden. `automated` on a policy with no automated check (every shipped manual-only policy) is a config error, exit `3`. |
 | `catalog_entry` | string | none | Required when `evidence_mode: manual`; not allowed otherwise. The manual-evidence entry (folder name) to read. |
 | `exceptions` | list | none | Waivers and not-applicable declarations. See below. |
 
@@ -229,10 +237,11 @@ error.
 
 | Key | Type | Default | Effect |
 |---|---|---|---|
-| `cloud.base_url` | string | none | SigComply Cloud endpoint. Set `https://sigcomply.com` to submit. With no value and no `--cloud-url` flag, nothing is submitted. |
+| `cloud.base_url` | string | none | SigComply Cloud endpoint. Set `https://sigcomply.com` to submit. With no value and no `--cloud-url` flag, nothing is submitted. Must be `https://`; plain `http://` is accepted only for `localhost`, and anything else is a config error, exit `3`. |
 
 A run submits when `cloud.base_url` (or `--cloud-url`, which overrides it) is set, the run is in
-CI, and an OIDC token is available. `--no-cloud` turns submission off. Only per-policy counts are
+CI, and an OIDC token is available. The CLI does not follow redirects: a `3xx` answer is a
+failed submission that names the redirect target, so set the final URL. `--no-cloud` turns submission off. Only per-policy counts are
 sent. Setup: [Cloud dashboard](guides/cloud-dashboard.md).
 
 ## `ci`
@@ -244,7 +253,8 @@ sent. Setup: [Cloud dashboard](guides/cloud-dashboard.md).
 ## `experimental`
 
 Each feature reads its own key and reports its own errors; the loader checks the shape of
-`experimental.scope` itself. An unknown sub-key prints a warning.
+`experimental.scope` itself. The keys are `scope`, `vendors`, `risks` and `roster`; any other key
+under `experimental`, and an unknown sub-key of one of them, prints a warning.
 
 <a id="experimentalscope--declaring-the-estate"></a>
 
@@ -354,7 +364,7 @@ one account aliased to two emails. Alias and `non_human` entries that match no a
 | `GITHUB_SHA`, then `CI_COMMIT_SHA` | Commit SHA recorded for the run. Without either, the CLI runs `git rev-parse HEAD`. |
 | `GITHUB_EVENT_HEAD_COMMIT_TIMESTAMP` | Commit time, which sets the audit period when `time_basis: commit`. Without it, the CLI runs `git show -s --format=%cI HEAD`; if that fails, it uses the current time. |
 | `GITHUB_REF_NAME`, then `CI_COMMIT_REF_NAME`, then `GIT_BRANCH` | Branch recorded for the run. |
-| `CI`, `GITHUB_ACTIONS`, `GITLAB_CI` | Any of these marks the run as in CI, which cloud submission requires. |
+| `CI`, `GITHUB_ACTIONS`, `GITLAB_CI` | Any of these marks the run as in CI, which cloud submission requires. In CI, `check` also warns when the vault or `manual.pdf` is a local folder: the runner's disk is deleted when the job ends, and a local evidence folder sees only committed files. |
 | `GITHUB_WORKFLOW`, `GITHUB_RUN_ID`, `GITHUB_REPOSITORY` | GitHub Actions workflow name and run URL recorded for the run. |
 | `CI_JOB_NAME`, `CI_JOB_URL` | GitLab CI job name and URL recorded for the run. |
 | `GITHUB_STEP_SUMMARY` | `evidence due` appends its report to this file. When `GITHUB_ACTIONS=true` it also prints workflow annotations. |

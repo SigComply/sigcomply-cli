@@ -11,6 +11,7 @@ import (
 
 func init() {
 	vault.RegisterBackend("s3", build)
+	vault.RegisterBackendKeys("s3", "bucket", "region", "prefix", "endpoint", "force_path_style")
 }
 
 func build(ctx context.Context, cfg *spec.VaultConfig) (core.Vault, error) {

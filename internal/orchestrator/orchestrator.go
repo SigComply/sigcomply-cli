@@ -152,7 +152,11 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 	}
 	emitPlanWarnings(opts.Logger, plan, startedAt)
 	emitRosterWarnings(opts.Logger, opts.Config, opts.Registries)
-	emitUnboundSourceWarnings(opts.Logger, opts.Config, plan)
+	// A filtered run reads a subset of policies; a source only other
+	// cadences read is not unused, so the warning is for the full plan.
+	if !filter.IsExplicit() {
+		emitUnboundSourceWarnings(opts.Logger, opts.Config, plan)
+	}
 	emitSourceCaveatWarnings(opts.Logger, plan)
 	emitVendorWarnings(opts.Logger, opts.Config)
 	emitRiskWarnings(opts.Logger, opts.Config, opts.Registries, plan)
@@ -201,9 +205,12 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 	advancePolicyStates(ctx, opts, plan, results, runID, runRoot, startedAt)
 
 	payload := buildPayload(opts, results, plan, runID, startedAt, completedAt)
-	submitted, submittedAt := handleSubmission(ctx, opts, &payload, completedAt)
+	submitted, submittedAt, captureErr := handleSubmission(ctx, opts, &payload, completedAt)
 
 	exitCode := renderAndExitCode(opts.Stdout, plan, results, opts.Config.CI, scopeReport)
+	if captureErr != nil {
+		return Result{ExitCode: ExitExecution, RunID: runID, RunRoot: runRoot, Summary: payload.Summary}, captureErr
+	}
 	return Result{
 		ExitCode:    exitCode,
 		RunID:       runID,
@@ -626,12 +633,16 @@ func buildPayload(opts *Options, results []core.PolicyResult, plan *planner.RunP
 	return aggregator.Build(results, &env)
 }
 
-func handleSubmission(ctx context.Context, opts *Options, payload *core.SubmissionPayload, completedAt time.Time) (bool, time.Time) {
+// handleSubmission sends or captures the payload. A failed submission is
+// logged and never changes the exit code; a failed --capture-cloud-payload
+// write is returned as an error, because the operator asked for that file
+// and an exit 0 without it reads as success.
+func handleSubmission(ctx context.Context, opts *Options, payload *core.SubmissionPayload, completedAt time.Time) (submitted bool, submittedAt time.Time, err error) {
 	if opts.CapturePayloadPath != "" {
 		if err := writeCapturedPayload(opts.CapturePayloadPath, payload); err != nil {
-			opts.Logger.Warnf("capture payload: %s", err.Error())
+			return false, time.Time{}, fmt.Errorf("capture payload to %s: %w", opts.CapturePayloadPath, err)
 		}
-		return false, time.Time{}
+		return false, time.Time{}, nil
 	}
 	decision := submitter.Decide(opts.SubmitterOpts, submitter.HasOIDC(), submitter.InCI())
 	switch decision {
@@ -639,10 +650,10 @@ func handleSubmission(ctx context.Context, opts *Options, payload *core.Submissi
 		resp, err := submitter.Submit(ctx, opts.SubmitterOpts, payload)
 		if err != nil {
 			opts.Logger.Warnf("submit: %s", err.Error())
-			return false, time.Time{}
+			return false, time.Time{}, nil
 		}
 		opts.Logger.Infof("submission accepted (HTTP %d)", resp.StatusCode)
-		return true, completedAt
+		return true, completedAt, nil
 	case submitter.DecisionMissingToken:
 		opts.Logger.Warnf("submit: --cloud was set but no OIDC token detected; skipping")
 	case submitter.DecisionMissingBaseURL:
@@ -650,7 +661,7 @@ func handleSubmission(ctx context.Context, opts *Options, payload *core.Submissi
 	case submitter.DecisionSkip:
 		// no-op
 	}
-	return false, time.Time{}
+	return false, time.Time{}, nil
 }
 
 func buildRunRoot(framework, periodID string, now time.Time, runID string) string {
@@ -936,7 +947,7 @@ func renderSkipExplanations(stdout io.Writer, plan *planner.RunPlan, sortedResul
 		return
 	}
 
-	_, _ = fmt.Fprintf(stdout, "\n%d control(s) were SKIPPED and are NOT counted in the compliance score:\n", len(lines)) //nolint:errcheck // status output
+	_, _ = fmt.Fprintf(stdout, "\n%d policies were SKIPPED and are NOT counted in the compliance score:\n", len(lines)) //nolint:errcheck // status output
 	for _, l := range lines {
 		_, _ = fmt.Fprintf(stdout, "  %s — %s\n", l.policyID, l.detail) //nolint:errcheck // status output
 	}

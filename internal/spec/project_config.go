@@ -428,9 +428,64 @@ func validatePeriod(p *PeriodConfig) error {
 	if p.FiscalCalendar.Type == fiscalTypeCustom && len(p.FiscalCalendar.Periods) == 0 {
 		return fmt.Errorf("project config: period.fiscal_calendar.periods: required when type is \"custom\"")
 	}
-	for i, cp := range p.FiscalCalendar.Periods {
+	return validateCustomPeriods(p.FiscalCalendar.Periods)
+}
+
+// maxPeriodIDLen is the longest period ID SigComply Cloud stores; a
+// longer one makes the dashboard reject the whole run.
+const maxPeriodIDLen = 50
+
+// periodIDPattern keeps a custom period ID to one safe path segment: the
+// ID names the run's vault folder, and only the local backend rejects a
+// path escape.
+var periodIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
+
+// validateCustomPeriods checks each custom period and then sorts the list
+// by start date. Order matters downstream: the planner takes the entry
+// before a run's period as its prior period, so an unsorted list would
+// point the copy-of-prior-period check at the wrong folder. Overlaps are
+// rejected for the same reason: a run in two periods would land in
+// whichever the list names first.
+func validateCustomPeriods(periods []CustomPeriod) error {
+	type span struct {
+		start, end time.Time
+	}
+	spans := make(map[string]span, len(periods))
+	for i, cp := range periods {
+		field := fmt.Sprintf("project config: period.fiscal_calendar.periods[%d]", i)
 		if cp.ID == "" || cp.Start == "" || cp.End == "" {
-			return fmt.Errorf("project config: period.fiscal_calendar.periods[%d]: id, start, end are all required", i)
+			return fmt.Errorf("%s: id, start, end are all required", field)
+		}
+		if !periodIDPattern.MatchString(cp.ID) {
+			return fmt.Errorf("%s: id %q: letters, digits, dot, dash and underscore only, starting with a letter or digit; the ID names a folder in your vault", field, cp.ID)
+		}
+		if len(cp.ID) > maxPeriodIDLen {
+			return fmt.Errorf("%s: id %q is %d characters; at most %d (SigComply Cloud rejects longer period IDs)", field, cp.ID, len(cp.ID), maxPeriodIDLen)
+		}
+		if _, dup := spans[cp.ID]; dup {
+			return fmt.Errorf("%s: id %q is used more than once", field, cp.ID)
+		}
+		start, err := time.Parse("2006-01-02", cp.Start)
+		if err != nil {
+			return fmt.Errorf("%s: start %q: want a date YYYY-MM-DD", field, cp.Start)
+		}
+		end, err := time.Parse("2006-01-02", cp.End)
+		if err != nil {
+			return fmt.Errorf("%s: end %q: want a date YYYY-MM-DD", field, cp.End)
+		}
+		if end.Before(start) {
+			return fmt.Errorf("%s: end %s is before its start %s", field, cp.End, cp.Start)
+		}
+		spans[cp.ID] = span{start, end}
+	}
+	sort.SliceStable(periods, func(i, j int) bool { return spans[periods[i].ID].start.Before(spans[periods[j].ID].start) })
+	for i := 1; i < len(periods); i++ {
+		prev, cur := periods[i-1], periods[i]
+		// end is inclusive, so a period may start the day after the
+		// previous one ends but not on it.
+		if !spans[cur.ID].start.After(spans[prev.ID].end) {
+			return fmt.Errorf("project config: period.fiscal_calendar.periods: %q (%s to %s) and %q (%s to %s) overlap",
+				prev.ID, prev.Start, prev.End, cur.ID, cur.Start, cur.End)
 		}
 	}
 	return nil

@@ -142,6 +142,12 @@ func TestRunCheck_EndToEndWithManualOnly(t *testing.T) {
 	if !manifestFound {
 		t.Errorf("no manifest.json written under vault %s", vaultDir)
 	}
+	// The run ends by naming where its results went and how to read
+	// them back; nothing else in the output names the vault.
+	if !strings.Contains(stdout.String(), "Results written to "+vaultDir+"/soc2/") ||
+		!strings.Contains(stdout.String(), "Next: sigcomply report --period ") {
+		t.Errorf("stdout should name the run folder and the report command; got:\n%s", stdout.String())
+	}
 }
 
 func TestExecute_Help(t *testing.T) {
@@ -322,5 +328,73 @@ func TestWithRegionDefault(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestCILocalStorageWarnings(t *testing.T) {
+	cfg := &spec.ProjectConfig{
+		Vault:   spec.VaultConfig{Backend: backendLocal, Config: map[string]any{pathKey: "./.sigcomply/vault"}},
+		Sources: map[string]map[string]any{manual.SourceID: {pathKey: "./evidence"}},
+	}
+	if w := ciLocalStorageWarnings(cfg, false); len(w) != 0 {
+		t.Errorf("no warnings outside CI; got %v", w)
+	}
+	w := ciLocalStorageWarnings(cfg, true)
+	if len(w) != 2 || !strings.Contains(w[0], "vault") || !strings.Contains(w[1], manual.SourceID) {
+		t.Errorf("want vault and manual.pdf warnings in CI; got %v", w)
+	}
+	cfg.Vault = spec.VaultConfig{Backend: s3Backend, Config: map[string]any{bucketKey: "b"}}
+	cfg.Sources[manual.SourceID]["backend"] = s3Backend
+	if w := ciLocalStorageWarnings(cfg, true); len(w) != 0 {
+		t.Errorf("bucket storage must not warn; got %v", w)
+	}
+}
+
+func TestVaultLocation(t *testing.T) {
+	cases := map[string]spec.VaultConfig{
+		"./v":           {Backend: backendLocal, Config: map[string]any{pathKey: "./v/"}},
+		"s3://b/p":      {Backend: s3Backend, Config: map[string]any{bucketKey: "b", prefixConfigKey: "p/"}},
+		"gs://b":        {Backend: "gcs", Config: map[string]any{bucketKey: "b"}},
+		"az://acct/box": {Backend: azureBlobBackend, Config: map[string]any{accountKey: "acct", containerKey: "box"}},
+	}
+	for want, vc := range cases {
+		if got := vaultLocation(&vc); got != want {
+			t.Errorf("vaultLocation(%+v) = %q; want %q", vc, got, want)
+		}
+	}
+}
+
+// A plain-http cloud URL would send the OIDC token in cleartext; it is a
+// config error before the run, whether it comes from the config or the
+// flag.
+func TestRunCheck_PlainHTTPCloudURLExitsConfig(t *testing.T) {
+	tmp := t.TempDir()
+	configPath := filepath.Join(tmp, "cfg.yaml")
+	writeManualOnlyConfig(t, configPath, filepath.Join(tmp, "vault"), filepath.Join(tmp, "manual"))
+	err := runCheck(context.Background(), &bytes.Buffer{}, &checkFlags{
+		config: configPath, cloudURL: "http://sigcomply.example",
+	})
+	var ec *exitCodeError
+	if !errors.As(err, &ec) || ec.code != orchestrator.ExitConfig || !strings.Contains(err.Error(), "https") {
+		t.Fatalf("want exit 3 naming https; got %v", err)
+	}
+}
+
+// --capture-cloud-payload names a file the operator asked for; failing to
+// write it exits 2 rather than 0 or the policy verdict.
+func TestRunCheck_CaptureWriteFailureExitsTwo(t *testing.T) {
+	tmp := t.TempDir()
+	manualDir := filepath.Join(tmp, "manual")
+	if err := os.MkdirAll(manualDir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(tmp, "cfg.yaml")
+	writeManualOnlyConfig(t, configPath, filepath.Join(tmp, "vault"), manualDir)
+	err := runCheck(context.Background(), &bytes.Buffer{}, &checkFlags{
+		config: configPath, capturePayloadPath: filepath.Join(tmp, "missing-dir", "payload.json"),
+	})
+	var ec *exitCodeError
+	if !errors.As(err, &ec) || ec.code != orchestrator.ExitExecution || !strings.Contains(err.Error(), "payload.json") {
+		t.Fatalf("want exit 2 naming the capture file; got %v", err)
 	}
 }

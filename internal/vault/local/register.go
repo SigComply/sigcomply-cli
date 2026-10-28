@@ -10,6 +10,7 @@ import (
 
 func init() {
 	vault.RegisterBackend("local", build)
+	vault.RegisterBackendKeys("local", "path")
 }
 
 func build(ctx context.Context, cfg *spec.VaultConfig) (core.Vault, error) {

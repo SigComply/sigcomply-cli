@@ -50,7 +50,7 @@ The period is taken from the timestamp of the HEAD commit (configurable with
 | `--cloud` | | | Submit even outside CI. Needs an OIDC token and `cloud.base_url` (or `--cloud-url`); without a URL it warns and skips. |
 | `--no-cloud` | | | Never submit |
 | `--cloud-url <url>` | | `cloud.base_url` | SigComply Cloud base URL. Setting it turns submission on, like `cloud.base_url`. |
-| `--capture-cloud-payload <file>` | | | Write the submission payload to this file instead of sending it |
+| `--capture-cloud-payload <file>` | | | Write the submission payload to this file instead of sending it. A failed write exits `2`. |
 | `--config <path>` | `-c` | `.sigcomply.yaml` | Config file |
 | `--verbose` | `-v` | `false` | Verbose logging |
 
@@ -59,7 +59,15 @@ combining two exits `2`. `check` has no `--framework` flag.
 
 Without `--cloud` or `--no-cloud`, the CLI submits only when all of these hold: a base URL is
 set, the run is in GitHub Actions or GitLab CI, and an OIDC token is available. A failed
-submission does not change the exit code.
+submission does not change the exit code. The base URL must be `https://` (plain `http://` only
+for `localhost`), or the run exits `3` before collecting.
+
+The run ends with the vault folder it wrote and the command that reads it back:
+
+```
+Results written to ./.sigcomply/vault/soc2/2026-Q4/run_20261026T201203Z_14f82a86
+Next: sigcomply report --period 2026-Q4 (add --view integrity to verify the signatures)
+```
 
 ## `sigcomply init`
 
@@ -149,6 +157,15 @@ SigComply Cloud and needs no OIDC token.
 | `--vault <uri>` | | config | Vault location: a path, `file://<path>`, `s3://bucket[/prefix][?region=<region>]`, `gs://bucket[/prefix]` or `az://<account>/<container>[/prefix]` |
 | `--framework <value>` | `-f` | config | Framework |
 
+An `s3://` URI without `?region=` takes the region from `AWS_REGION`, then
+`AWS_DEFAULT_REGION`, then `vault.region` in the config when that vault is S3. Other S3 settings
+(`endpoint`, `force_path_style`) can only come from the config.
+
+A local vault path that does not exist exits `3`; `report` does not create it. A period with no
+runs exits `3` and lists the periods the vault holds, so a mistyped period or vault never reads
+as a clean result. The `soa` view is the exception: it renders with no runs, and every control
+then reads "not evaluated".
+
 | View | Shows |
 |---|---|
 | `latest` | Each policy's latest status in the period, with the reason for a failure or error |
@@ -187,6 +204,10 @@ This period
   0 manual control(s) with evidence on file, 27 without
 ```
 
+`--format json`, like `result.json` in the vault, uses Go field names as keys (`PolicyID`,
+`Status`); some nested objects use `snake_case`. `--format csv` uses `snake_case` column names
+throughout.
+
 `--view soa` needs the project config, because applicability decisions exist only in
 `.sigcomply.yaml`. If you pass both `--vault` and `--framework`, the config is read only when you
 also pass `-c <path>`; without it the view exits `3`.
@@ -206,10 +227,6 @@ columns `ID`, `CONTROL`, `TYPE`, `FREQUENCY` and `NAME`; `-o json` prints
 catalog spells the annual frequency `yearly`.
 
 The flags belong to the parent `evidence` command, so `--help` lists them as global flags.
-
-`--format json`, like `result.json` in the vault, uses Go field names as keys (`PolicyID`,
-`Status`); some nested objects use `snake_case`. `--format csv` uses `snake_case` column names
-throughout.
 
 | Flag | Short | Default | Meaning |
 |---|---|---|---|

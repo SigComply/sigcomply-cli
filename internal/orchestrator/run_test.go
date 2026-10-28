@@ -166,7 +166,7 @@ func TestRenderAndExitCode_SkipExplanationsAreLoud(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		"2 control(s) were SKIPPED",
+		"2 policies were SKIPPED",
 		"no configured source emits [directory_user]",
 		"bound source(s) returned no evidence records",
 		"NOT a passing audit",
@@ -422,5 +422,40 @@ func TestEmitPlanWarnings_RosterSlotIsNotACoverageGap(t *testing.T) {
 	emitPlanWarnings(logger, plan, time.Now().UTC())
 	if out := buf.String(); strings.Contains(out, "coverage-gap") {
 		t.Errorf("roster slot should not be reported as coverage-gap; got:\n%s", out)
+	}
+}
+
+// A cadence-filtered run selects a subset of policies, so a source the
+// subset does not read is not "never consulted": other cadences read it.
+// The unbound-source warning is for the full plan only.
+func TestRun_UnboundSourceWarningOnlyOnUnfilteredRuns(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		filter planner.Filter
+		want   bool
+	}{
+		{"unfiltered warns", planner.Filter{}, true},
+		{"cadence-filtered does not", planner.Filter{Cadence: "weekly"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			regs := registry.NewSet()
+			if err := regs.Frameworks.Register(&emptyFramework{}); err != nil {
+				t.Fatal(err)
+			}
+			cfg := minimalConfig()
+			cfg.Sources = map[string]map[string]any{sourceOkta: {}}
+			var logBuf bytes.Buffer
+			if _, err := Run(context.Background(), &Options{
+				Config: cfg, Registries: regs, Vault: newInMem(),
+				Stdout: &bytes.Buffer{}, Logger: log.New(&logBuf, false),
+				Now:    func() time.Time { return time.Now().UTC() },
+				Filter: tc.filter, SubmitterOpts: submitter.Options{Disable: true},
+			}); err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+			if got := strings.Contains(logBuf.String(), "unbound-source"); got != tc.want {
+				t.Errorf("unbound-source warning printed = %v; want %v\n%s", got, tc.want, logBuf.String())
+			}
+		})
 	}
 }

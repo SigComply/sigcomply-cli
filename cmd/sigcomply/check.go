@@ -102,9 +102,7 @@ func runCheck(ctx context.Context, stdout io.Writer, flags *checkFlags) error {
 	// reason the credential resolution that follows fails, and reporting
 	// it afterwards would mean the operator never sees it — the eager
 	// credential check stops the run first.
-	for _, w := range planner.SourceConfigWarnings(cfg) {
-		logger.Warnf("source-config: %s", w)
-	}
+	emitConfigWarnings(logger, cfg)
 
 	if err := registerProductionSources(ctx, registries, cfg, manualCatalog); err != nil {
 		return &exitCodeError{code: orchestrator.ExitConfig, err: err}
@@ -125,9 +123,9 @@ func runCheck(ctx context.Context, stdout io.Writer, flags *checkFlags) error {
 		return &exitCodeError{code: orchestrator.ExitConfig, err: fmt.Errorf("vault: %w", err)}
 	}
 
-	cloudBase := cfg.Cloud.BaseURL
-	if flags.cloudURL != "" {
-		cloudBase = flags.cloudURL
+	cloudBase, err := resolveCloudBase(cfg, flags)
+	if err != nil {
+		return &exitCodeError{code: orchestrator.ExitConfig, err: err}
 	}
 
 	commitSHA, commitTime := gitContext(ctx, logger)
@@ -171,10 +169,105 @@ func runCheck(ctx context.Context, stdout io.Writer, flags *checkFlags) error {
 		}
 		return &exitCodeError{code: code, err: err}
 	}
+	printRunLocation(stdout, &cfg.Vault, res.RunRoot)
 	if res.ExitCode != orchestrator.ExitOK {
 		return &exitCodeError{code: res.ExitCode}
 	}
 	return nil
+}
+
+// emitConfigWarnings logs every non-fatal config finding: keys no
+// source, vault backend or experimental feature reads, and local storage
+// in a CI job.
+func emitConfigWarnings(logger *log.Logger, cfg *spec.ProjectConfig) {
+	for _, w := range planner.SourceConfigWarnings(cfg) {
+		logger.Warnf("source-config: %s", w)
+	}
+	for _, w := range planner.ExperimentalKeyWarnings(cfg) {
+		logger.Warnf("config: %s", w)
+	}
+	for _, w := range vault.ConfigWarnings(&cfg.Vault) {
+		logger.Warnf("config: %s", w)
+	}
+	for _, w := range ciLocalStorageWarnings(cfg, submitter.InCI()) {
+		logger.Warnf("config: %s", w)
+	}
+}
+
+// resolveCloudBase picks the cloud URL (--cloud-url over cloud.base_url)
+// and checks it up front, so a plain-http URL is a config error before
+// the run rather than a warning after it.
+func resolveCloudBase(cfg *spec.ProjectConfig, flags *checkFlags) (string, error) {
+	cloudBase := cfg.Cloud.BaseURL
+	if flags.cloudURL != "" {
+		cloudBase = flags.cloudURL
+	}
+	if cloudBase != "" && !flags.cloudOff {
+		if err := submitter.ValidateBaseURL(cloudBase); err != nil {
+			return "", err
+		}
+	}
+	return cloudBase, nil
+}
+
+// ciLocalStorageWarnings flags local storage in a CI job. A local vault
+// lives on the runner and disappears with it, so the run's signed
+// evidence is gone when the job ends; a local manual.pdf folder sees only
+// files committed to the repository.
+func ciLocalStorageWarnings(cfg *spec.ProjectConfig, inCI bool) []string {
+	if !inCI {
+		return nil
+	}
+	var out []string
+	if cfg.Vault.Backend == backendLocal {
+		out = append(out, fmt.Sprintf("the vault is the local folder %s; in CI it is deleted when the job ends. "+
+			"Set vault.backend to s3, gcs or azure_blob to keep the evidence", cfg.Vault.Str("path")))
+	}
+	if raw, ok := cfg.Sources[manual.SourceID]; ok {
+		if b := sources.StringOpt(raw, "backend"); b == "" || b == backendLocal {
+			out = append(out, "sources.manual.pdf reads a local folder; in CI it sees only files committed to the repository. "+
+				"Set its backend to s3, gcs or azure_blob to read uploaded documents")
+		}
+	}
+	return out
+}
+
+// printRunLocation ends a run's output with where its results went and
+// how to read them back. Without it nothing in the output names the vault
+// or the run folder, and a mistyped vault block was invisible.
+func printRunLocation(stdout io.Writer, vc *spec.VaultConfig, runRoot string) {
+	if runRoot == "" {
+		return
+	}
+	parts := strings.SplitN(runRoot, "/", 3)
+	if len(parts) < 3 {
+		return
+	}
+	_, _ = fmt.Fprintf(stdout, "\nResults written to %s/%s\n", vaultLocation(vc), runRoot)                                       //nolint:errcheck // status output
+	_, _ = fmt.Fprintf(stdout, "Next: sigcomply report --period %s (add --view integrity to verify the signatures)\n", parts[1]) //nolint:errcheck // status output
+}
+
+// vaultLocation renders the vault as the URI form `report --vault`
+// accepts, so the printed location can be pasted back.
+func vaultLocation(vc *spec.VaultConfig) string {
+	join := func(scheme, base string) string {
+		if p := strings.Trim(vc.Str("prefix"), "/"); p != "" {
+			return scheme + base + "/" + p
+		}
+		return scheme + base
+	}
+	switch vc.Backend {
+	case backendLocal:
+		return strings.TrimSuffix(vc.Str("path"), "/")
+	case "s3":
+		return join("s3://", vc.Str("bucket"))
+	case "gcs":
+		return join("gs://", vc.Str("bucket"))
+	case "azure_blob":
+		return join("az://", vc.Str("account")+"/"+vc.Str("container"))
+	default:
+		return vc.Backend + " vault"
+	}
 }
 
 // registerProductionSources iterates cfg.Sources and dispatches each

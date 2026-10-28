@@ -11,6 +11,7 @@ import (
 
 func init() {
 	vault.RegisterBackend("gcs", build)
+	vault.RegisterBackendKeys("gcs", "bucket", "prefix")
 }
 
 func build(ctx context.Context, cfg *spec.VaultConfig) (core.Vault, error) {

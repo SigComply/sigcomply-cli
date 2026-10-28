@@ -131,3 +131,25 @@ func TestRegistry_RegisterBackend_PanicsOnDuplicate(t *testing.T) {
 	vault.RegisterBackend(id, f)
 	vault.RegisterBackend(id, f) // second call must panic
 }
+
+// A mistyped vault key used to load silently and the run wrote to the
+// default local folder; every in-tree backend names the keys it reads.
+func TestConfigWarnings_UnknownVaultKey(t *testing.T) {
+	const localBackend = "local"
+	got := vault.ConfigWarnings(&spec.VaultConfig{Backend: localBackend, Config: map[string]any{"path": "./v", "bakend": "s3", cfgKeyBucket: "b"}})
+	if len(got) != 2 || !strings.Contains(got[0], `"bakend"`) || !strings.Contains(got[1], `"bucket"`) {
+		t.Errorf("want warnings for bakend and bucket; got %v", got)
+	}
+	for _, id := range vault.IDs() {
+		if strings.HasPrefix(id, "__") {
+			continue // test-only registrations
+		}
+		if w := vault.ConfigWarnings(&spec.VaultConfig{Backend: id, Config: map[string]any{"zzz": "x"}}); len(w) != 1 {
+			t.Errorf("backend %s registers no config keys, so typos go unreported: %v", id, w)
+		}
+	}
+	valid := map[string]any{cfgKeyBucket: "b", "prefix": "p/", "endpoint": "http://minio:9000", "force_path_style": true}
+	if w := vault.ConfigWarnings(&spec.VaultConfig{Backend: "s3", Config: valid}); len(w) != 0 {
+		t.Errorf("valid s3 keys warned: %v", w)
+	}
+}
