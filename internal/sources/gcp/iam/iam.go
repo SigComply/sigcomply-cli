@@ -233,7 +233,11 @@ type realCRM struct {
 }
 
 func (r *realCRM) GetIamPolicy(ctx context.Context, project string) (*crm.Policy, error) {
-	return r.svc.Projects.GetIamPolicy(project, &crm.GetIamPolicyRequest{}).Context(ctx).Do()
+	// Version 3: a version-1 read returns conditional bindings with a
+	// mangled role ("roles/owner_withcond_<hash>") and no condition, so
+	// has_condition and is_broad_admin_role would be wrong.
+	req := &crm.GetIamPolicyRequest{Options: &crm.GetPolicyOptions{RequestedPolicyVersion: 3}}
+	return r.svc.Projects.GetIamPolicy(project, req).Context(ctx).Do()
 }
 
 var _ core.SourcePlugin = (*Plugin)(nil)

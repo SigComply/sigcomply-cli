@@ -4,11 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
 	crm "google.golang.org/api/cloudresourcemanager/v1"
+	"google.golang.org/api/option"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
@@ -233,5 +237,34 @@ func TestCollect_KISSNoDRY_EachCallReFetches(t *testing.T) {
 	}
 	if fake.getCount != 3 {
 		t.Errorf("getCount = %d; want 3 (no caching across Collect calls per KISS-no-DRY)", fake.getCount)
+	}
+}
+
+// A version-1 read of a policy with conditional bindings returns them
+// with a mangled role ("roles/owner_withcond_<hash>") and no condition,
+// so has_condition and is_broad_admin_role would be wrong. The adapter
+// must request policy version 3.
+func TestRealCRM_RequestsPolicyVersion3(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body) //nolint:errcheck // test handler
+		if !strings.Contains(string(body), `"requestedPolicyVersion":3`) {
+			t.Errorf("getIamPolicy body = %s; want requestedPolicyVersion 3", body)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"version":3,"bindings":[{"role":"roles/owner",` + //nolint:errcheck // test handler
+			`"members":["user:a@example.com"],"condition":{"expression":"true"}}]}`))
+	}))
+	defer srv.Close()
+	svc, err := crm.NewService(context.Background(),
+		option.WithoutAuthentication(), option.WithEndpoint(srv.URL), option.WithHTTPClient(srv.Client()))
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	pol, err := (&realCRM{svc: svc}).GetIamPolicy(context.Background(), "proj-1")
+	if err != nil {
+		t.Fatalf("GetIamPolicy: %v", err)
+	}
+	if len(pol.Bindings) != 1 || pol.Bindings[0].Condition == nil {
+		t.Fatalf("bindings = %+v; want one conditional binding", pol.Bindings)
 	}
 }
