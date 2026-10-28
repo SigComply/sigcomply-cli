@@ -89,7 +89,9 @@ func CadenceInterval(cadence string) time.Duration {
 	case cadenceWeekly:
 		return 6*24*time.Hour + 23*time.Hour
 	case cadenceMonthly:
-		return 29*24*time.Hour + 23*time.Hour
+		// 28 days less the slack, not 30: a daily scheduled run must
+		// evaluate inside every calendar month, February included.
+		return 27*24*time.Hour + 23*time.Hour
 	case cadenceQuarterly:
 		return 89*24*time.Hour + 23*time.Hour
 	case cadenceAnnual:

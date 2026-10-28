@@ -4,7 +4,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/planner"
+	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
 
 // The cadence vocabulary, shared by every cadence test.
@@ -124,7 +126,7 @@ func TestCadenceInterval_KnownCadences(t *testing.T) {
 		{cadenceHourly, 0},
 		{cadenceDaily, 23 * time.Hour},
 		{cadenceWeekly, 6*24*time.Hour + 23*time.Hour},
-		{cadenceMonthly, 29*24*time.Hour + 23*time.Hour},
+		{cadenceMonthly, 27*24*time.Hour + 23*time.Hour},
 		{cadenceQuarterly, 89*24*time.Hour + 23*time.Hour},
 		{cadenceAnnual, 364*24*time.Hour + 23*time.Hour},
 		{"unknown-cadence", 0},
@@ -133,6 +135,44 @@ func TestCadenceInterval_KnownCadences(t *testing.T) {
 		if got := planner.CadenceInterval(tc.cadence); got != tc.want {
 			t.Errorf("CadenceInterval(%q) = %v; want %v", tc.cadence, got, tc.want)
 		}
+	}
+}
+
+// The scaffolded scheduled workflow runs `check --scheduled` once a day.
+// A policy that always passes must still get a fresh evaluation in every
+// calendar window of its cadence: a window that falls entirely inside one
+// carry-forward never has its manual-evidence folder read or signed. A
+// 29d23h monthly interval skipped February.
+func TestIsDue_DailyRunsEvaluateEveryCalendarWindow(t *testing.T) {
+	cfg := &spec.PeriodConfig{}
+	start := time.Date(2026, 1, 1, 2, 0, 0, 0, time.UTC)
+	end := time.Date(2030, 12, 31, 2, 0, 0, 0, time.UTC)
+	for _, cadence := range []string{cadenceWeekly, cadenceMonthly, cadenceQuarterly, cadenceAnnual} {
+		t.Run(cadence, func(t *testing.T) {
+			evaluated := map[string]bool{}
+			all := map[string]bool{}
+			var state *core.PolicyState
+			for now := start; !now.After(end); now = now.AddDate(0, 0, 1) {
+				window, err := planner.CadencePeriod(cfg, now, cadence)
+				if err != nil {
+					t.Fatal(err)
+				}
+				// Only windows wholly inside the simulation count.
+				if !window.Start.Before(start.Truncate(24*time.Hour)) && window.End.Before(end) {
+					all[window.ID] = true
+				}
+				if !planner.IsDue(cadence, state, now) {
+					continue
+				}
+				evaluated[window.ID] = true
+				state = &core.PolicyState{LastRunAt: now, LastPassAt: now, LastRunStatus: core.StatusPass}
+			}
+			for id := range all {
+				if !evaluated[id] {
+					t.Errorf("window %s got no fresh evaluation from a daily scheduled run", id)
+				}
+			}
+		})
 	}
 }
 

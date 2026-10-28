@@ -28,7 +28,7 @@ A policy declares `cadence:` in its spec; a project overrides it under `policies
 | `hourly` | 0 (always due) |
 | `daily` | 23h |
 | `weekly` | 6d 23h |
-| `monthly` | 29d 23h |
+| `monthly` | 27d 23h |
 | `quarterly` | 89d 23h |
 | `annual` | 364d 23h |
 | `every:<duration>` | the Go duration (`every:6h`, `every:90m`); floor 5 minutes |
@@ -37,6 +37,10 @@ Rules:
 
 - The 1-hour slack on named cadences absorbs CI cron dispatch delay. `every:24h` has no slack, so
   it is not the same as `daily`.
+- Each named interval is no longer than the shortest calendar window of its cadence (28-day
+  February, 90-day quarter, 365-day year), so a daily `--scheduled` run evaluates every policy at
+  least once in every calendar window and reads each manual folder
+  (`TestIsDue_DailyRunsEvaluateEveryCalendarWindow`).
 - `every:` values below 5 minutes are rejected when the policy or config loads
   (`parseEveryCadence`, `minEveryDuration`, `spec.validateCadenceSpec`).
 - Write `every:6h` with no space after the colon; `every: 6h` parses as a YAML mapping.

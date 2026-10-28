@@ -212,7 +212,7 @@ overrides the scoped ones; if several have no scope, the first one in the list a
 | `hourly` | every run |
 | `daily` | 23 hours |
 | `weekly` | 6 days 23 hours |
-| `monthly` | 29 days 23 hours |
+| `monthly` | 27 days 23 hours |
 | `quarterly` | 89 days 23 hours |
 | `annual` | 364 days 23 hours |
 | `every:<duration>` | the Go duration given, at least `5m`: `every:6h`, `every:2h30m` |
