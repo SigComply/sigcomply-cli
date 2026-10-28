@@ -12,7 +12,8 @@
     "key_manager":         { "type": "string" },
     "is_customer_managed": { "type": "boolean" },
     "enabled":             { "type": "boolean" },
-    "rotation_enabled":    { "type": "boolean" }
+    "rotation_enabled":    { "type": "boolean" },
+    "rotation_supported":  { "type": "boolean", "description": "The provider can rotate this key automatically. false for keys it cannot (AWS: asymmetric, HMAC, imported key material, custom key store). Omitted when the source cannot tell." }
   },
   "additionalProperties": true
 }

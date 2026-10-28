@@ -2028,7 +2028,7 @@
     },
     "noncompliant": {
       "status": "fail",
-      "resources_evaluated": 4,
+      "resources_evaluated": 5,
       "resources_failed": 1,
       "violated": [
         "key-cmk-stale"

@@ -108,6 +108,9 @@ type keyPayload struct {
 	IsCustomerManaged bool   `json:"is_customer_managed"`
 	Enabled           bool   `json:"enabled"`
 	RotationEnabled   bool   `json:"rotation_enabled"`
+	// RotationSupported is nil when DescribeKey returned no metadata: the
+	// plugin cannot tell, so the field is omitted rather than guessed.
+	RotationSupported *bool `json:"rotation_supported,omitempty"`
 }
 
 // Collect lists KMS keys in the configured account and returns one
@@ -139,6 +142,10 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 			KeyManager:        string(safeKeyManager(md)),
 			IsCustomerManaged: safeKeyManager(md) == kmstypes.KeyManagerTypeCustomer,
 			Enabled:           md != nil && md.Enabled,
+		}
+		if md != nil {
+			supported := rotationSupported(md)
+			payload.RotationSupported = &supported
 		}
 		// Rotation is only meaningful for customer-managed keys; for AWS-
 		// managed keys the API rejects the call. Keys that cannot rotate

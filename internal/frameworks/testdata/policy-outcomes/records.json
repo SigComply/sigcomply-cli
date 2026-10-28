@@ -466,7 +466,7 @@
       "type": "kms_key",
       "id": "key-aws-managed",
       "source_id": "aws.kms",
-      "why": "provider-managed: out of the rotation filter, fails the customer-managed policy",
+      "why": "provider-managed: out of the rotation filter",
       "payload": {"key_id": "key-aws-managed", "key_manager": "AWS", "is_customer_managed": false, "enabled": true, "rotation_enabled": false}
     },
     {
@@ -485,11 +485,19 @@
       "payload": {"key_id": "key-cmk-pending-deletion", "key_manager": "CUSTOMER", "is_customer_managed": true, "enabled": false, "rotation_enabled": false}
     },
     {
+      "scenarios": ["noncompliant"],
+      "type": "kms_key",
+      "id": "key-cmk-asymmetric",
+      "source_id": "aws.kms",
+      "why": "KMS cannot rotate an asymmetric key: rotation_supported false keeps it out of the rotation filter",
+      "payload": {"key_id": "key-cmk-asymmetric", "key_manager": "CUSTOMER", "is_customer_managed": true, "enabled": true, "rotation_enabled": false, "rotation_supported": false}
+    },
+    {
       "scenarios": ["sparse"],
       "type": "kms_key",
       "id": "projects/p/keyRings/r/cryptoKeys/k",
       "source_id": "plugin.key_inventory",
-      "why": "project-local plugin: is_customer_managed absent: guarded out of rotation, undecidable for the customer-managed policy",
+      "why": "project-local plugin: is_customer_managed absent: guarded out of rotation",
       "payload": {"key_id": "projects/p/keyRings/r/cryptoKeys/k", "rotation_enabled": true}
     },
     {

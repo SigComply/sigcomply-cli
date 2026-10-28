@@ -245,12 +245,16 @@ func cc6EncryptionPolicies() []core.Policy {
 		autoPolicy{
 			id: "soc2.cc6.7.kms_key_rotation_enabled", control: ctrlCC67, severity: core.SeverityHigh, category: catDataProtection, cadence: cadenceDaily,
 			accepts: []string{"kms_key"},
-			desc:    "All enabled customer-managed KMS keys have automatic rotation enabled.",
+			desc:    "All enabled customer-managed KMS keys that can rotate automatically have rotation enabled.",
 			rem:     "Enable automatic key rotation on each customer-managed key.",
 			// Disabled keys, and AWS keys pending deletion (reported disabled),
 			// encrypt nothing and are not rotated by the provider: out of scope.
+			// So are keys the source reports as unable to rotate automatically
+			// (rotation_supported false: asymmetric, HMAC, imported material,
+			// custom key store); a source that omits the field keeps its keys in.
 			clause: allWhere(allOf(isSet("payload.is_customer_managed"), leaf("payload.is_customer_managed", "eq", true),
-				isSet("payload.enabled"), leaf("payload.enabled", "eq", true)),
+				isSet("payload.enabled"), leaf("payload.enabled", "eq", true),
+				notOf(allOf(isSet("payload.rotation_supported"), leaf("payload.rotation_supported", "eq", false)))),
 				leaf("payload.rotation_enabled", "eq", true), "KMS key {{.payload.key_id}} does not have rotation enabled"),
 		}.policy(),
 		autoPolicy{

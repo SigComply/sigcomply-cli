@@ -25,7 +25,7 @@ func TestAzureKeyvaultConformance(t *testing.T) {
 	types := sourcetest.BuiltinEvidenceTypes(t)
 	keys := sourcetest.RunConformance(t, &sourcetest.Options{
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeKMSKey}},
-		EvidenceTypes: types, OptionalFields: []string{"kms_key.arn"},
+		EvidenceTypes: types, OptionalFields: []string{"kms_key.arn", "kms_key.rotation_supported"},
 	})
 	secrets := sourcetest.RunConformance(t, &sourcetest.Options{
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeSecret}},

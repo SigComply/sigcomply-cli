@@ -29,7 +29,7 @@ func TestGCPKMSConformance(t *testing.T) {
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}},
 		EvidenceTypes:  sourcetest.BuiltinEvidenceTypes(t),
 		WantScope:      &core.RecordScope{Project: "e2e-project"},
-		OptionalFields: []string{"kms_key.arn"},
+		OptionalFields: []string{"kms_key.arn", "kms_key.rotation_supported"},
 	})
 	if len(recs) != 1 {
 		t.Fatalf("kms_key records = %d, want 1", len(recs))

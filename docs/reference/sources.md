@@ -146,11 +146,11 @@ For `role_arn`, the target role's trust policy must allow the ambient principal 
 - `aws.rds` reports an Aurora instance's deletion protection, Multi-AZ, backup, encryption and
   `ssl_required` from its DB cluster and cluster parameter group. `ssl_required` is omitted for
   engines without a TLS parameter (Oracle, SQL Server), and the SSL policy skips them.
-- `aws.kms` reports `rotation_enabled: false` for customer-managed keys that KMS cannot rotate
-  automatically (asymmetric, HMAC, imported key material, custom key store) without asking KMS.
-  The shipped rotation policies check only enabled customer-managed keys, so keys that are disabled
-  or pending deletion are left out; a key that cannot rotate still fails them. Record an
-  exception for it.
+- `aws.kms` reports `rotation_supported: false` and `rotation_enabled: false` for
+  customer-managed keys that KMS cannot rotate automatically (asymmetric, HMAC, imported key
+  material, custom key store), without asking KMS. The shipped rotation policies check only
+  enabled customer-managed keys that can rotate, so keys that are disabled, pending deletion or
+  unable to rotate are left out. Rotate those keys by hand if your policy requires it.
 
 ## GCP
 

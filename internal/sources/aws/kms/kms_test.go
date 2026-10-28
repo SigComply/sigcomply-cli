@@ -312,5 +312,31 @@ func TestCollect_SkipsRotationStatusForKeysThatCannotRotate(t *testing.T) {
 		if want := r.ID == keySym; p.RotationEnabled != want {
 			t.Errorf("%s rotation_enabled = %v; want %v", r.ID, p.RotationEnabled, want)
 		}
+		// rotation_supported lets the rotation policies leave out keys
+		// KMS cannot rotate instead of failing them.
+		var raw map[string]any
+		if err := json.Unmarshal(r.Payload, &raw); err != nil {
+			t.Fatal(err)
+		}
+		if got, want := raw["rotation_supported"], r.ID == keySym; got != want {
+			t.Errorf("%s rotation_supported = %v; want %v", r.ID, got, want)
+		}
+	}
+}
+
+// Without key metadata the plugin cannot tell whether the key can
+// rotate, so rotation_supported is omitted rather than guessed.
+func TestCollect_RotationSupportedOmittedWithoutMetadata(t *testing.T) {
+	fake := &fakeAPI{keys: []kmstypes.KeyListEntry{{KeyId: ptr(keyAAA)}}}
+	recs, err := New(Options{API: fake}).Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(recs[0].Payload, &raw); err != nil {
+		t.Fatal(err)
+	}
+	if v, ok := raw["rotation_supported"]; ok {
+		t.Errorf("rotation_supported = %v; want omitted when metadata is missing", v)
 	}
 }
