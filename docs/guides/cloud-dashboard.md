@@ -40,8 +40,10 @@ reports; only owners see the **Auditors** and **Settings** tabs.
 3. Select **Create Project**.
 
 SigComply Cloud has no API keys. It identifies a run by the OIDC token your CI mints: the
-`repository` claim on GitHub Actions, the `project_path` claim on GitLab CI. If you rename or move
-the repository, paste the new URL in the project's **Settings** tab, or submissions are refused.
+`repository` claim on GitHub Actions, the `project_path` claim on GitLab CI, matched without
+regard to case. On the first accepted run it also records the repository's and owner's numeric
+IDs, and later runs must match them. If you rename or move the repository, or recreate it, paste
+the new URL in the project's **Settings** tab, or submissions are refused.
 
 ## 3. Turn on submission
 
@@ -125,9 +127,12 @@ The `submit:` warning in the CI log includes the HTTP status and an error `code`
 | 401 | `token_expired` | The token expired before the CLI posted it. | Re-run the job. |
 | 401 | `invalid_signature` | The token's signature or signing key did not verify. | Re-run; if it persists, check the token comes from GitHub Actions or GitLab. |
 | 401 | `validation_error` | The token is malformed, has the wrong issuer, or its audience is not `https://api.sigcomply.com`. | On GitLab, set `aud: https://api.sigcomply.com` on the ID token. |
-| 403 | `unregistered_provider` | No active project in SigComply Cloud matches the token's repository. | Connect the repository (step 2), re-paste the URL after a rename, and check the project is active in **Settings**. |
+| 403 | `unregistered_provider` | No active project in SigComply Cloud matches the token's repository. The message names the repository from the token. Matching ignores case. | Connect the repository (step 2), re-paste the URL after a rename, and check the project is active in **Settings**. |
+| 403 | `repository_mismatch` | The token's repository or owner ID differs from the IDs the project recorded on its first accepted run, for example because the repository was deleted and recreated under the same name. | Update the repository URL in the project's **Settings** tab, which clears the recorded IDs, or contact support. |
 | 402 | `subscription_required` | The trial ended and there is no Pro subscription. | Upgrade from the `upgrade_url`. |
-| 422 | `validation_failed` or a message | The payload was rejected, for example because its `run_id` was already used by another project in your organization. Resending a run to the same project is not an error: it answers `200` and keeps the first copy. | Re-run the job; each run gets a new run ID. Check the message. |
+| 413 | `payload_too_large` | The request body is over 4 MB. | Contact support. |
+| 422 | `validation_failed` or a message | The payload was rejected, for example because its `run_id` was already used by another project in your organization, or its summary counts or score disagree with its policy list. Resending the same run to the same project is not an error: it answers `200` and keeps the first copy. | Re-run the job; each run gets a new run ID. Check the message. |
+| 503 | `jwks_unavailable` | SigComply Cloud could not fetch your CI provider's signing keys to check the token. | Re-run the job later. |
 
 More causes: [Troubleshooting](troubleshooting.md#cloud-submission).
 
