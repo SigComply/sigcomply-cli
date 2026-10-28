@@ -241,7 +241,10 @@
     "compliant": {
       "status": "pass",
       "resources_evaluated": 6,
-      "resources_failed": 0
+      "resources_failed": 0,
+      "vacuous_slots": [
+        "accounts"
+      ]
     },
     "noncompliant": {
       "status": "fail",
@@ -254,7 +257,10 @@
     "sparse": {
       "status": "pass",
       "resources_evaluated": 3,
-      "resources_failed": 0
+      "resources_failed": 0,
+      "vacuous_slots": [
+        "accounts"
+      ]
     }
   },
   "iso27001.5.19.supplier_assurance": {

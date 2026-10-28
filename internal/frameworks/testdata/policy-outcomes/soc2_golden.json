@@ -1029,7 +1029,10 @@
     "compliant": {
       "status": "pass",
       "resources_evaluated": 6,
-      "resources_failed": 0
+      "resources_failed": 0,
+      "vacuous_slots": [
+        "accounts"
+      ]
     },
     "noncompliant": {
       "status": "fail",
@@ -1042,7 +1045,10 @@
     "sparse": {
       "status": "pass",
       "resources_evaluated": 3,
-      "resources_failed": 0
+      "resources_failed": 0,
+      "vacuous_slots": [
+        "accounts"
+      ]
     }
   },
   "soc2.cc6.2.user_provisioning_process": {

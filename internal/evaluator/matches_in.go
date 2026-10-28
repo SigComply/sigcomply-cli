@@ -73,8 +73,8 @@ func collectMatchesIn(cond *core.PassWhenCondition, out *[]*core.PassWhenConditi
 }
 
 func (ec *evalCtx) buildIndex(cond *core.PassWhenCondition) (empty bool, err error) {
-	if _, done := ec.index[cond]; done {
-		return len(ec.slots[cond.InSlot]) == 0, nil
+	if idx, done := ec.index[cond]; done {
+		return len(idx) == 0, nil
 	}
 	if cond.InSlot == "" || cond.RemoteField == "" {
 		return false, fmt.Errorf("matches_in requires in_slot and remote_field")
@@ -104,7 +104,9 @@ func (ec *evalCtx) buildIndex(cond *core.PassWhenCondition) (empty bool, err err
 		}
 	}
 	ec.index[cond] = idx
-	return len(remote) == 0, nil
+	// Empty means nothing to compare against: an empty in_slot, or a
+	// where (or missing keys) that excluded every remote record.
+	return len(idx) == 0, nil
 }
 
 func (ec *evalCtx) slotKnown(name string) bool {

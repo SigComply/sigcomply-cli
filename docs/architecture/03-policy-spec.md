@@ -124,7 +124,8 @@ type or in a normalized payload field.
 | `any` | fail |
 | `count` | fail if `min_percentage > 0`, else pass |
 
-A vacuous pass can come from an empty `required: false` slot or a filter that matched nothing.
+A vacuous pass can come from an empty `required: false` slot, a filter that matched nothing, or a
+`matches_in` whose index is empty.
 The evaluator records the slots in `diag.vacuous_clauses`; `check` and `report` explain the pass,
 and the aggregator replaces the wire message with "Passed, but no resources matched the filter".
 A clause naming an undeclared slot fails the load (`spec.ValidatePassWhen`). A filter that cannot
@@ -248,7 +249,9 @@ True when the record's `field` equals `remote_field` on some record in `in_slot`
   `where`.
 - A local record with a missing, non-string or empty `field` never matches. Remote records without
   a usable `remote_field` are left out of the lookup.
-- An empty `in_slot` adds the clause to `diag.vacuous_clauses`.
+- An empty index adds the clause to `diag.vacuous_clauses`: an empty `in_slot`, or a `where` (or
+  missing keys) that excluded every record in it. The roster policy for inactive personnel is
+  vacuous whenever the roster marks nobody inactive.
 
 ### Virtual `account.*` fields
 

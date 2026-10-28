@@ -104,7 +104,9 @@ roster is designated:
 | `iso27001.5.18.no_active_accounts_for_inactive_personnel` | critical | Same as the SOC 2 inactive check. |
 
 A person who is pending (provisioned but not yet able to sign in) counts as linked and is not
-inactive. Disabled accounts and `non_human` accounts are not checked.
+inactive. Disabled accounts and `non_human` accounts are not checked. When the roster marks
+nobody inactive, the inactive check passes with `passed without examining any resource`: there
+was no inactive person to compare accounts against.
 
 ## Verify
 

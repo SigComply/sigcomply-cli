@@ -203,6 +203,31 @@ func TestMatchesIn_EmptyRemoteSlot_IsVacuous(t *testing.T) {
 	}
 }
 
+// A where that filters out every remote record leaves an empty index,
+// the same "compared against nothing" case as an empty in_slot: a none
+// clause passes and must say so (for example, a roster whose status
+// vocabulary never says "inactive").
+func TestMatchesIn_WhereFiltersEveryRemoteRecord_IsVacuous(t *testing.T) {
+	inactiveOnly := &core.PassWhenCondition{Op: "eq", Field: "payload." + keyStatus, Value: statusInactive}
+	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
+		Slot:       slotAccounts,
+		Quantifier: core.QuantifierNone,
+		Condition:  matchesIn(fieldPayloadEmail, "", inactiveOnly),
+	}}}
+	slots := map[string][]core.EvidenceRecord{
+		slotAccounts: {account(testSourceGitHub, "jane", map[string]any{linkedByEmail: testEmailJane})},
+		slotRoster:   {person("p1", testEmailJane, "active")},
+	}
+	got := evaluatePassWhen(spec, newEvalCtx(slots, nil, nil))
+	if got.Status != core.StatusPass {
+		t.Fatalf("status = %q; want pass", got.Status)
+	}
+	v, ok := got.Diag["vacuous_clauses"].([]string)
+	if !ok || len(v) != 1 || v[0] != slotAccounts {
+		t.Errorf("vacuous_clauses = %v; want [accounts]", got.Diag["vacuous_clauses"])
+	}
+}
+
 // ---- countResources ----
 
 func TestEvaluate_CountsExcludeInSlotOnlySlot(t *testing.T) {
