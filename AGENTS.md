@@ -215,7 +215,7 @@ Full package map: `ARCHITECTURE.md` and `docs/architecture/02-layers.md`.
 | `sigcomply evidence catalog -o json` (`internal/manualcatalog`) | SPA `src/types/catalog.ts`, `scripts/fetch-catalogs.ts` (runs the released CLI on deploy) | `cmd/sigcomply` export and binary E2E tests; golden `internal/manualcatalog/testdata/<framework>_golden.json`, copied to the SPA's `src/lib/__fixtures__/golden/` |
 | `manual.FolderPrefix`, default prefix `manual/`; manual folder periods (`planner.CadencePeriod`) | SPA `src/lib/storage-path.ts`, `src/lib/period.ts`, `public/config.json` | `internal/sources/manual/paths_test.go`; golden `internal/planner/testdata/spa-golden/periods.json`, copied to the SPA's `src/lib/__fixtures__/golden/periods.json` |
 | Envelope and manifest format (`internal/sign`) | SPA `/verify` page (`src/lib/verification/`) | `internal/sign` tests; golden vectors `internal/sign/testdata/spa-golden/`, copied to the SPA's `src/lib/verification/__fixtures__/golden/` |
-| Release asset names, `checksums.txt`, command flags, exit codes | E2E repos `../sigcomply-cli-testing-project-{github,gitlab}` (the GitHub one runs `release-gate.yml` per release candidate) | `cmd/sigcomply/e2e_*_test.go`, `init_ci_contract_test.go`; the release gate |
+| Release asset names, `checksums.txt`, command flags, exit codes | E2E repos `../sigcomply-cli-testing-project-{github,gitlab}` (the GitHub one runs `release-gate.yml` per release candidate) | `cmd/sigcomply/e2e_*_test.go`, `cmd/sigcomply/init_ci_contract_test.go`; the release gate |
 
 Push order: the receiving side first. The dashboard silently drops fields it does not allow-list,
 so it must accept a new field before the CLI sends it. Refresh the SPA copies of all three SPA

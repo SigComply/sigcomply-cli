@@ -30,22 +30,34 @@ func TestBinaryE2E_InitCI_GeneratedCommandsRun(t *testing.T) {
 	}
 	files = append(files, filepath.Join(p.dir, ".gitlab-ci.yml"))
 
+	// The fewest `sigcomply` lines each generated file holds: GitLab has
+	// on-push, five cadence jobs and the due-soon step; the GitHub daily
+	// workflow has its check and the due-soon step; every other GitHub
+	// workflow has one check. Fewer means the regexp stopped matching
+	// that file, not that it lost steps, so each file is counted alone.
+	minPerFile := map[string]int{".gitlab-ci.yml": 7, "compliance-daily.yml": 2}
 	commands := map[string]bool{}
 	for _, f := range files {
 		body, err := os.ReadFile(f) //nolint:gosec // #nosec G304 -- written by init-ci in the test's own dir
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, m := range ciCommand.FindAllStringSubmatch(string(body), -1) {
+		found := ciCommand.FindAllStringSubmatch(string(body), -1)
+		want, ok := minPerFile[filepath.Base(f)]
+		if !ok {
+			want = 1
+		}
+		if len(found) < want {
+			t.Errorf("%s: extracted %d sigcomply commands; want at least %d", filepath.Base(f), len(found), want)
+		}
+		for _, m := range found {
 			// `|| true` keeps an advisory step from failing the job; the
 			// command itself must still succeed.
 			commands[strings.TrimSpace(strings.TrimSuffix(m[1], "|| true"))] = true
 		}
 	}
-	// One per cadence, on-push and the due-soon step. Fewer means the
-	// regexp stopped matching the templates, not that they lost steps.
-	if len(commands) < 7 {
-		t.Fatalf("extracted %d distinct sigcomply commands from %d workflow files; want at least 7: %v", len(commands), len(files), commands)
+	if len(files) < 7 {
+		t.Fatalf("init-ci wrote %d workflow files; want the six GitHub cadence workflows and .gitlab-ci.yml", len(files))
 	}
 	sorted := make([]string, 0, len(commands))
 	for c := range commands {

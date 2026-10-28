@@ -391,6 +391,7 @@ type fakeCloud struct {
 	runsVersion string
 	runsBody    []byte
 	runsCalls   int
+	tokenCalls  int
 }
 
 const (
@@ -404,6 +405,7 @@ func newFakeCloud(t *testing.T, runsStatus int) *fakeCloud {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /oidc/token", func(w http.ResponseWriter, r *http.Request) {
 		fc.mu.Lock()
+		fc.tokenCalls++
 		fc.audience = r.URL.Query().Get("audience")
 		fc.tokenAuth = r.Header.Get("Authorization")
 		fc.mu.Unlock()
@@ -518,8 +520,8 @@ func TestBinaryE2E_Check_NoCloudFlagSkipsSubmissionInCI(t *testing.T) {
 	res.wantCode(t, 1)
 	fc.mu.Lock()
 	defer fc.mu.Unlock()
-	if fc.runsCalls != 0 || fc.tokenAuth != "" {
-		t.Errorf("--no-cloud run made %d submission(s) and token request auth %q; want none", fc.runsCalls, fc.tokenAuth)
+	if fc.runsCalls != 0 || fc.tokenCalls != 0 {
+		t.Errorf("--no-cloud run made %d submission(s) and %d token request(s); want none", fc.runsCalls, fc.tokenCalls)
 	}
 }
 
