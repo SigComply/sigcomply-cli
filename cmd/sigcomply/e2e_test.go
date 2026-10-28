@@ -7,10 +7,15 @@ package cmd
 // test cannot see: main's os.Exit mapping, flag parsing through cobra,
 // what lands on stdout/stderr, and what the process leaves in the vault.
 //
-// Only manual-evidence configs run here: automated sources need vendor
-// APIs, and the in-process stubs and cassettes cannot be reached from a
-// separate process. Cassette-backed flows stay in-process
+// Most configs here are manual-evidence only. The one automated source
+// that runs is GitHub, whose base_url lets the binary reach a local
+// server replaying the committed cassette (e2e_github_test.go). Sources
+// without an endpoint override (AWS, GCP, Azure) stay in-process
 // (TestE2E_WalkingSkeleton in internal/orchestrator).
+//
+// Per-policy outcomes are pinned in testdata/e2e-outcomes/; regenerate
+// with `go test ./cmd/sigcomply/ -run TestBinaryE2E -update` and read
+// the diff (e2e_golden_test.go).
 
 import (
 	"bytes"
@@ -147,6 +152,16 @@ func (r e2eResult) wantCode(t *testing.T, want int) {
 	}
 }
 
+// wantNoUsage fails when a runtime error printed cobra's usage block,
+// which buries the one-line error under the flag list (99fd507). Only
+// --help prints usage.
+func (r e2eResult) wantNoUsage(t *testing.T) {
+	t.Helper()
+	if strings.Contains(r.stdout, "Usage:") || strings.Contains(r.stderr, "Usage:") {
+		t.Errorf("a runtime error printed the usage block\n--- stdout ---\n%s\n--- stderr ---\n%s", r.stdout, r.stderr)
+	}
+}
+
 // e2eProject is a scratch project: a config, a local vault and a local
 // manual-evidence store.
 type e2eProject struct {
@@ -154,6 +169,14 @@ type e2eProject struct {
 }
 
 func newE2EProject(t *testing.T) e2eProject {
+	t.Helper()
+	return newE2EProjectFor(t, defaultFW, "")
+}
+
+// newE2EProjectFor writes a project for framework with the manual source
+// and, when extraSources is set, the YAML it holds appended under
+// `sources:` (two-space indented entries).
+func newE2EProjectFor(t *testing.T, framework, extraSources string) e2eProject {
 	t.Helper()
 	dir := t.TempDir()
 	p := e2eProject{
@@ -166,9 +189,10 @@ func newE2EProject(t *testing.T) e2eProject {
 		t.Fatal(err)
 	}
 	body := "schema_version: project.v1\n" +
-		"framework: soc2\n" +
+		"framework: " + framework + "\n" +
 		"vault:\n  backend: local\n  path: " + p.vault + "\n" +
-		"sources:\n  manual.pdf:\n    backend: local\n    path: " + p.manual + "\n"
+		"sources:\n  manual.pdf:\n    backend: local\n    path: " + p.manual + "\n" +
+		extraSources
 	if err := os.WriteFile(p.config, []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -177,8 +201,9 @@ func newE2EProject(t *testing.T) e2eProject {
 
 // seedAllManualEvidence asks the binary which folders are empty
 // (`evidence due --all -o json`) and drops a valid PDF in each, dated
-// inside the period, so every manual policy passes.
-func seedAllManualEvidence(t *testing.T, p e2eProject) int {
+// inside the period, so every manual policy passes. It returns the
+// files it wrote.
+func seedAllManualEvidence(t *testing.T, p e2eProject) []string {
 	t.Helper()
 	res := runSigcomply(t, p.dir, nil, "evidence", "due", "--all", "-o", "json")
 	res.wantCode(t, 0)
@@ -203,6 +228,7 @@ func seedAllManualEvidence(t *testing.T, p e2eProject) int {
 		t.Fatal(err)
 	}
 	uploaded := e2eCommitTime.Add(-time.Hour)
+	files := make([]string, 0, len(due.Missing))
 	for _, m := range due.Missing {
 		folder := strings.TrimPrefix(m.FolderURI, "file://")
 		if !strings.HasPrefix(folder, p.manual) {
@@ -218,8 +244,9 @@ func seedAllManualEvidence(t *testing.T, p e2eProject) int {
 		if err := os.Chtimes(file, uploaded, uploaded); err != nil {
 			t.Fatal(err)
 		}
+		files = append(files, file)
 	}
-	return len(due.Missing)
+	return files
 }
 
 func TestBinaryE2E_Check_AllEvidencePresentExits0(t *testing.T) {
@@ -235,21 +262,20 @@ func TestBinaryE2E_Check_AllEvidencePresentExits0(t *testing.T) {
 		t.Errorf("stderr has an error on a passing run:\n%s", res.stderr)
 	}
 
-	runDir := singleRunDir(t, p.vault, "soc2", e2ePeriod)
-	statuses := readResultStatuses(t, runDir)
+	runDir := singleRunDir(t, p.vault, "soc2")
 	passed := 0
-	for id, st := range statuses {
-		switch st {
-		case core.StatusPass:
+	for _, st := range readResultStatuses(t, runDir) {
+		if st == core.StatusPass {
 			passed++
-		case core.StatusSkip:
-		default:
-			t.Errorf("%s: status %q; want pass or skip", id, st)
 		}
 	}
-	if passed != seeded {
-		t.Errorf("passing policies = %d; want one per seeded folder (%d)", passed, seeded)
+	if passed != len(seeded) {
+		t.Errorf("passing policies = %d; want one per seeded folder (%d)", passed, len(seeded))
 	}
+	// Every policy's exact outcome, not "pass or skip": an automated
+	// policy that started passing with no source, or a manual one that
+	// skipped, would otherwise go unnoticed.
+	assertOutcomesGolden(t, runDir, "soc2_manual_seeded")
 	assertVaultSigned(t, runDir)
 
 	// Every folder is filled now, so nothing is due.
@@ -273,7 +299,7 @@ func TestBinaryE2E_Check_MissingEvidenceExits1(t *testing.T) {
 	if strings.Contains(res.stderr, "Error:") {
 		t.Errorf("a policy failure must not print an error:\n%s", res.stderr)
 	}
-	runDir := singleRunDir(t, p.vault, "soc2", e2ePeriod)
+	runDir := singleRunDir(t, p.vault, "soc2")
 	failed := 0
 	for _, st := range readResultStatuses(t, runDir) {
 		if st == core.StatusFail {
@@ -319,6 +345,7 @@ func TestBinaryE2E_Check_ConfigErrorsExit3(t *testing.T) {
 			if !strings.Contains(res.stderr, "Error:") {
 				t.Errorf("config error printed no message:\n%s", res.stderr)
 			}
+			res.wantNoUsage(t)
 			if _, err := os.Stat(p.vault); err == nil {
 				t.Errorf("a config error must stop before writing the vault")
 			}
@@ -347,6 +374,7 @@ func TestBinaryE2E_Check_UnwritableVaultExits2(t *testing.T) {
 	if !strings.Contains(res.stderr, "Error: vault:") {
 		t.Errorf("stderr does not name the vault failure:\n%s", res.stderr)
 	}
+	res.wantNoUsage(t)
 }
 
 // fakeCloud stands in for both GitHub's OIDC token endpoint and the
@@ -480,6 +508,68 @@ func TestBinaryE2E_Check_NoSubmissionOutsideCI(t *testing.T) {
 	}
 }
 
+// --no-cloud wins over everything that would otherwise submit: CI, a
+// mintable OIDC token and a cloud URL. The fake records zero requests to
+// either endpoint.
+func TestBinaryE2E_Check_NoCloudFlagSkipsSubmissionInCI(t *testing.T) {
+	p := newE2EProject(t)
+	fc := newFakeCloud(t, http.StatusCreated)
+	res := runSigcomply(t, p.dir, fc.githubActionsEnv(), "check", "--no-cloud", "--cloud-url", fc.srv.URL)
+	res.wantCode(t, 1)
+	fc.mu.Lock()
+	defer fc.mu.Unlock()
+	if fc.runsCalls != 0 || fc.tokenAuth != "" {
+		t.Errorf("--no-cloud run made %d submission(s) and token request auth %q; want none", fc.runsCalls, fc.tokenAuth)
+	}
+}
+
+// A usage error (unknown flag) exits 2, not 1, so CI never reads it as
+// a violation, and names the flag in one line.
+func TestBinaryE2E_UnknownFlagExits2(t *testing.T) {
+	res := runSigcomply(t, t.TempDir(), nil, "check", "--no-such-flag")
+	res.wantCode(t, 2)
+	if !strings.Contains(res.stderr, "Error: unknown flag: --no-such-flag") {
+		t.Errorf("stderr does not name the unknown flag:\n%s", res.stderr)
+	}
+	res.wantNoUsage(t)
+}
+
+// --within-days: 0 lists only what closes in under a day, a negative
+// value lists every empty folder (the same set as --all). At the pinned
+// commit time (mid-February) no manual folder closes within a day.
+func TestBinaryE2E_EvidenceDue_WithinDays(t *testing.T) {
+	p := newE2EProject(t)
+	due := func(args ...string) (missing []string, suppressed int) {
+		t.Helper()
+		res := runSigcomply(t, p.dir, nil, append([]string{"evidence", "due", "-o", "json"}, args...)...)
+		res.wantCode(t, 0)
+		var rep struct {
+			Suppressed int `json:"suppressed"`
+			Missing    []struct {
+				CatalogID string `json:"catalog_id"`
+			} `json:"missing"`
+		}
+		if err := json.Unmarshal([]byte(res.stdout), &rep); err != nil {
+			t.Fatalf("evidence due %v JSON: %v\n%s", args, err, res.stdout)
+		}
+		for _, m := range rep.Missing {
+			missing = append(missing, m.CatalogID)
+		}
+		sort.Strings(missing)
+		return missing, rep.Suppressed
+	}
+	all, _ := due("--all")
+	if len(all) == 0 {
+		t.Fatal("--all lists nothing for an empty store")
+	}
+	if got, suppressed := due("--within-days", "0"); len(got) != 0 || suppressed != len(all) {
+		t.Errorf("--within-days 0: missing %v, suppressed %d; want none missing and %d suppressed", got, suppressed, len(all))
+	}
+	if got, suppressed := due("--within-days", "-1"); strings.Join(got, ",") != strings.Join(all, ",") || suppressed != 0 {
+		t.Errorf("--within-days -1: missing %d entries, suppressed %d; want the --all list (%d) and 0 suppressed", len(got), suppressed, len(all))
+	}
+}
+
 func TestBinaryE2E_EvidenceCatalogJSON(t *testing.T) {
 	dir := t.TempDir()
 	for _, fw := range []string{defaultFW, isoFW} {
@@ -553,33 +643,25 @@ func TestBinaryE2E_InitCI(t *testing.T) {
 	res.wantCode(t, 3)
 }
 
-// singleRunDir returns the only run folder under {framework}/{period}.
-func singleRunDir(t *testing.T, vault, framework, period string) string {
+// singleRunDir returns the only run folder under {framework}/{e2ePeriod}.
+func singleRunDir(t *testing.T, vault, framework string) string {
 	t.Helper()
-	matches, err := filepath.Glob(filepath.Join(vault, framework, period, "run_*"))
+	matches, err := filepath.Glob(filepath.Join(vault, framework, e2ePeriod, "run_*"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(matches) != 1 {
-		t.Fatalf("run folders under %s/%s = %v; want exactly one", framework, period, matches)
+		t.Fatalf("run folders under %s/%s = %v; want exactly one", framework, e2ePeriod, matches)
 	}
 	return matches[0]
 }
 
 func readResultStatuses(t *testing.T, runDir string) map[string]core.PolicyStatus {
 	t.Helper()
-	files, err := filepath.Glob(filepath.Join(runDir, "policies", "*", "result.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(files) == 0 {
-		t.Fatalf("no result.json under %s", runDir)
-	}
-	out := make(map[string]core.PolicyStatus, len(files))
-	for _, f := range files {
-		var pr core.PolicyResult
-		readJSON(t, f, &pr)
-		out[pr.PolicyID] = pr.Status
+	results := readResults(t, runDir)
+	out := make(map[string]core.PolicyStatus, len(results))
+	for id := range results {
+		out[id] = results[id].Status
 	}
 	return out
 }

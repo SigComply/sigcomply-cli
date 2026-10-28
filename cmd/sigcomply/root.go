@@ -64,11 +64,13 @@ func newRootCmd() *cobra.Command {
 			"policies (a declarative pass_when DSL) against infrastructure and uploaded\n" +
 			"evidence, signs the resulting evidence locally, and\n" +
 			"optionally submits aggregated counts to a private cloud dashboard.\n",
-		// Don't dump the ~19-line usage/flags block after a runtime error
-		// (a missing config, a bad framework); the one-line message is what
-		// the operator needs. Usage still prints for genuine flag-parse
-		// errors and `--help`. SilenceErrors lets Execute() own the single
-		// top-level "Error: ..." print (see Execute).
+		// Don't dump the ~19-line usage/flags block after an error (a
+		// missing config, a bad framework); the one-line message is what
+		// the operator needs. Cobra applies the root's SilenceUsage to
+		// every subcommand, so a flag-parse error also prints one line
+		// ("Error: unknown flag: --x", exit 2); `--help` still prints
+		// usage. SilenceErrors lets Execute() own the single top-level
+		// "Error: ..." print (see Execute).
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
