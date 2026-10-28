@@ -67,8 +67,8 @@ Input: project config, registries, filter, prior state shards, period time. Outp
 `RunPlan` of `PlannedPolicy` values with bindings, effective parameters, exceptions and an
 evaluate-or-carry-forward decision.
 
-- The run period comes from `planner.PeriodTime` (`period.time_basis`: `commit` default, or
-  `wall_clock`). Manual bindings get the entry's cadence window from `planner.CadencePeriod`.
+- The run period comes from `planner.PeriodTime` (`period.time_basis`: `wall_clock` default, or
+  `commit`). Manual bindings get the entry's cadence window from `planner.CadencePeriod`.
 - An empty `Emits() ∩ Accepts` for an explicit binding, an unknown source key, or a bad
   parameter is a config error (exit 3).
 - Source plugins are built before planning, in `cmd/sigcomply/check.go`

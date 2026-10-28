@@ -313,8 +313,9 @@ func TestCadencePeriod_UnknownCalendarErrors(t *testing.T) {
 	}
 }
 
-// PeriodTime is the fix for period.time_basis, which the validator has
-// always accepted and nothing has ever read.
+// An unset time_basis means the run clock: a quiet repository whose
+// HEAD is months old must not freeze every scheduled run in a period
+// that has already closed. commit applies only when set explicitly.
 func TestPeriodTime_HonorsTimeBasis(t *testing.T) {
 	commit := mustParse(t, tsJan15)
 	now := mustParse(t, "2026-07-02T09:00:00Z")
@@ -322,7 +323,7 @@ func TestPeriodTime_HonorsTimeBasis(t *testing.T) {
 		basis string
 		want  time.Time
 	}{
-		{"", commit},
+		{"", now},
 		{timeBasisCommit, commit},
 		{timeBasisWallClock, now},
 	}
@@ -349,11 +350,20 @@ func TestPeriodTime_WallClockFallsBackWhenNowIsZero(t *testing.T) {
 	}
 }
 
-func TestPeriodTime_NilConfigUsesCommit(t *testing.T) {
+func TestPeriodTime_NilConfigUsesRunClock(t *testing.T) {
 	commit := mustParse(t, tsJan15)
 	now := mustParse(t, "2026-07-02T09:00:00Z")
-	if got := planner.PeriodTime(nil, commit, now); !got.Equal(commit) {
-		t.Errorf("PeriodTime = %s; want %s", got, commit)
+	if got := planner.PeriodTime(nil, commit, now); !got.Equal(now) {
+		t.Errorf("PeriodTime = %s; want %s", got, now)
+	}
+}
+
+// The unset default falls back to the commit time when there is no run
+// clock, as wall_clock does: a year-1 period is never derived.
+func TestPeriodTime_UnsetFallsBackWhenNowIsZero(t *testing.T) {
+	commit := mustParse(t, tsJan15)
+	if got := planner.PeriodTime(&spec.PeriodConfig{}, commit, time.Time{}); !got.Equal(commit) {
+		t.Errorf("PeriodTime = %s; want the commit time %s when now is zero", got, commit)
 	}
 }
 

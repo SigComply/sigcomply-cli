@@ -154,17 +154,21 @@ The run's audit period (`2026-Q1`, `FY2026`, or a custom ID) is computed once at
 period = planner.DerivePeriod(&cfg.Period, planner.PeriodTime(&cfg.Period, commitTime, now))
 ```
 
-- `planner.PeriodTime` returns the HEAD commit time under the default `period.time_basis: commit`,
-  and the run's start clock under `wall_clock`.
+- `planner.PeriodTime` returns the run's start clock when `period.time_basis` is unset or
+  `wall_clock`, and the HEAD commit time only under an explicit `commit`. The run clock is the
+  default because a dedicated compliance repository rarely gets commits: under `commit` its daily
+  run would keep evaluating, and `evidence due` would keep pointing uploads at, a period that
+  closed months ago.
 - `commitTime` comes from `gitContext` (`cmd/sigcomply/check.go`):
   `GITHUB_EVENT_HEAD_COMMIT_TIMESTAMP`, else `git show -s --format=%cI HEAD`, else `time.Now()`.
 - `period.fiscal_calendar.type` is `calendar_quarter` (default), `fiscal_year` (with `starts:
   <month>`, any month; IDs are `FY<year>`), or `custom` (named windows).
 - Every policy in the run shares the period. A run that starts at `2026-03-31T23:55:00Z` and ends
   in April still stamps `2026-Q1`.
-- Because the period follows the commit, a run cannot read evidence for a period its HEAD commit
-  has not reached. This is why the scaffolded crons fire inside the period
-  ([09](09-ci-execution-model.md#why-the-crons-fire-on-the-twentieth)).
+- Period boundaries are UTC (`DerivePeriod` and `CadencePeriod` convert to UTC first).
+- Under an explicit `commit` basis, a run cannot read evidence for a period its HEAD commit has
+  not reached, and a quiet repository stays in a closed period until the next commit. Nothing
+  warns about it; that is the trade for reproducible replays.
 
 The CLI writes one `summary.json` per run, in the run folder. It keeps no per-period roll-up; any
 cross-run view is built by `report` from run folders or by SigComply Cloud.
@@ -263,9 +267,8 @@ Rules it follows (`internal/manualdue`):
   ([commands](../reference/commands.md#sigcomply-evidence-due)). A storage failure is reported
   as "could not verify", not as a deadline, and still exits 0.
 - `PERIOD` is per entry (its cadence window). The run period is printed once as context.
-- `DUE IN` counts down to the entry's period end on the `PeriodTime` clock (HEAD commit time by
-  default), not the wall clock. A stale HEAD would otherwise show a period the next run will read
-  as overdue. There is no "overdue" state.
+- `DUE IN` counts down to the entry's period end on the `PeriodTime` clock (the run clock by
+  default), so it matches the folder the next run reads. There is no "overdue" state.
 - It does not use `PolicyState.NextDueAt`: `AdvancePolicyState` sets that only after a pass, so a
   policy that never passed has none.
 - It is not part of `check`: a `--cadence daily` run filters out quarterly and annual manual

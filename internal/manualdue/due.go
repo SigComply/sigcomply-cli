@@ -52,10 +52,10 @@ type Input struct {
 	PeriodCfg spec.PeriodConfig
 
 	// Reference is the instant every period in this scan is derived
-	// from: the HEAD commit's timestamp under the default time_basis.
-	// Deadlines are measured on it too, and deliberately not on the wall
-	// clock — a stale HEAD would otherwise report the period the next
-	// run will actually evaluate as already overdue.
+	// from: planner.PeriodTime, the run clock under the default time_basis.
+	// Deadlines are measured on it too, so under an explicit commit basis
+	// a stale HEAD reports the period the next run will actually evaluate
+	// rather than calling it overdue.
 	Reference time.Time
 
 	// WithinDays limits the report to entries whose period closes inside

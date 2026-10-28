@@ -95,8 +95,8 @@ func runEvidenceDue(ctx context.Context, stdout io.Writer, parent *evidenceFlags
 		return nil
 	}
 
-	// Periods must be derived exactly as `check` derives them — from the
-	// HEAD commit time under the default time_basis, and per entry from
+	// Periods must be derived exactly as `check` derives them — on the
+	// clock period.time_basis selects (the run clock by default), and per entry from
 	// its own cadence — otherwise this would report on a different folder
 	// than the one the next run reads.
 	_, commitTime := gitContext(ctx, log.New(io.Discard, false))

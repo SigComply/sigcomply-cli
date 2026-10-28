@@ -10,18 +10,33 @@ import (
 )
 
 // PeriodTime selects the clock every period derivation in a run is
-// measured on, honoring period.time_basis. The default, "commit", ties
-// the audit window to the HEAD commit's timestamp so a replayed run
-// reproduces the same period; "wall_clock" ties it to the run's start.
+// measured on, honoring period.time_basis. Unset (the default) and
+// "wall_clock" tie the audit window to the run's start; "commit", only
+// when set explicitly, ties it to the HEAD commit's timestamp so a
+// replayed run reproduces the same period.
+//
+// The run clock is the default because a dedicated compliance repository
+// rarely gets commits: under the commit basis its daily scheduled run
+// would keep evaluating, and pointing uploads at, a period that closed
+// months ago.
 //
 // A zero now falls back to the commit time: a caller with no run clock
 // must not silently derive a year-1 period.
 func PeriodTime(cfg *spec.PeriodConfig, commit, now time.Time) time.Time {
-	if cfg != nil && cfg.TimeBasis == "wall_clock" && !now.IsZero() {
-		return now
+	if cfg != nil && cfg.TimeBasis == timeBasisCommit {
+		return commit
 	}
-	return commit
+	if now.IsZero() {
+		return commit
+	}
+	return now
 }
+
+// Period time bases (period.time_basis).
+const (
+	timeBasisCommit    = "commit"
+	timeBasisWallClock = "wall_clock"
+)
 
 // DerivePeriod computes the run's audit period for a timestamp under
 // the project's fiscal_calendar configuration. The function is pure:
@@ -258,7 +273,7 @@ func parseMonth(s string) (time.Month, error) {
 
 func defaultBasis(s string) string {
 	if s == "" {
-		return "commit"
+		return timeBasisWallClock
 	}
 	return s
 }

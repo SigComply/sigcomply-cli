@@ -159,8 +159,8 @@ policy `error` (exit 2). Design: `docs/architecture/04a-evidence-type-registry.m
 Cadence ("re-evaluate now?") is per policy. Its state shard,
 `state/{framework}/policies/{policy_id}.json`, is mutable, never signed, never an audit
 deliverable, and loss-tolerant (the next run is a first run). Writes use a monotonic guard.
-Period ("which audit window?") is frozen per run by the planner from `planner.PeriodTime` (HEAD's
-commit time by default). One carve-out: a manual entry's folder and window follow the entry's own
+Period ("which audit window?") is frozen per run by the planner from `planner.PeriodTime` (the
+run's start time by default; HEAD's commit time under `period.time_basis: commit`). One carve-out: a manual entry's folder and window follow the entry's own
 cadence (`planner.CadencePeriod`); every run artifact keeps the run's period. Design:
 `docs/architecture/10-cadence-model.md`.
 

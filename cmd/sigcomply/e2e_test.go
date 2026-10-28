@@ -41,13 +41,15 @@ import (
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/manualcatalog"
+	"github.com/sigcomply/sigcomply-cli/internal/planner"
 	"github.com/sigcomply/sigcomply-cli/internal/sign"
+	"github.com/sigcomply/sigcomply-cli/internal/spec"
 	"github.com/sigcomply/sigcomply-cli/internal/submitter"
 )
 
-// e2eCommitTime pins the commit time every binary run reports, so the
-// audit period (2026-Q1 for quarterly entries) never depends on the
-// wall clock.
+// e2eCommitTime pins the commit time every binary run reports. The
+// projects set period.time_basis: commit, so the audit period (2026-Q1
+// for quarterly entries) never depends on the wall clock.
 var e2eCommitTime = time.Date(2026, 2, 15, 12, 0, 0, 0, time.UTC)
 
 const e2ePeriod = "2026-Q1"
@@ -190,6 +192,7 @@ func newE2EProjectFor(t *testing.T, framework, extraSources string) e2eProject {
 	}
 	body := "schema_version: project.v1\n" +
 		"framework: " + framework + "\n" +
+		"period:\n  time_basis: commit\n" +
 		"vault:\n  backend: local\n  path: " + p.vault + "\n" +
 		"sources:\n  manual.pdf:\n    backend: local\n    path: " + p.manual + "\n" +
 		extraSources
@@ -311,6 +314,55 @@ func TestBinaryE2E_Check_MissingEvidenceExits1(t *testing.T) {
 	}
 	// A failing run is still a complete, signed audit record.
 	assertVaultSigned(t, runDir)
+}
+
+// With period.time_basis unset, the period follows the run clock, not a
+// months-old HEAD: a quiet compliance repository must not keep
+// evaluating, and pointing uploads at, a period that has closed.
+func TestBinaryE2E_DefaultPeriodFollowsTheRunClock(t *testing.T) {
+	p := newE2EProject(t)
+	body, err := os.ReadFile(p.config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unpinned := strings.Replace(string(body), "period:\n  time_basis: commit\n", "", 1)
+	if unpinned == string(body) {
+		t.Fatal("fixture no longer pins time_basis; update this test")
+	}
+	if err := os.WriteFile(p.config, []byte(unpinned), 0o600); err != nil { //nolint:gosec // #nosec G703 -- the test's own temp project
+		t.Fatal(err)
+	}
+	before, err := planner.DerivePeriod(&spec.PeriodConfig{}, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before.ID == e2ePeriod {
+		t.Skipf("the run clock is inside %s, the pinned commit's period; nothing to tell apart", e2ePeriod)
+	}
+
+	due := runSigcomply(t, p.dir, nil, "evidence", "due", "--all", "-o", "json")
+	due.wantCode(t, 0)
+	res := runSigcomply(t, p.dir, nil, "check", "--no-cloud")
+	after, err := planner.DerivePeriod(&spec.PeriodConfig{}, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before.ID != after.ID {
+		t.Skip("a period boundary passed during the test")
+	}
+
+	var got struct {
+		PeriodID string `json:"period_id"`
+	}
+	if err := json.Unmarshal([]byte(due.stdout), &got); err != nil {
+		t.Fatalf("evidence due JSON: %v\n%s", err, due.stdout)
+	}
+	if got.PeriodID != before.ID {
+		t.Errorf("evidence due period_id = %q; want the run clock's %q (HEAD is in %s)", got.PeriodID, before.ID, e2ePeriod)
+	}
+	if !strings.Contains(res.stdout, "SigComply check soc2/"+before.ID) {
+		t.Errorf("check did not evaluate the run clock's period %s:\n%s", before.ID, res.stdout)
+	}
 }
 
 func TestBinaryE2E_Check_ConfigErrorsExit3(t *testing.T) {

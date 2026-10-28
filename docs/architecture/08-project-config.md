@@ -40,10 +40,10 @@ scheduler's job. See [`09-ci-execution-model.md`](09-ci-execution-model.md) and
 - `fiscal_calendar.type` tunes how a period is derived (`calendar_quarter`, `fiscal_year`,
   `custom` with explicit boundaries). The derivation itself is fixed.
 - `time_basis` is validated at load whether or not `fiscal_calendar.type` is set.
-- `time_basis: commit` (default) measures the period on HEAD's commit time, so re-running an old
-  commit reproduces its period. `wall_clock` uses the run's start, for projects whose runs are
-  scheduled posture scans. `planner.PeriodTime` chooses; every period in the run is measured on
-  its result.
+- `time_basis: wall_clock` (the default, also when unset) uses the run's start. `commit` measures
+  the period on HEAD's commit time, so re-running an old commit reproduces its period, but a
+  repository without recent commits stays in a closed period. `planner.PeriodTime` chooses; every
+  period in the run is measured on its result. Boundaries are UTC.
 - `planner.DerivePeriod` freezes the run's period at run start; every policy in a run shares one
   `period_id`. A manual entry's upload folder is the one exception: it is keyed by the entry's
   own cadence window (`planner.CadencePeriod`). See [`10-cadence-model.md`](10-cadence-model.md)

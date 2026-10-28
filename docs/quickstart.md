@@ -104,9 +104,7 @@ SigComply check soc2/2026-Q4 — <n> policies
 
 Note this run period (`2026-Q4` here). You need it in step 6. The last lines name the run folder
 in the vault and the `report` command that reads it back. The CLI takes the period from the
-timestamp of the HEAD commit. The `sigcomply-quickstart` folder is not a git repository, so it
-uses the current UTC time instead. If you created the folder inside a git repository, the period
-comes from that repository's HEAD commit.
+current UTC time.
 
 `echo $?` prints `1` on a first run. That is expected: some policies fail. You'll see three
 kinds of lines:

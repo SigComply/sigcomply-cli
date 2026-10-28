@@ -36,8 +36,8 @@ Plans the framework's policies for the current period, collects evidence from th
 sources, evaluates each policy, writes signed envelopes, results and a signed run manifest to
 the vault, and submits counts to SigComply Cloud when cloud submission is on.
 
-The period is taken from the timestamp of the HEAD commit (configurable with
-`period.time_basis`). The first summary line prints it, for example
+The period is taken from the run's start time in UTC (set `period.time_basis: commit` to take it
+from the HEAD commit instead). The first summary line prints it, for example
 `SigComply check soc2/2026-Q4`.
 
 | Flag | Short | Default | Meaning |
@@ -244,8 +244,8 @@ sigcomply evidence due [flags]
 
 Lists manual-evidence entries whose folder for the current period is empty, with the folder to
 upload to. An entry disappears once its folder has a file. Each entry's period is its own
-cadence window (an annual entry's runs to 31 December), measured from the HEAD commit's
-timestamp as in `check`. A per-vendor entry is listed once per vendor that owes a document.
+cadence window (an annual entry's runs to 31 December), measured on the same clock as
+`check`. A per-vendor entry is listed once per vendor that owes a document.
 
 It only lists the storage. It downloads nothing, writes nothing and contacts no cloud API.
 

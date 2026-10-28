@@ -50,7 +50,7 @@ mean" suggestion.
 |---|---|---|---|
 | `schema_version` | string | none, required | Must be `project.v1`. |
 | `framework` | string | none, required | The one framework this project evaluates: `soc2` or `iso27001`. Any other value is a config error. `check` reads only this key; it ignores `SIGCOMPLY_FRAMEWORK`. |
-| `period` | map | calendar quarters, commit time | How the audit period is derived. See [`period`](#period). |
+| `period` | map | calendar quarters, run time | How the audit period is derived. See [`period`](#period). |
 | `vault` | map | `backend: local`, `path: ./.sigcomply/vault` | Where signed evidence, results and the run manifest are written. See [`vault`](#vault). |
 | `sources` | map | none | The sources to read. See [`sources`](#sources). |
 | `policies` | map | none | Per-policy bindings, cadence, evidence mode, and exceptions. See [`policies`](#policies). |
@@ -79,11 +79,14 @@ with exit `3` and `project config: "<key>" was removed and has no effect; delete
 | `period.fiscal_calendar.type` | string | `calendar_quarter` | `calendar_quarter`, `fiscal_year`, `custom` | Sets the run's period ID: `2026-Q1`, `FY2026`, or a custom `id`. |
 | `period.fiscal_calendar.starts` | string | `january` | Month name, any case | First month of the fiscal year. Read only for `fiscal_year`. `FY2026` is the year that starts in that month of 2026. |
 | `period.fiscal_calendar.periods` | list | none | `{id, start, end}`, dates `YYYY-MM-DD` | Required for `custom`. `end` is inclusive. A run whose clock falls in no listed period fails. |
-| `period.time_basis` | string | `commit` | `commit`, `wall_clock` | `commit` takes the period from the HEAD commit's time, so re-running an old commit gives the same period. `wall_clock` uses the run's start time. |
+| `period.time_basis` | string | `wall_clock` | `commit`, `wall_clock` | `wall_clock` (also when unset) takes the period from the run's start time. `commit` takes it from the HEAD commit's time, so re-running an old commit gives the same period, but a repository with no recent commit keeps evaluating a period that has closed. |
 
 The run's period names the vault folder for the run and the period sent to SigComply Cloud.
 Manual evidence folders use each catalog entry's own cadence window instead (for example `2026`
 for an annual entry). See [Manual evidence](guides/manual-evidence.md).
+
+Period boundaries are in UTC. A run at 22:00 on 31 March in New York (02:00 UTC on 1 April)
+belongs to `2026-Q2`, and so does its manual evidence folder for a quarterly entry.
 
 ## `vault`
 
@@ -362,7 +365,7 @@ one account aliased to two emails. Alias and `non_human` entries that match no a
 | Variable | Effect |
 |---|---|
 | `GITHUB_SHA`, then `CI_COMMIT_SHA` | Commit SHA recorded for the run. Without either, the CLI runs `git rev-parse HEAD`. |
-| `GITHUB_EVENT_HEAD_COMMIT_TIMESTAMP` | Commit time, which sets the audit period when `time_basis: commit`. Without it, the CLI runs `git show -s --format=%cI HEAD`; if that fails, it uses the current time. |
+| `GITHUB_EVENT_HEAD_COMMIT_TIMESTAMP` | Commit time, which sets the audit period only when `time_basis: commit`. Without it, the CLI runs `git show -s --format=%cI HEAD`; if that fails, it uses the current time. |
 | `GITHUB_REF_NAME`, then `CI_COMMIT_REF_NAME`, then `GIT_BRANCH` | Branch recorded for the run. |
 | `CI`, `GITHUB_ACTIONS`, `GITLAB_CI` | Any of these marks the run as in CI, which cloud submission requires. In CI, `check` also warns when the vault or `manual.pdf` is a local folder: the runner's disk is deleted when the job ends, and a local evidence folder sees only committed files. |
 | `GITHUB_WORKFLOW`, `GITHUB_RUN_ID`, `GITHUB_REPOSITORY` | GitHub Actions workflow name and run URL recorded for the run. |
@@ -438,7 +441,7 @@ period:
   fiscal_calendar:
     type: fiscal_year
     starts: april
-  time_basis: commit
+  time_basis: wall_clock   # the default; commit ties the period to the HEAD commit
 
 vault:
   backend: s3

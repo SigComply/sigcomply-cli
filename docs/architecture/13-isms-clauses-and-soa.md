@@ -188,7 +188,7 @@ dashboard, so all 16 are absent from it.
 Annual throughout because every one of these sits on a yearly management
 cycle in the standard. A quarterly cadence would demand, three quarters
 out of four, evidence that does not legitimately exist yet — and, because
-the audit period is derived from the HEAD commit's timestamp
+a file uploaded before its period starts fails the temporal window
 ([10-cadence-model.md](10-cadence-model.md#period-freeze-rule)), evidence
 cannot be staged into a future period's folder to get ahead of it.
 
