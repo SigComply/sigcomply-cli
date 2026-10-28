@@ -154,8 +154,8 @@ func TestCollect_BothTypes_MapsSortsAndFullPayload(t *testing.T) {
 		ID:            *workspaceID("rg-logs", "aworkspace"),
 		Name:          "aworkspace",
 		Provider:      "azure",
-		RetentionSet:  true,
-		RetentionDays: 365,
+		RetentionSet:  to.Ptr(true),
+		RetentionDays: to.Ptr(365),
 		Location:      "eastus",
 		SKU:           "PerGB2018",
 		ResourceGroup: "rg-logs",
@@ -195,11 +195,33 @@ func TestCollect_OnlyLogGroups_SkipsDiagnostics(t *testing.T) {
 	if f.dsCalls != 0 {
 		t.Errorf("diagnostic settings should not be listed when only log_group is requested, got %d", f.dsCalls)
 	}
-	// retention 0 → retention_set false.
-	var got logGroupPayload
+	// An unreported retention is unknown, not never-expire: both retention
+	// fields are omitted so a policy that reads them errors instead of
+	// passing (retention_set false means never-expire, which passes the
+	// minimum-retention policies).
+	var got map[string]any
 	mustUnmarshal(t, recs[0].Payload, &got)
-	if got.RetentionSet || got.RetentionDays != 0 {
-		t.Errorf("zero retention should be retention_set=false days=0, got %+v", got)
+	for _, k := range []string{"retention_set", "retention_days"} {
+		if v, ok := got[k]; ok {
+			t.Errorf("unreported retention: %s = %v, want the field omitted", k, v)
+		}
+	}
+}
+
+func TestCollect_RetentionNotReported_OmitsFields(t *testing.T) {
+	ws := workspace("rg", "w", "eastus", 0)
+	ws.Properties.RetentionInDays = nil
+	recs, err := New(Options{API: &fakeAPI{workspaces: []*armoi.Workspace{ws}}}).
+		Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeLogGroup}})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	var got map[string]any
+	mustUnmarshal(t, recs[0].Payload, &got)
+	for _, k := range []string{"retention_set", "retention_days"} {
+		if v, ok := got[k]; ok {
+			t.Errorf("nil retention: %s = %v, want the field omitted", k, v)
+		}
 	}
 }
 
@@ -292,18 +314,19 @@ func TestRetentionDays_Table(t *testing.T) {
 		name string
 		ws   *armoi.Workspace
 		want int
+		ok   bool
 	}{
-		{"nil", nil, 0},
-		{"nil-props", &armoi.Workspace{}, 0},
-		{"nil-retention", &armoi.Workspace{Properties: &armoi.WorkspaceProperties{}}, 0},
-		{"zero", &armoi.Workspace{Properties: &armoi.WorkspaceProperties{RetentionInDays: to.Ptr[int32](0)}}, 0},
-		{"negative", &armoi.Workspace{Properties: &armoi.WorkspaceProperties{RetentionInDays: to.Ptr[int32](-1)}}, 0},
-		{"positive", &armoi.Workspace{Properties: &armoi.WorkspaceProperties{RetentionInDays: to.Ptr[int32](730)}}, 730},
+		{"nil", nil, 0, false},
+		{"nil-props", &armoi.Workspace{}, 0, false},
+		{"nil-retention", &armoi.Workspace{Properties: &armoi.WorkspaceProperties{}}, 0, false},
+		{"zero", &armoi.Workspace{Properties: &armoi.WorkspaceProperties{RetentionInDays: to.Ptr[int32](0)}}, 0, false},
+		{"negative", &armoi.Workspace{Properties: &armoi.WorkspaceProperties{RetentionInDays: to.Ptr[int32](-1)}}, 0, false},
+		{"positive", &armoi.Workspace{Properties: &armoi.WorkspaceProperties{RetentionInDays: to.Ptr[int32](730)}}, 730, true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := retentionDays(c.ws); got != c.want {
-				t.Errorf("retentionDays = %d, want %d", got, c.want)
+			if got, ok := retentionDays(c.ws); got != c.want || ok != c.ok {
+				t.Errorf("retentionDays = %d/%v, want %d/%v", got, ok, c.want, c.ok)
 			}
 		})
 	}

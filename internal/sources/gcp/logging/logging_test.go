@@ -143,9 +143,12 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 	}
 }
 
-// TestRetentionSet_NeverExpire covers a bucket with RetentionDays==0
-// (no retention configured) → retention_set=false, retention_days=0.
-func TestRetentionSet_NeverExpire(t *testing.T) {
+// TestRetention_UnsetUsesGCPDefault covers a bucket whose retentionDays
+// is 0 or absent. GCP has no never-expire log bucket: the LogBucket docs
+// say a zero retention means the 30-day default applies. Emitting
+// retention_set=false would read as never-expire, which the minimum-
+// retention policies pass, so the record must carry the real 30 days.
+func TestRetention_UnsetUsesGCPDefault(t *testing.T) {
 	fake := &fakeAPI{buckets: []*logging.LogBucket{
 		{Name: testDefaultBucketName, RetentionDays: 0},
 	}}
@@ -155,8 +158,8 @@ func TestRetentionSet_NeverExpire(t *testing.T) {
 		t.Fatalf("Collect: %v", err)
 	}
 	got := decodePayload(t, &records[0])
-	if got.RetentionSet || got.RetentionDays != 0 {
-		t.Errorf("retention_set/days = %v/%d; want false/0", got.RetentionSet, got.RetentionDays)
+	if !got.RetentionSet || got.RetentionDays != 30 {
+		t.Errorf("retention_set/days = %v/%d; want true/30 (GCP default)", got.RetentionSet, got.RetentionDays)
 	}
 }
 

@@ -9,10 +9,14 @@
 // "never expire", RetentionInDays == nil → retention_set=false), every
 // GCP log bucket has a finite retention period (RetentionDays — default
 // 30 for _Default, fixed 400 for _Required, operator-configurable
-// otherwise). So retention_set ← RetentionDays > 0 and retention_days ←
-// RetentionDays; the shipped policies compare retention_days against
-// their minimum (SOC2 CC7.1: ≥90, ISO A.8.15: ≥365). A bucket left at the
-// 30-day default therefore honestly fails those policies.
+// otherwise). The LogBucket API docs say a zero retention means the
+// 30-day default applies, and the field is omitempty, so an absent or
+// zero RetentionDays maps to 30 days. retention_set is therefore always
+// true (false would read as never-expire and pass the minimum-retention
+// policies), and retention_days carries the effective retention; the
+// shipped policies compare it against their minimum (SOC2 CC7.1: ≥90,
+// ISO A.8.15: ≥365). A bucket left at the 30-day default therefore
+// honestly fails those policies.
 //
 // Per the KISS-no-DRY axiom (docs/architecture/04-source-plugins.md
 // §The plugin contract), the plugin caches nothing across Collect calls.
@@ -183,14 +187,29 @@ func buildPayload(b *logging.LogBucket) logGroupPayload {
 		ID:             b.Name,
 		Name:           shortName(b.Name),
 		Provider:       "gcp",
-		RetentionSet:   b.RetentionDays > 0,
-		RetentionDays:  int(b.RetentionDays),
+		RetentionSet:   true,
+		RetentionDays:  effectiveRetentionDays(b),
 		KMSEncrypted:   keyName != "",
 		Location:       locationFromName(b.Name),
 		Locked:         b.Locked,
 		LifecycleState: b.LifecycleState,
 		KMSKeyName:     keyName,
 	}
+}
+
+// defaultBucketRetentionDays is the retention GCP applies to a log
+// bucket created without one (LogBucket.retentionDays: "If this value is
+// set to zero at bucket creation time, the default time of 30 days will
+// be used").
+const defaultBucketRetentionDays = 30
+
+// effectiveRetentionDays returns the bucket's retention, or the GCP
+// default when the API reports none.
+func effectiveRetentionDays(b *logging.LogBucket) int {
+	if b.RetentionDays <= 0 {
+		return defaultBucketRetentionDays
+	}
+	return int(b.RetentionDays)
 }
 
 // cmekKeyName returns the customer-managed KMS key configured on the

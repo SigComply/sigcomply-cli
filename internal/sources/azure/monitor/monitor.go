@@ -8,9 +8,12 @@
 //
 // log_group (from Log Analytics workspaces):
 //
-//   - retention_days ← the workspace RetentionInDays; retention_set is true when
-//     a positive retention is configured. The log-retention policies
-//     (>=90d SOC 2, >=365d ISO 27001) read these two fields.
+//   - retention_days ← the workspace RetentionInDays, with retention_set true.
+//     A workspace always has a finite retention. When the API does not report
+//     a positive value, both fields are omitted: the retention is unknown, and
+//     retention_set false would mean never-expire, which the log-retention
+//     policies (>=90d SOC 2, >=365d ISO 27001) pass. Those policies then error
+//     on that workspace instead of guessing.
 //   - Encryption at rest is platform-always-on for Log Analytics; customer-managed
 //     keys (CMEK) are a per-cluster feature (a dedicated Azure Monitor cluster),
 //     not a per-workspace property, so kms_encrypted is intentionally not emitted
@@ -170,15 +173,16 @@ func (*Plugin) Caveats() []core.SourceCaveat {
 // Init is a no-op — configuration is fixed at New.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
-// logGroupPayload is the log_group shape this plugin emits. id, name,
-// retention_set, and retention_days are the schema-required fields; the rest are
-// auditable extras (additionalProperties).
+// logGroupPayload is the log_group shape this plugin emits. id and name are the
+// schema-required fields. retention_set and retention_days are pointers so an
+// unreported retention is omitted rather than emitted as never-expire (plan D7);
+// the rest are auditable extras (additionalProperties).
 type logGroupPayload struct {
 	ID            string `json:"id"`
 	Name          string `json:"name"`
 	Provider      string `json:"provider"`
-	RetentionSet  bool   `json:"retention_set"`
-	RetentionDays int    `json:"retention_days"`
+	RetentionSet  *bool  `json:"retention_set,omitempty"`
+	RetentionDays *int   `json:"retention_days,omitempty"`
 
 	// Auditable Azure extras.
 	Location      string `json:"location,omitempty"`
@@ -254,16 +258,18 @@ func (p *Plugin) collectLogGroups(ctx context.Context, now time.Time, scope *cor
 		if ws == nil {
 			continue
 		}
-		days := retentionDays(ws)
 		payload := logGroupPayload{
 			ID:            deref(ws.ID),
 			Name:          deref(ws.Name),
 			Provider:      "azure",
-			RetentionSet:  days > 0,
-			RetentionDays: days,
 			Location:      deref(ws.Location),
 			SKU:           workspaceSKU(ws),
 			ResourceGroup: resourceGroupFromID(deref(ws.ID)),
+		}
+		if days, ok := retentionDays(ws); ok {
+			set := true
+			payload.RetentionSet = &set
+			payload.RetentionDays = &days
 		}
 		rec, err := record(EvidenceTypeLogGroup, payload, payload.ID, now, scope)
 		if err != nil {
@@ -322,17 +328,17 @@ func record(typeID string, payload any, id string, now time.Time, scope *core.Re
 
 // --- pure mapping helpers (unit-tested via table tests) ---
 
-// retentionDays returns the workspace's configured retention in days, or 0 when
-// unset (never-expire / not configured).
-func retentionDays(ws *armoi.Workspace) int {
+// retentionDays returns the workspace's retention in days, and false when the
+// API reports none (nil or non-positive): the retention is then unknown.
+func retentionDays(ws *armoi.Workspace) (int, bool) {
 	if ws == nil || ws.Properties == nil || ws.Properties.RetentionInDays == nil {
-		return 0
+		return 0, false
 	}
 	d := int(*ws.Properties.RetentionInDays)
-	if d < 0 {
-		return 0
+	if d <= 0 {
+		return 0, false
 	}
-	return d
+	return d, true
 }
 
 // workspaceSKU returns the workspace pricing-tier name, or "" when unset.

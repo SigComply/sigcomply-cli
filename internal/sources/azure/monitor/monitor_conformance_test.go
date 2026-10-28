@@ -39,7 +39,7 @@ func TestAzureMonitorConformance(t *testing.T) {
 	if err := json.Unmarshal(logs[0].Payload, &lg); err != nil {
 		t.Fatal(err)
 	}
-	if !lg.RetentionSet {
+	if lg.RetentionSet == nil || !*lg.RetentionSet || lg.RetentionDays == nil || *lg.RetentionDays <= 0 {
 		t.Errorf("log_group = %+v; want retention set", lg)
 	}
 }
