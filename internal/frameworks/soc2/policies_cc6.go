@@ -166,9 +166,14 @@ func cc6NetworkPolicies() []core.Policy {
 		autoPolicy{
 			id: "soc2.cc6.6.no_unrestricted_all_traffic", control: ctrlCC66, severity: core.SeverityHigh, category: catNetwork, cadence: cadenceDaily,
 			accepts: []string{etFirewallRule},
-			desc:    "No firewall rule opens all protocols to the public internet.",
-			rem:     "Remove or restrict any all-protocol rule with a 0.0.0.0/0 or ::/0 source.",
-			clause:  noneWhere(leaf("payload.protocol", "eq", "all"), openToInternet(), "firewall rule {{.payload.id}} opens all traffic to the internet (0.0.0.0/0 or ::/0)"),
+			desc:    "No inbound firewall rule opens all protocols to the public internet.",
+			rem:     "Remove or restrict any all-protocol inbound rule with a 0.0.0.0/0 or ::/0 source.",
+			// Inbound only: an all-traffic egress rule is every AWS default
+			// security group's default and exposes nothing to the internet.
+			clause: noneWhere(
+				allOf(leaf("payload.direction", "eq", "ingress"), leaf("payload.protocol", "eq", "all")),
+				openToInternet(),
+				"firewall rule {{.payload.id}} opens all inbound traffic from the internet (0.0.0.0/0 or ::/0)"),
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc6.6.vpc_flow_logs_enabled", control: ctrlCC66, severity: core.SeverityMedium, category: catNetwork, cadence: cadenceDaily,

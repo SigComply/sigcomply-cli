@@ -1254,17 +1254,16 @@
   "soc2.cc6.6.no_unrestricted_all_traffic": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 5,
+      "resources_evaluated": 6,
       "resources_failed": 0
     },
     "noncompliant": {
       "status": "fail",
       "resources_evaluated": 13,
-      "resources_failed": 3,
+      "resources_failed": 2,
       "violated": [
         "sg-all-open",
-        "sg-all-open-v6",
-        "sg-default-egress"
+        "sg-all-open-v6"
       ]
     },
     "sparse": {
@@ -1277,7 +1276,7 @@
   "soc2.cc6.6.no_unrestricted_mysql": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 5,
+      "resources_evaluated": 6,
       "resources_failed": 0
     },
     "noncompliant": {
@@ -1300,7 +1299,7 @@
   "soc2.cc6.6.no_unrestricted_postgres": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 5,
+      "resources_evaluated": 6,
       "resources_failed": 0
     },
     "noncompliant": {
@@ -1323,7 +1322,7 @@
   "soc2.cc6.6.no_unrestricted_rdp": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 5,
+      "resources_evaluated": 6,
       "resources_failed": 0
     },
     "noncompliant": {
@@ -1347,7 +1346,7 @@
   "soc2.cc6.6.no_unrestricted_ssh": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 5,
+      "resources_evaluated": 6,
       "resources_failed": 0
     },
     "noncompliant": {

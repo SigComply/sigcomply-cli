@@ -24,6 +24,8 @@ this file lists the changes a user notices.
   ISO 27001 `iso27001.8.20.no_unrestricted_ssh`, `_rdp` and `_database_ports`. You may see new
   failures after upgrading: each one is a port that was already reachable from the whole IPv6
   internet.
+- `soc2.cc6.6.no_unrestricted_all_traffic` now checks inbound rules only. Outbound all-traffic
+  rules, such as the egress rule every AWS default security group has, no longer fail it.
 - The install script checks the downloaded archive against the release's `checksums.txt` and stops
   on a mismatch. `SIGCOMPLY_VERSION` accepts a version without the leading `v`.
 - `init-ci` scaffolds pin the CLI release that generated them (or `latest` for a development

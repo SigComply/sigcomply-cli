@@ -137,7 +137,7 @@ policies:
       evidence: [azure.sql]
 
   # firewall_rule (azure.network, from NSGs) — no public SSH / RDP / open
-  # all-traffic. The plugin flattens each NSG Allow rule into one record per
+  # inbound all-traffic. The plugin flattens each NSG Allow rule into one record per
   # destination port range; a source prefix of */Internet/Any sets both
   # is_unrestricted_ipv4 and is_unrestricted_ipv6, 0.0.0.0/0 the first and
   # ::/0 the second. The policies flag either. (Deny rules are deliberately

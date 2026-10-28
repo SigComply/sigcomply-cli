@@ -1796,7 +1796,7 @@
   "iso27001.8.20.no_unrestricted_database_ports": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 5,
+      "resources_evaluated": 6,
       "resources_failed": 0
     },
     "noncompliant": {
@@ -1820,7 +1820,7 @@
   "iso27001.8.20.no_unrestricted_rdp": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 5,
+      "resources_evaluated": 6,
       "resources_failed": 0
     },
     "noncompliant": {
@@ -1844,7 +1844,7 @@
   "iso27001.8.20.no_unrestricted_ssh": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 5,
+      "resources_evaluated": 6,
       "resources_failed": 0
     },
     "noncompliant": {

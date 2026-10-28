@@ -333,12 +333,12 @@
       "payload": {"provider": "aws", "is_unrestricted_ipv6": false, "id": "sg-all-open", "name": "all-open", "direction": "ingress", "protocol": "all", "from_port": -1, "to_port": -1, "source_cidr": "0.0.0.0/0", "is_unrestricted_ipv4": true}
     },
     {
-      "scenarios": ["noncompliant"],
+      "scenarios": ["compliant", "noncompliant"],
       "type": "firewall_rule",
       "id": "sg-default-egress",
       "source_id": "aws.security_group",
-      "why": "the default security group's egress rule: the all-traffic policy has no direction filter, so it flags this",
-      "payload": {"provider": "aws", "is_unrestricted_ipv6": false, "id": "sg-default-egress", "name": "default egress", "direction": "egress", "protocol": "all", "from_port": -1, "to_port": -1, "dest_cidr": "0.0.0.0/0", "is_unrestricted_ipv4": true}
+      "why": "every default security group's egress rule (all traffic to 0.0.0.0/0 and ::/0): outbound, so no check flags it",
+      "payload": {"provider": "aws", "is_unrestricted_ipv6": true, "id": "sg-default-egress", "name": "default egress", "direction": "egress", "protocol": "all", "from_port": -1, "to_port": -1, "dest_cidr": "0.0.0.0/0", "is_unrestricted_ipv4": true}
     },
     {
       "scenarios": ["noncompliant"],
