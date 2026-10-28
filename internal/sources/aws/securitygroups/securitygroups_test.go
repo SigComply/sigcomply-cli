@@ -140,6 +140,10 @@ func TestCollect_FlattensRulesDirectionPortsAndUnrestricted(t *testing.T) {
 		if raw["action"] != "allow" {
 			t.Errorf("%s: action = %v; want allow", records[i].ID, raw["action"])
 		}
+		// Nor can it be disabled.
+		if raw["disabled"] != false {
+			t.Errorf("%s: disabled = %v; want false", records[i].ID, raw["disabled"])
+		}
 	}
 }
 

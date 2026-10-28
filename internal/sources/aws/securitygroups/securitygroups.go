@@ -114,8 +114,10 @@ type rulePayload struct {
 	IsUnrestrictedIPv6 bool   `json:"is_unrestricted_ipv6"`
 	SourceCIDR         string `json:"source_cidr,omitempty"`
 	DestCIDR           string `json:"dest_cidr,omitempty"`
-	// Action is always "allow": a security group rule cannot deny.
-	Action string `json:"action"`
+	// Action is always "allow" and Disabled always false: a security group
+	// rule can neither deny nor be disabled.
+	Action   string `json:"action"`
+	Disabled bool   `json:"disabled"`
 }
 
 // Collect lists security groups and returns one firewall_rule record per

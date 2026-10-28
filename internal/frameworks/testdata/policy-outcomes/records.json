@@ -373,6 +373,14 @@
       "payload": {"provider": "gcp", "is_unrestricted_ipv6": true, "id": "gcp-deny-all-ingress", "name": "deny-all ingress rule", "direction": "ingress", "protocol": "all", "from_port": -1, "to_port": -1, "source_cidr": "0.0.0.0/0", "is_unrestricted_ipv4": true, "action": "deny"}
     },
     {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "firewall_rule",
+      "id": "gcp-ssh-disabled",
+      "source_id": "gcp.firewall",
+      "why": "a disabled GCP allow rule for SSH from 0.0.0.0/0 and ::/0: it is not enforced, so no check flags it",
+      "payload": {"provider": "gcp", "is_unrestricted_ipv6": true, "id": "gcp-ssh-disabled", "name": "ssh-disabled ingress rule", "direction": "ingress", "protocol": "tcp", "from_port": 22, "to_port": 22, "source_cidr": "0.0.0.0/0", "is_unrestricted_ipv4": true, "action": "allow", "disabled": true}
+    },
+    {
       "scenarios": ["noncompliant"],
       "type": "firewall_rule",
       "id": "gcp-allow-ssh",

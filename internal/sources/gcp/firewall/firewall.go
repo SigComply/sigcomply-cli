@@ -149,10 +149,12 @@ type rulePayload struct {
 	// either Allowed or Denied, never both. The open-port policies skip
 	// deny rules.
 	Action string `json:"action,omitempty"`
+	// Disabled (firewall_rule.v1 field): a disabled rule is not enforced,
+	// and the open-port policies skip it.
+	Disabled bool `json:"disabled"`
 	// GCP-specific extras (additionalProperties).
 	Network  string `json:"network,omitempty"`
 	Priority int64  `json:"priority,omitempty"`
-	Disabled bool   `json:"disabled"`
 }
 
 // protoPort is the normalized (protocol, ports) shape shared by the

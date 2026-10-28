@@ -40,6 +40,10 @@ func assertActionAllow(t *testing.T, payload json.RawMessage) {
 	if raw["action"] != actionAllow {
 		t.Errorf("rule action = %v; want %s", raw["action"], actionAllow)
 	}
+	// An NSG rule has no disabled state; the field says so explicitly.
+	if raw["disabled"] != false {
+		t.Errorf("rule disabled = %v; want false", raw["disabled"])
+	}
 }
 
 func mustUnmarshal(t *testing.T, raw json.RawMessage, dst any) {

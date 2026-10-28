@@ -19,7 +19,8 @@
     "dest_cidr":           { "type": "string", "description": "Destination CIDR for egress rules." },
     "is_unrestricted_ipv4":{ "type": "boolean", "description": "Source/destination is 0.0.0.0/0 (open to all IPv4)." },
     "is_unrestricted_ipv6":{ "type": "boolean", "description": "Source/destination is ::/0 (open to all IPv6)." },
-    "action":              { "type": "string", "enum": ["allow", "deny"], "description": "Whether the rule allows or denies the traffic it matches. Absent means allow, for platforms whose rules can only allow (AWS security groups)." }
+    "action":              { "type": "string", "enum": ["allow", "deny"], "description": "Whether the rule allows or denies the traffic it matches. Absent means allow, for platforms whose rules can only allow (AWS security groups)." },
+    "disabled":            { "type": "boolean", "description": "The rule exists but is not enforced (a disabled GCP firewall rule). Absent means enabled." }
   },
   "additionalProperties": true
 }

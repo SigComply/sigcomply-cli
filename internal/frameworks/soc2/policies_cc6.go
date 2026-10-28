@@ -170,13 +170,13 @@ func cc6NetworkPolicies() []core.Policy {
 			rem:     "Remove or restrict any all-protocol inbound rule with a 0.0.0.0/0 or ::/0 source.",
 			// Inbound only: an all-traffic egress rule is every AWS default
 			// security group's default and exposes nothing to the internet.
-			// A deny rule opens nothing either (see unrestrictedPortClause
+			// A deny or disabled rule opens nothing either (see unrestrictedPortClause
 			// for why this reads "closed or denies" rather than "none open").
 			clause: allWhere(
 				allOf(leaf("payload.direction", "eq", "ingress"), leaf("payload.protocol", "eq", "all")),
 				anyOf(
 					allOf(leaf("payload.is_unrestricted_ipv4", "eq", false), leaf("payload.is_unrestricted_ipv6", "eq", false)),
-					deniesTraffic(),
+					opensNothing(),
 				),
 				"firewall rule {{.payload.id}} opens all inbound traffic from the internet (0.0.0.0/0 or ::/0)"),
 		}.policy(),
@@ -374,6 +374,17 @@ func deniesTraffic() *core.PassWhenCondition {
 	return allOf(isSet("payload.action"), leaf("payload.action", "eq", "deny"))
 }
 
+// opensNothing matches a rule that cannot expose anything whatever its
+// ports and ranges: a deny rule, or a disabled one (a disabled GCP rule is
+// not enforced). disabled is optional and absent means enabled, so its read
+// is is_set-guarded the same way.
+func opensNothing() *core.PassWhenCondition {
+	return anyOf(
+		deniesTraffic(),
+		allOf(isSet("payload.disabled"), leaf("payload.disabled", "eq", true)),
+	)
+}
+
 // portMissed matches a rule whose range does not cover port: the exact
 // negation of "from_port <= port <= to_port, or from_port == -1 (all ports)".
 func portMissed(port int) *core.PassWhenCondition {
@@ -384,18 +395,19 @@ func portMissed(port int) *core.PassWhenCondition {
 }
 
 // unrestrictedPortClause flags any open (0.0.0.0/0 or ::/0) TCP ingress
-// rule that allows traffic and whose port range covers the target port, or
-// that opens all ports (from_port == -1). It is written as "every open TCP
-// ingress rule misses the port or denies" because the DSL has no negation
-// and an absent action has to count as allow; the scope (the filter) is the
-// same as a none-clause would have, so counts and vacuity are unchanged.
+// rule that is enforced, allows traffic and whose port range covers the
+// target port, or that opens all ports (from_port == -1). It is written as
+// "every open TCP ingress rule misses the port or opens nothing" because the
+// DSL has no negation and an absent action or disabled has to count as an
+// enforced allow; the scope (the filter) is the same as a none-clause would
+// have, so counts and vacuity are unchanged.
 func unrestrictedPortClause(port int) core.PassWhenClause {
 	filter := allOf(
 		leaf("payload.direction", "eq", "ingress"),
 		openToInternet(),
 		leaf("payload.protocol", "in", []any{"tcp", "all"}),
 	)
-	return allWhere(filter, anyOf(portMissed(port), deniesTraffic()), fmt.Sprintf("firewall rule {{.payload.id}} exposes port %d to the internet (0.0.0.0/0 or ::/0)", port))
+	return allWhere(filter, anyOf(portMissed(port), opensNothing()), fmt.Sprintf("firewall rule {{.payload.id}} exposes port %d to the internet (0.0.0.0/0 or ::/0)", port))
 }
 
 // --- password-policy clauses ---------------------------------------

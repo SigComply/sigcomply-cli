@@ -1796,12 +1796,12 @@
   "iso27001.8.20.no_unrestricted_database_ports": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 7,
+      "resources_evaluated": 8,
       "resources_failed": 0
     },
     "noncompliant": {
       "status": "fail",
-      "resources_evaluated": 15,
+      "resources_evaluated": 16,
       "resources_failed": 4,
       "violated": [
         "sg-all-open",
@@ -1820,12 +1820,12 @@
   "iso27001.8.20.no_unrestricted_rdp": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 7,
+      "resources_evaluated": 8,
       "resources_failed": 0
     },
     "noncompliant": {
       "status": "fail",
-      "resources_evaluated": 15,
+      "resources_evaluated": 16,
       "resources_failed": 4,
       "violated": [
         "sg-all-open",
@@ -1844,12 +1844,12 @@
   "iso27001.8.20.no_unrestricted_ssh": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 7,
+      "resources_evaluated": 8,
       "resources_failed": 0
     },
     "noncompliant": {
       "status": "fail",
-      "resources_evaluated": 15,
+      "resources_evaluated": 16,
       "resources_failed": 4,
       "violated": [
         "gcp-allow-ssh",

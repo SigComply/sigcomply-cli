@@ -29,6 +29,8 @@ this file lists the changes a user notices.
 - The open-port and all-traffic checks no longer flag GCP firewall deny rules. A deny rule open to
   `0.0.0.0/0` or `::/0` blocks that traffic; it does not expose a port. The `firewall_rule`
   evidence type gains an optional `action` field (`allow` or `deny`; absent means allow).
+- The same checks no longer flag disabled GCP firewall rules, which are not enforced. The
+  `firewall_rule` evidence type gains an optional `disabled` field (absent means enabled).
 - The install script checks the downloaded archive against the release's `checksums.txt` and stops
   on a mismatch. `SIGCOMPLY_VERSION` accepts a version without the leading `v`.
 - `init-ci` scaffolds pin the CLI release that generated them (or `latest` for a development

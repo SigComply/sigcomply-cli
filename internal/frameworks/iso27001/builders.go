@@ -281,6 +281,17 @@ func deniesTraffic() *core.PassWhenCondition {
 	return allOf(isSet("payload.action"), leaf("payload.action", "eq", "deny"))
 }
 
+// opensNothing matches a rule that cannot expose anything whatever its
+// ports and ranges: a deny rule, or a disabled one (a disabled GCP rule is
+// not enforced). disabled is optional and absent means enabled, so its read
+// is is_set-guarded the same way.
+func opensNothing() *core.PassWhenCondition {
+	return anyOf(
+		deniesTraffic(),
+		allOf(isSet("payload.disabled"), leaf("payload.disabled", "eq", true)),
+	)
+}
+
 // portMissed matches a rule whose range does not cover port: the exact
 // negation of "from_port <= port <= to_port, or from_port == -1 (all ports)".
 func portMissed(port int) *core.PassWhenCondition {
@@ -302,16 +313,17 @@ func openToInternet() *core.PassWhenCondition {
 
 // unrestrictedPortClause flags any open (0.0.0.0/0 or ::/0) ingress rule
 // that allows traffic and covers the target port. Written as "every open
-// ingress rule misses the port or denies" because the DSL has no negation
-// and an absent action has to count as allow; the filter, and so the counts
-// and vacuity, are what a none-clause would have.
+// ingress rule misses the port or opens nothing" because the DSL has no
+// negation and an absent action or disabled has to count as an enforced
+// allow; the filter, and so the counts and vacuity, are what a none-clause
+// would have.
 func unrestrictedPortClause(port int) core.PassWhenClause {
 	filter := allOf(
 		leaf("payload.direction", "eq", "ingress"),
 		openToInternet(),
 		leaf("payload.protocol", "in", []any{"tcp", "all"}),
 	)
-	return allWhere(filter, anyOf(portMissed(port), deniesTraffic()), fmt.Sprintf("firewall rule {{.payload.id}} exposes port %d to the internet (0.0.0.0/0 or ::/0)", port))
+	return allWhere(filter, anyOf(portMissed(port), opensNothing()), fmt.Sprintf("firewall rule {{.payload.id}} exposes port %d to the internet (0.0.0.0/0 or ::/0)", port))
 }
 
 // --- password-policy clauses ---------------------------------------
@@ -391,5 +403,5 @@ func unrestrictedPortsClause(ports ...int) core.PassWhenClause {
 	for _, p := range ports {
 		missesAll = append(missesAll, portMissed(p))
 	}
-	return allWhere(filter, anyOf(allOf(missesAll...), deniesTraffic()), "firewall rule {{.payload.id}} exposes a restricted database port to the internet (0.0.0.0/0 or ::/0)")
+	return allWhere(filter, anyOf(allOf(missesAll...), opensNothing()), "firewall rule {{.payload.id}} exposes a restricted database port to the internet (0.0.0.0/0 or ::/0)")
 }

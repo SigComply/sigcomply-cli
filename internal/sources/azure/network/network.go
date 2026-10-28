@@ -150,8 +150,10 @@ type rulePayload struct {
 	IsUnrestrictedIPv6 bool   `json:"is_unrestricted_ipv6"`
 	SourceCIDR         string `json:"source_cidr,omitempty"`
 	DestCIDR           string `json:"dest_cidr,omitempty"`
-	// Action is always "allow": Deny rules are not emitted (see the package doc).
-	Action string `json:"action"`
+	// Action is always "allow": Deny rules are not emitted (see the package
+	// doc). Disabled is always false: an NSG rule has no disabled state.
+	Action   string `json:"action"`
+	Disabled bool   `json:"disabled"`
 
 	// Auditable Azure extras (additionalProperties).
 	Access   string `json:"access,omitempty"`
