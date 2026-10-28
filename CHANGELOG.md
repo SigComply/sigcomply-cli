@@ -11,13 +11,115 @@ this file lists the changes a user notices.
 
 ## [Unreleased]
 
+### Added
+
+- A `not` operator in the `pass_when` DSL.
+- `sigcomply init` writes every `aws.*` source into `.sigcomply.yaml`, the core three active and
+  the rest commented out, and prints a `.gitignore` hint for the local vault.
+- `sigcomply check` ends with the vault run folder and the `report` command that reads it, and
+  warns in CI when the vault or the `manual.pdf` source is a local folder that the job discards.
+- ISO 27001 manual entries for the documented rules the standard requires:
+  `access_control_policy` (A.5.15), `cryptography_policy` (A.8.24),
+  `vulnerability_management_process` (A.8.8) and `log_review_process` (A.8.15). SOC 2 gains
+  `capacity_management_process` (A1.1) and `asset_disposal_process` (CC6.5).
+- `report --vault s3://bucket?region=<region>`; without the query the region comes from
+  `AWS_REGION`, `AWS_DEFAULT_REGION` or the config's S3 vault.
+- `docs/guides/configure-sources.md` explains how to pass GitHub, GitLab, Okta and Active Directory
+  credentials in CI.
+
 ### Changed
 
+- `init-ci` scaffolds one daily workflow, `sigcomply check --scheduled`, plus a pull-request
+  check, `sigcomply check --pr`, instead of one workflow per cadence. A scheduled run evaluates the
+  policies that are due and carries the last result forward for the rest, so every run covers the
+  whole framework. Each install step verifies the archive against `checksums.txt`. To upgrade,
+  delete the old `compliance-*.yml` files (or the GitLab `CADENCE` schedules) and run `init-ci`
+  again.
+- Only full runs submit to SigComply Cloud: an unfiltered `check` and `--scheduled`. A run with
+  `--cadence`, `--cadences`, `--on-push` or `--pr` prints `cloud submission skipped` and sends
+  nothing, because the dashboard reads a project's latest run as its current state.
+  `--capture-cloud-payload` still writes the file.
+- The audit period now comes from the run clock in UTC. Set `period.time_basis: commit` to keep
+  the old behaviour (the `HEAD` commit time). A repository with no recent commits no longer stays
+  in an old quarter.
+- `--pr` runs no longer advance the cadence state.
+- A monthly cadence re-evaluates after 27 days 23 hours instead of 29 days 23 hours, so a daily
+  scheduled run checks every calendar month, February included.
+- A `--scheduled` run re-evaluates a policy when its project configuration changes: parameters,
+  bound sources, exceptions or evidence mode.
+- `experimental.scope` and the unbound-source warning are judged against the whole framework, so
+  a filtered run no longer reports a scope gap for sources other cadences read.
+- Presence policies (audit logging, Config recording, threat detection, backup plans, log metric
+  alarms, Security Hub, Inspector, the `aws.macie` source, password policy, and their ISO 27001 twins) now fail
+  when the bound source finds nothing. Before, a service that was never enabled made them skip and
+  left the score denominator.
+- SOC 2 criterion mappings are corrected and duplicate checks are merged into one policy that
+  carries every control it backs. Renamed policy IDs: `soc2.c1.3.nda_policy` →
+  `soc2.c1.1.nda_policy`, `soc2.p6.1.data_retention_disposal` → `soc2.p4.2.…`,
+  `soc2.cc9.1.vendor_risk_assessment` and `…due_diligence_process` → `soc2.cc9.2.…`,
+  `soc2.cc6.5.termination_access_removal_process` → `soc2.cc6.2.…`,
+  `soc2.cc6.5.secret_scanning_enabled` and `…push_protection_enabled` → `soc2.cc6.1.…`,
+  `soc2.cc3.2.fraud_risk_assessment` → `soc2.cc3.3.…`, `soc2.a1.1.database_backup_enabled` and
+  `…backup_plan_exists` → `soc2.a1.2.…`. Update `policies:` overrides and exceptions that name
+  them. ISO 27001 A.8.13 and A.8.14 checks are swapped to the right controls and duplicates are
+  merged. `docs/reference/frameworks.md` lists exactly which SOC 2 criteria are modeled.
+- A policy mapped to several controls counts for each of them in coverage and the Statement of
+  Applicability.
+- The all-users MFA policies cover users who can sign in interactively; programmatic-only IAM
+  users no longer fail them.
+- Unknown `--cadence` and `--cadences` values, an `evidence_mode: automated` override on a policy
+  with no automated check, a non-https Okta `org_url`, and invalid custom period IDs (over 50
+  characters, unsafe characters, duplicates or overlaps) are config errors (exit 3).
+- `cloud.base_url` must use `https://` (localhost excepted), and a redirect from it is an error.
+- `report` exits 3 for a period with no runs or a missing local vault, and `--period` accepts the
+  `framework/period` form `check` prints.
 - Rewrote the customer docs. To submit results to SigComply Cloud, set `cloud.base_url` in
   `.sigcomply.yaml`; without it the CLI submits nothing.
 
+### Removed
+
+- `soc2.cc6.7.kms_customer_managed_keys`, which could never pass on a real AWS account.
+- The duplicate SOC 2 and ISO 27001 policies merged into their twins (see Changed).
+
 ### Fixed
 
+- Unversioned S3, GCS and Azure storage buckets fail the versioning policies instead of making
+  them error (exit 2).
+- `aws.s3` reads each bucket in its own region; a bucket outside the configured region no longer
+  aborts the source.
+- GitHub: an unprotected default branch fails the no-force-push policies (it used to pass),
+  repository rulesets are read with classic branch protection, archived repositories are skipped,
+  commit statuses count as checks, code scanning is read from the analyses API, and permission,
+  rate-limit and server errors fail the source instead of reading as compliant.
+- GitLab: an unprotected default branch fails the no-force-push policies, a protection read error
+  fails the source, and projects shared into the group from elsewhere are not scanned.
+- `aws.acm` lists certificates of every key type and reads the real renewal state; certificates
+  that were never issued are skipped (also on GCP).
+- `aws.ecr` decides whether a repository is public from its repository policy (it was always
+  private); `aws.ec2` fails when root volumes can't be read; `aws.iam` counts inline policies and
+  reads activity from access keys; `aws.rds` reads Aurora settings from the DB cluster and
+  surfaces parameter-group errors; `aws.kms` leaves keys that can't rotate out of the rotation
+  policies.
+- GCP and Azure audit trails no longer claim log file validation; `gcp.logging` reports the real
+  30-day default retention; an Azure workspace with no reported retention is not treated as
+  never-expiring; an Azure SQL server that doesn't report public network access is treated as
+  accessible; FileStorage accounts no longer break `azure.storage`; GKE and Cloud SQL fail on
+  partial location listings; GCP IAM conditions are read (policy version 3).
+- Okta security-question and email factors no longer count as MFA, and `okta_app.mfa_required` is
+  no longer guessed.
+- Manual evidence: folder placeholder objects, hidden files such as `.DS_Store` and subfolders are
+  ignored on every backend; PDFs with only an owner password merge; failure messages name the file
+  and give the upload time and window.
+- Log groups set to never expire pass the minimum-retention policies.
+- The CC7.2 alarm policies require a notification target.
+- A resource waiver no longer hides a policy's remaining failures; a rule returning an unknown
+  status is an error; `count` thresholds compare without float rounding; a `matches_in` whose
+  `where` excludes every record is flagged vacuous.
+- `report --view integrity` reports every file missing from, or not listed in, the run manifest.
+- `evidence due` says how many entries have no upload for the current period instead of "no manual
+  evidence is due".
+- A failed `--capture-cloud-payload` write exits 2; an invalid `--format` no longer empties the
+  `--out` file; a corrupted state shard is overwritten.
 - The open-port checks now also flag IPv6 rules open to `::/0`, the same as IPv4 rules open to
   `0.0.0.0/0`, on AWS security groups, GCP firewall rules and Azure NSG rules. This covers SOC 2
   `soc2.cc6.6.no_unrestricted_ssh`, `_rdp`, `_mysql`, `_postgres` and `_all_traffic`, and
