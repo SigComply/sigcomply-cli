@@ -3,7 +3,8 @@
 - Test layers (L0 to L4b, binary end-to-end, cross-repo goldens), the system tiers from per-push
   to the release gate, cassettes, contract snapshots, live tests and coverage:
   [`docs/architecture/11-testing-strategy.md`](docs/architecture/11-testing-strategy.md).
-- Binary end-to-end tests (the built CLI run as a process): `cmd/sigcomply/e2e_test.go`.
+- Binary end-to-end tests (the built CLI run as a process): `cmd/sigcomply/e2e_*_test.go`, with
+  per-policy outcome golden files in `cmd/sigcomply/testdata/e2e-outcomes/`.
 - Goldens other repos copy byte for byte, and how to regenerate each (the folder's README, or the
   test):
 

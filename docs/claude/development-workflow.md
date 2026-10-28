@@ -126,6 +126,16 @@ gate yourself and read the output before you commit.
 `make ci` (`deps lint test build`) and `make pre-commit` are local bundles. Neither reproduces CI:
 both use `-short` tests and neither enforces coverage.
 
+While iterating, run a subset inside the wrapper in "Cloud credentials when running tests", then
+the full gate before you commit:
+
+- The package you changed, for example `go test -short ./internal/evaluator/
+  ./internal/frameworks/...` (seconds).
+- The binary end-to-end tests: `go test -run 'TestBinaryE2E|TestInitCITemplates'
+  ./cmd/sigcomply/` (about 20 seconds, most of it building the binary once).
+- Everything but the binary and the command layer: `go test -short ./internal/...` (under a
+  minute).
+
 ## Cloud credentials when running tests
 
 A developer machine can hold ambient cloud credentials: env vars such as `AWS_PROFILE`,
@@ -195,8 +205,16 @@ Which tests to add:
   a source that emits its type, or a `plugin.<name>` source for input no in-tree source
   produces.
 - New command, flag, exit code or output: a test in `cmd/sigcomply/` that runs the command and
-  checks output and exact exit code, and a case in `e2e_test.go` when the behaviour depends on
-  the process (exit code mapping, environment, files written).
+  checks output and exact exit code, and a binary case (`cmd/sigcomply/e2e_*_test.go`) when the
+  behaviour depends on the process (exit code mapping, environment, files written). The binary
+  tests pin every policy outcome of their runs in `cmd/sigcomply/testdata/e2e-outcomes/`; after
+  an intended verdict change, regenerate with `go test ./cmd/sigcomply/ -run TestBinaryE2E
+  -update` and read the diff.
+- `init-ci` templates: `TestInitCITemplates_*` (`cmd/sigcomply/init_ci_contract_test.go`) check
+  the GitLab `id_tokens` name and audience against the submitter's constants, the download URL
+  against `.goreleaser.yml` and `install.sh`, and that monthly, quarterly and annual crons fire
+  at least a day into the period. `TestBinaryE2E_InitCI_GeneratedCommandsRun` runs every
+  `sigcomply` line the workflows contain.
 - Published counts: `TestDocFiguresMatchCode` (`internal/manualcatalog/doc_figures_test.go`)
   checks exact substrings in the docs it lists. It matches raw bytes, so a line wrap, `**` or a
   changed dash inside a pinned phrase breaks it. When it fails, update the doc it names.
