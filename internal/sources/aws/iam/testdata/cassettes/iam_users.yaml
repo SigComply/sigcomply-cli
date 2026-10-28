@@ -554,3 +554,89 @@ interactions:
         status: 200 OK
         code: 200
         duration: 258.754875ms
+    - id: 9
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 65
+        host: ""
+        body: Action=ListUserPolicies&UserName=example-admin&Version=2010-05-08
+        form:
+            Action:
+                - ListUserPolicies
+            UserName:
+                - example-admin
+            Version:
+                - "2010-05-08"
+        headers:
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+        url: https://iam.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: -1
+        body: |
+            <ListUserPoliciesResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/">
+              <ListUserPoliciesResult>
+                <IsTruncated>false</IsTruncated>
+                <PolicyNames/>
+              </ListUserPoliciesResult>
+              <ResponseMetadata>
+                <RequestId>00000000-0000-4000-8000-000000000001</RequestId>
+              </ResponseMetadata>
+            </ListUserPoliciesResponse>
+        headers:
+            Content-Type:
+                - text/xml
+        status: 200 OK
+        code: 200
+        duration: 100ms
+    - id: 10
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 68
+        host: ""
+        body: Action=ListUserPolicies&UserName=example-recorder&Version=2010-05-08
+        form:
+            Action:
+                - ListUserPolicies
+            UserName:
+                - example-recorder
+            Version:
+                - "2010-05-08"
+        headers:
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+        url: https://iam.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: -1
+        body: |
+            <ListUserPoliciesResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/">
+              <ListUserPoliciesResult>
+                <IsTruncated>false</IsTruncated>
+                <PolicyNames/>
+              </ListUserPoliciesResult>
+              <ResponseMetadata>
+                <RequestId>00000000-0000-4000-8000-000000000002</RequestId>
+              </ResponseMetadata>
+            </ListUserPoliciesResponse>
+        headers:
+            Content-Type:
+                - text/xml
+        status: 200 OK
+        code: 200
+        duration: 100ms

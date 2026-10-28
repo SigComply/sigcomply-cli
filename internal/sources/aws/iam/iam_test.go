@@ -31,6 +31,7 @@ type fakeAPI struct {
 	// Admin-detection fixtures: attached policy names by user, group
 	// memberships by user, and attached policy names by group.
 	userPolicies  map[string][]string
+	inlineByUN    map[string][]string
 	userGroups    map[string][]string
 	groupPolicies map[string][]string
 
@@ -92,6 +93,13 @@ func (f *fakeAPI) ListAttachedUserPolicies(_ context.Context, in *awsiam.ListAtt
 		name = *in.UserName
 	}
 	return &awsiam.ListAttachedUserPoliciesOutput{AttachedPolicies: attachedPolicies(f.userPolicies[name])}, nil
+}
+
+func (f *fakeAPI) ListUserPolicies(_ context.Context, in *awsiam.ListUserPoliciesInput, _ ...func(*awsiam.Options)) (*awsiam.ListUserPoliciesOutput, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return &awsiam.ListUserPoliciesOutput{PolicyNames: f.inlineByUN[*in.UserName]}, nil
 }
 
 func (f *fakeAPI) ListGroupsForUser(_ context.Context, in *awsiam.ListGroupsForUserInput, _ ...func(*awsiam.Options)) (*awsiam.ListGroupsForUserOutput, error) {
@@ -225,7 +233,7 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 		t.Fatalf("len(records) = %d; want 3 (2 users + root)", len(records))
 	}
 	// Sorted by ID. The root record is keyed by its account-unique ARN
-	// (see collectRootRecord), and 'a' (0x61) sorts after 'A' (0x41), so
+	// (see rootRecord), and 'a' (0x61) sorts after 'A' (0x41), so
 	// it comes last rather than first.
 	if records[0].ID != "AIDA01" || records[1].ID != "AIDA02" || records[2].ID != "arn:aws:iam::1:root" {
 		t.Errorf("records not sorted by ID: got %v", []string{records[0].ID, records[1].ID, records[2].ID})
@@ -442,6 +450,10 @@ func (f *mfaErrAPI) ListAttachedUserPolicies(_ context.Context, _ *awsiam.ListAt
 	return &awsiam.ListAttachedUserPoliciesOutput{}, nil
 }
 
+func (f *mfaErrAPI) ListUserPolicies(_ context.Context, _ *awsiam.ListUserPoliciesInput, _ ...func(*awsiam.Options)) (*awsiam.ListUserPoliciesOutput, error) {
+	return &awsiam.ListUserPoliciesOutput{}, nil
+}
+
 func (f *mfaErrAPI) ListGroupsForUser(_ context.Context, _ *awsiam.ListGroupsForUserInput, _ ...func(*awsiam.Options)) (*awsiam.ListGroupsForUserOutput, error) {
 	return &awsiam.ListGroupsForUserOutput{}, nil
 }
@@ -537,7 +549,7 @@ func TestCollectRootRecord_IDIsAccountUniqueNotTheSentinel(t *testing.T) {
 		t.Helper()
 		api := &fakeAPI{credReport: rootReportCSVForAccount(account, false)}
 		p := New(Options{API: api})
-		rec, err := p.collectRootRecord(ctx, time.Now().UTC())
+		rec, err := rootRecordFromAPI(ctx, p, time.Now().UTC())
 		if err != nil {
 			t.Fatalf("collectRootRecord(%s): %v", account, err)
 		}
@@ -575,11 +587,106 @@ func TestCollectRootRecord_FallsBackWhenArnColumnAbsent(t *testing.T) {
 	csv := []byte("user,mfa_active,password_enabled,access_key_1_active,access_key_2_active\n" +
 		"<root_account>,false,true,false,false\n")
 	p := New(Options{API: &fakeAPI{credReport: csv}})
-	rec, err := p.collectRootRecord(context.Background(), time.Now().UTC())
+	rec, err := rootRecordFromAPI(context.Background(), p, time.Now().UTC())
 	if err != nil {
 		t.Fatalf("collectRootRecord: %v", err)
 	}
 	if rec.ID != rootAccountUser {
 		t.Errorf("ID = %q; want the %q fallback when arn is absent", rec.ID, rootAccountUser)
 	}
+}
+
+// userReportCSV builds a credential report with a root row (MFA on) and
+// one row per given user line, in the report's real column names.
+func userReportCSV(userRows ...string) []byte {
+	header := "user,arn,mfa_active,password_enabled,password_last_used,access_key_1_active," +
+		"access_key_1_last_used_date,access_key_2_active,access_key_2_last_used_date\n"
+	root := "<root_account>,arn:aws:iam::1:root,true,true,no_information,false,N/A,false,N/A\n"
+	return []byte(header + root + strings.Join(userRows, ""))
+}
+
+// A CI user signs every call with an access key and never signs in to the
+// console: it is in use, and it has no console password.
+func TestCollect_ProgrammaticUserActivityAndConsoleAccess(t *testing.T) {
+	now := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	fake := &fakeAPI{
+		users: []iamtypes.User{
+			{UserName: ptr("ci-deploy"), UserId: ptr("A1")},
+			{UserName: ptr("console-never"), UserId: ptr("A2")},
+			{UserName: ptr("both"), UserId: ptr("A3"), PasswordLastUsed: ptr(now.AddDate(0, 0, -40))},
+			{UserName: ptr("stale-key"), UserId: ptr("A4")},
+		},
+		credReport: userReportCSV(
+			"ci-deploy,arn:aws:iam::1:user/ci-deploy,false,false,N/A,true,2026-05-29T10:00:00+00:00,false,N/A\n",
+			"console-never,arn:aws:iam::1:user/console-never,false,true,no_information,false,N/A,false,N/A\n",
+			"both,arn:aws:iam::1:user/both,true,true,2026-04-22T00:00:00+00:00,true,2026-05-31T00:00:00+00:00,true,2026-05-20T00:00:00+00:00\n",
+			"stale-key,arn:aws:iam::1:user/stale-key,false,false,N/A,true,2026-01-01T00:00:00+00:00,false,N/A\n",
+		),
+	}
+	recs, err := New(Options{API: fake, Now: func() time.Time { return now }}).Collect(context.Background(),
+		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	byName := map[string]userPayload{}
+	for _, r := range recs {
+		var pl userPayload
+		if err := json.Unmarshal(r.Payload, &pl); err != nil {
+			t.Fatal(err)
+		}
+		byName[pl.Username] = pl
+	}
+	tests := []struct {
+		user    string
+		unused  int
+		console bool
+	}{
+		{"ci-deploy", 2, false},
+		{"console-never", -1, true},
+		{"both", 1, true},
+		{"stale-key", 151, false},
+	}
+	for _, tc := range tests {
+		got := byName[tc.user]
+		if got.UnusedDays != tc.unused || got.HasConsoleAccess != tc.console {
+			t.Errorf("%s: unused_days=%d has_console_access=%v; want %d %v",
+				tc.user, got.UnusedDays, got.HasConsoleAccess, tc.unused, tc.console)
+		}
+	}
+}
+
+// Inline policies are attached directly to the user just like managed
+// ones; no_direct_iam_policies must see them.
+func TestCollect_InlinePoliciesCountAsDirect(t *testing.T) {
+	fake := &fakeAPI{
+		users:        []iamtypes.User{{UserName: ptr(userPlain), UserId: ptr("A1")}},
+		userPolicies: map[string][]string{userPlain: {policyReadOnlyAccess}},
+		inlineByUN:   map[string][]string{userPlain: {"inline-a", "inline-b"}},
+	}
+	recs, err := New(Options{API: fake}).Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	for _, r := range recs {
+		var pl userPayload
+		if err := json.Unmarshal(r.Payload, &pl); err != nil {
+			t.Fatal(err)
+		}
+		if pl.Username == userPlain && pl.DirectPolicyCount != 3 {
+			t.Errorf("direct_policy_count = %d; want 3 (1 managed + 2 inline)", pl.DirectPolicyCount)
+		}
+	}
+}
+
+// rootRecordFromAPI runs the report-to-root-record path Collect uses.
+func rootRecordFromAPI(ctx context.Context, p *Plugin, now time.Time) (core.EvidenceRecord, error) {
+	report, err := p.credentialReport(ctx)
+	if err != nil {
+		return core.EvidenceRecord{}, err
+	}
+	rows, err := parseReport(report)
+	if err != nil {
+		return core.EvidenceRecord{}, err
+	}
+	return rootRecord(rows, now)
 }

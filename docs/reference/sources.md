@@ -73,7 +73,7 @@ those credentials, so the ambient principal needs that permission on the target 
 | `aws.ecr` | `container_registry` | `ecr:DescribeRepositories` |
 | `aws.eks` | `kubernetes_cluster` | `eks:ListClusters`, `eks:DescribeCluster` |
 | `aws.guardduty` | `threat_detection_service` | `guardduty:ListDetectors`, `guardduty:GetDetector` |
-| `aws.iam` | `directory_user.v2` | `iam:ListUsers`, `iam:ListMFADevices`, `iam:ListAccessKeys`, `iam:ListAttachedUserPolicies`, `iam:ListGroupsForUser`, `iam:ListAttachedGroupPolicies`, `iam:GenerateCredentialReport`, `iam:GetCredentialReport` |
+| `aws.iam` | `directory_user.v2` | `iam:ListUsers`, `iam:ListMFADevices`, `iam:ListAccessKeys`, `iam:ListAttachedUserPolicies`, `iam:ListUserPolicies`, `iam:ListGroupsForUser`, `iam:ListAttachedGroupPolicies`, `iam:GenerateCredentialReport`, `iam:GetCredentialReport` |
 | `aws.iam_access_key` | `iam_access_key` | `iam:ListUsers`, `iam:ListAccessKeys`, `iam:GetAccessKeyLastUsed` |
 | `aws.identity_center` | `directory_user`, `roster_entry`, `iam_binding` | `sso:ListInstances`, `identitystore:ListUsers`; for `iam_binding` and `is_admin` also `identitystore:DescribeGroup`, `identitystore:ListGroupMemberships`, `sso:ListPermissionSets`, `sso:DescribePermissionSet`, `sso:ListManagedPoliciesInPermissionSet`, `sso:ListAccountsForProvisionedPermissionSet`, `sso:ListAccountAssignments` |
 | `aws.inspector` | `vulnerability_finding` | `inspector2:ListFindings` |
@@ -100,6 +100,14 @@ For `role_arn`, the target role's trust policy must allow the ambient principal 
 - `aws.iam` emits no email. To link IAM users to the [identity roster](../guides/identity-roster.md),
   add `experimental.roster.aliases` keyed by username, or list them in `non_human`. The root
   account is treated as non-human.
+- `aws.iam` takes `unused_days` from the most recent console sign-in or access-key use in the
+  credential report, which AWS refreshes at most every four hours. `has_console_access` is the
+  report's `password_enabled`. `direct_policy_count` counts managed and inline policies attached
+  to the user. `is_admin` is true only for the AWS-managed `AdministratorAccess` policy, attached
+  to the user or to one of its groups; an inline or customer-managed policy that grants the same
+  access is not detected.
+- The MFA policies apply to every IAM user, including users that have only access keys. Record
+  an exception for a programmatic-only user, or give it MFA.
 - `aws.identity_center` must use the region of the Identity Center instance. Its users carry
   emails, so they join the roster directly. It can be the roster source. Used only as the roster,
   it needs just `sso:ListInstances` and `identitystore:ListUsers`.

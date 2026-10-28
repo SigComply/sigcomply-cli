@@ -172,6 +172,10 @@ func (s *stubIAMAPI) ListAttachedUserPolicies(_ context.Context, _ *awsiam.ListA
 	return &awsiam.ListAttachedUserPoliciesOutput{}, nil
 }
 
+func (s *stubIAMAPI) ListUserPolicies(_ context.Context, _ *awsiam.ListUserPoliciesInput, _ ...func(*awsiam.Options)) (*awsiam.ListUserPoliciesOutput, error) {
+	return &awsiam.ListUserPoliciesOutput{}, nil
+}
+
 func (s *stubIAMAPI) ListGroupsForUser(_ context.Context, _ *awsiam.ListGroupsForUserInput, _ ...func(*awsiam.Options)) (*awsiam.ListGroupsForUserOutput, error) {
 	return &awsiam.ListGroupsForUserOutput{}, nil
 }

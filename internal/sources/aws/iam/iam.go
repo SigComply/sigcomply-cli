@@ -46,6 +46,9 @@ type API interface {
 	ListMFADevices(ctx context.Context, params *awsiam.ListMFADevicesInput, optFns ...func(*awsiam.Options)) (*awsiam.ListMFADevicesOutput, error)
 	ListAccessKeys(ctx context.Context, params *awsiam.ListAccessKeysInput, optFns ...func(*awsiam.Options)) (*awsiam.ListAccessKeysOutput, error)
 	ListAttachedUserPolicies(ctx context.Context, params *awsiam.ListAttachedUserPoliciesInput, optFns ...func(*awsiam.Options)) (*awsiam.ListAttachedUserPoliciesOutput, error)
+	// ListUserPolicies lists the user's inline policies, which count as
+	// directly-attached policies alongside the managed ones.
+	ListUserPolicies(ctx context.Context, params *awsiam.ListUserPoliciesInput, optFns ...func(*awsiam.Options)) (*awsiam.ListUserPoliciesOutput, error)
 	ListGroupsForUser(ctx context.Context, params *awsiam.ListGroupsForUserInput, optFns ...func(*awsiam.Options)) (*awsiam.ListGroupsForUserOutput, error)
 	ListAttachedGroupPolicies(ctx context.Context, params *awsiam.ListAttachedGroupPoliciesInput, optFns ...func(*awsiam.Options)) (*awsiam.ListAttachedGroupPoliciesOutput, error)
 	// GenerateCredentialReport / GetCredentialReport back the synthetic
@@ -171,7 +174,17 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	if err != nil {
 		return nil, fmt.Errorf("aws.iam: list users: %w", err)
 	}
-	records := make([]core.EvidenceRecord, 0, len(users))
+	// The credential report backs the synthetic root record and each
+	// user's console-password and access-key last-use columns.
+	report, err := p.credentialReport(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("aws.iam: root account: %w", err)
+	}
+	rows, err := parseReport(report)
+	if err != nil {
+		return nil, fmt.Errorf("aws.iam: root account: %w", err)
+	}
+	records := make([]core.EvidenceRecord, 0, len(users)+1)
 	now := p.now()
 	// groupAdmin memoizes per-group admin lookups within this Collect call
 	// (many users share groups); nothing is cached across Collect calls.
@@ -190,6 +203,7 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		if err != nil {
 			return nil, fmt.Errorf("aws.iam: privilege check for user %s: %w", safeUserName(u), err)
 		}
+		row, inReport := rows[safeUserName(u)]
 		payload := userPayload{
 			ID:          safeUserID(u),
 			Username:    safeUserName(u),
@@ -198,16 +212,14 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 			IsAdmin:     isAdmin,
 			IsActive:    true,  // IAM list calls only return active users
 			IsRoot:      false, // ListUsers never returns root; the synthetic root record is added separately
-			// HasConsoleAccess is approximated from PasswordLastUsed: a
-			// non-nil value proves the user has (and has used) a console
-			// login profile. It can under-report a user who has a login
-			// profile but has never signed in. A precise signal needs a
-			// per-user GetLoginProfile call; no shipped policy reads this
-			// field yet, so the approximation is acceptable for now.
-			HasConsoleAccess:      u.PasswordLastUsed != nil,
+			// The report's password_enabled says whether the user has a
+			// console password. A user created after the report was
+			// generated (AWS reuses a report for up to four hours) is not
+			// in it; PasswordLastUsed then proves a password that was used.
+			HasConsoleAccess:      (inReport && row.passwordEnabled) || u.PasswordLastUsed != nil,
 			HasProgrammaticAccess: hasKeys,
 			DirectPolicyCount:     directCount,
-			UnusedDays:            unusedDays(u, now),
+			UnusedDays:            unusedDays(u, row, now),
 			CreatedAt:             safeCreatedAt(u),
 		}
 		if u.PasswordLastUsed != nil {
@@ -231,7 +243,7 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	// no root access keys — both Critical) filter to zero records and pass
 	// vacuously. Emit one is_root:true record built from the account
 	// credential report.
-	rootRec, err := p.collectRootRecord(ctx, now)
+	rootRec, err := rootRecord(rows, now)
 	if err != nil {
 		return nil, fmt.Errorf("aws.iam: root account: %w", err)
 	}
@@ -244,18 +256,14 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 // root-account row.
 const rootAccountUser = "<root_account>"
 
-// collectRootRecord builds the synthetic is_root:true directory_user.v2
+// rootRecord builds the synthetic is_root:true directory_user.v2
 // record from the account credential report. MFA and access-key state
 // come from the report's "<root_account>" row; is_admin is always true
 // (root has unrestricted access by definition).
-func (p *Plugin) collectRootRecord(ctx context.Context, now time.Time) (core.EvidenceRecord, error) {
-	report, err := p.credentialReport(ctx)
-	if err != nil {
-		return core.EvidenceRecord{}, err
-	}
-	row, err := parseRootRow(report)
-	if err != nil {
-		return core.EvidenceRecord{}, err
+func rootRecord(rows map[string]reportRow, now time.Time) (core.EvidenceRecord, error) {
+	row, ok := rows[rootAccountUser]
+	if !ok {
+		return core.EvidenceRecord{}, fmt.Errorf("credential report has no %q row", rootAccountUser)
 	}
 	// The report's user column is the same "<root_account>" literal in
 	// every AWS account, so it cannot identify a root across two
@@ -325,30 +333,34 @@ func (p *Plugin) credentialReport(ctx context.Context) ([]byte, error) {
 	return nil, fmt.Errorf("credential report not ready after %d attempts", credentialReportMaxAttempts)
 }
 
-// rootRow is the parsed subset of the credential report's root row.
-type rootRow struct {
-	// arn is the root principal's ARN, arn:aws:iam::<account>:root. It
-	// is the only account-unique identifier the credential report hands
-	// us, and it is what the root record is keyed by — see
-	// collectRootRecord.
+// reportRow is the parsed subset of one credential-report row.
+type reportRow struct {
+	// arn is the principal's ARN. For the root row it is
+	// arn:aws:iam::<account>:root, the only account-unique identifier the
+	// credential report hands us, and what the root record is keyed by —
+	// see rootRecord.
 	arn              string
 	mfaActive        bool
 	passwordEnabled  bool
 	accessKey1Active bool
 	accessKey2Active bool
+	// lastUsed holds every authentication time the row records: console
+	// password and each access key. Columns reading N/A or
+	// no_information contribute nothing.
+	lastUsed []time.Time
 }
 
-// parseRootRow finds the "<root_account>" row in the credential-report
-// CSV and extracts the fields the root policies care about. The report
-// columns are stable and addressed by header name (order-independent).
-func parseRootRow(content []byte) (rootRow, error) {
+// parseReport parses the credential-report CSV into rows keyed by the
+// user column ("<root_account>" for root). The report columns are stable
+// and addressed by header name (order-independent).
+func parseReport(content []byte) (map[string]reportRow, error) {
 	r := csv.NewReader(bytes.NewReader(content))
 	rows, err := r.ReadAll()
 	if err != nil {
-		return rootRow{}, fmt.Errorf("parse credential report: %w", err)
+		return nil, fmt.Errorf("parse credential report: %w", err)
 	}
 	if len(rows) < 2 {
-		return rootRow{}, fmt.Errorf("credential report has no data rows")
+		return nil, fmt.Errorf("credential report has no data rows")
 	}
 	col := make(map[string]int, len(rows[0]))
 	for i, name := range rows[0] {
@@ -361,20 +373,24 @@ func parseRootRow(content []byte) (rootRow, error) {
 		}
 		return row[idx]
 	}
+	out := make(map[string]reportRow, len(rows)-1)
 	for _, r := range rows[1:] {
-		if field(r, "user") != rootAccountUser {
-			continue
-		}
 		yes := func(name string) bool { return field(r, name) == "true" }
-		return rootRow{
+		row := reportRow{
 			arn:              field(r, "arn"),
 			mfaActive:        yes("mfa_active"),
 			passwordEnabled:  yes("password_enabled"),
 			accessKey1Active: yes("access_key_1_active"),
 			accessKey2Active: yes("access_key_2_active"),
-		}, nil
+		}
+		for _, c := range []string{"password_last_used", "access_key_1_last_used_date", "access_key_2_last_used_date"} {
+			if t, err := time.Parse(time.RFC3339, field(r, c)); err == nil {
+				row.lastUsed = append(row.lastUsed, t)
+			}
+		}
+		out[field(r, "user")] = row
 	}
-	return rootRow{}, fmt.Errorf("credential report has no %q row", rootAccountUser)
+	return out, nil
 }
 
 func (p *Plugin) listAllUsers(ctx context.Context) ([]iamtypes.User, error) {
@@ -429,9 +445,12 @@ func (p *Plugin) userHasActiveAccessKey(ctx context.Context, u *iamtypes.User) (
 
 // userPrivilege returns whether the user holds AdministratorAccess
 // (directly or via a group) and the count of policies attached DIRECTLY
-// to the user (managed). directCount feeds the no-direct-policies hygiene
-// check; group-attached policies are the recommended pattern and are not
-// counted here.
+// to the user, managed and inline. directCount feeds the
+// no-direct-policies hygiene check; group-attached policies are the
+// recommended pattern and are not counted here. Admin detection reads
+// only the AWS-managed AdministratorAccess policy by name; an inline or
+// customer-managed policy granting the same access is not recognized
+// (docs/reference/sources.md, AWS caveats).
 func (p *Plugin) userPrivilege(ctx context.Context, u *iamtypes.User, groupAdmin map[string]bool) (isAdmin bool, directCount int, err error) {
 	name := safeUserName(u)
 	if name == "" {
@@ -441,6 +460,11 @@ func (p *Plugin) userPrivilege(ctx context.Context, u *iamtypes.User, groupAdmin
 	if err != nil {
 		return false, 0, err
 	}
+	inline, err := p.userInlinePolicyCount(ctx, name)
+	if err != nil {
+		return false, 0, err
+	}
+	directCount += inline
 	if directAdmin {
 		return true, directCount, nil
 	}
@@ -472,6 +496,26 @@ func (p *Plugin) userDirectPolicies(ctx context.Context, user string) (count int
 			continue
 		}
 		return count, hasAdmin, nil
+	}
+}
+
+// userInlinePolicyCount counts the user's inline policies (paged).
+func (p *Plugin) userInlinePolicyCount(ctx context.Context, user string) (int, error) {
+	var (
+		count  int
+		marker *string
+	)
+	for {
+		out, err := p.api.ListUserPolicies(ctx, &awsiam.ListUserPoliciesInput{UserName: &user, Marker: marker})
+		if err != nil {
+			return 0, fmt.Errorf("inline policies: %w", err)
+		}
+		count += len(out.PolicyNames)
+		if out.IsTruncated && out.Marker != nil {
+			marker = out.Marker
+			continue
+		}
+		return count, nil
 	}
 }
 
@@ -563,15 +607,26 @@ func safeUserID(u *iamtypes.User) string {
 	return *u.UserId
 }
 
-// unusedDays returns whole days since the user's last console
-// authentication. Returns -1 when the user has never signed in to the
-// console (PasswordLastUsed nil) — the inactive-accounts policy treats
-// -1 (>= 0 false) as "never logged in" and flags it.
-func unusedDays(u *iamtypes.User, now time.Time) int {
-	if u == nil || u.PasswordLastUsed == nil {
+// unusedDays returns whole days since the user last authenticated, with
+// a console password or an access key, whichever is more recent: a CI
+// user that signs every call with a key is in use although it never
+// signs in to the console. Returns -1 when neither was ever used — the
+// inactive-accounts policy treats -1 (>= 0 false) as "never logged in"
+// and flags it.
+func unusedDays(u *iamtypes.User, row reportRow, now time.Time) int {
+	var last time.Time
+	if u != nil && u.PasswordLastUsed != nil {
+		last = *u.PasswordLastUsed
+	}
+	for _, t := range row.lastUsed {
+		if t.After(last) {
+			last = t
+		}
+	}
+	if last.IsZero() {
 		return -1
 	}
-	d := int(now.Sub(*u.PasswordLastUsed).Hours() / 24)
+	d := int(now.Sub(last).Hours() / 24)
 	if d < 0 {
 		return 0
 	}

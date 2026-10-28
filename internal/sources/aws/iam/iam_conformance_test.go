@@ -91,9 +91,28 @@ func TestIAMConformance(t *testing.T) {
 	if programmatic < 2 {
 		t.Errorf("has_programmatic_access count = %d, want >= 2", programmatic)
 	}
+	assertActivity(t, users)
 	// Root has a console password but no MFA and no access keys.
 	if !root.HasConsoleAccess || root.MFAEnabled || root.HasProgrammaticAccess {
 		t.Errorf("root = %+v; want console access, no MFA, no programmatic access", root)
+	}
+}
+
+// assertActivity checks the credential-report-derived fields:
+// example-admin has a console password it never used and a key last used
+// 2026-06-21; example-recorder has only a key, used on the clock's day.
+func assertActivity(t *testing.T, users map[string]userPayload) {
+	t.Helper()
+	want := map[string]struct {
+		console bool
+		unused  int
+	}{"example-admin": {true, 6}, "example-recorder": {false, 0}}
+	for id := range users {
+		u := users[id]
+		w, ok := want[u.Username]
+		if ok && (u.HasConsoleAccess != w.console || u.UnusedDays != w.unused) {
+			t.Errorf("%s console=%v unused_days=%d; want %v, %d", u.Username, u.HasConsoleAccess, u.UnusedDays, w.console, w.unused)
+		}
 	}
 }
 
