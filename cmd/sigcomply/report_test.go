@@ -28,6 +28,7 @@ const (
 	viewSoA    = "soa"
 	// viewIntegrity is the `report --view` name for run verification.
 	viewIntegrity = "integrity"
+	viewCoverage  = "coverage"
 	// formatYAML is the unsupported --format / --output value the
 	// negative-path tests pass.
 	formatYAML = "yaml"
