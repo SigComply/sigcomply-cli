@@ -25,10 +25,15 @@
 //   - not_after ← ExpireTime (the durable, replay-safe field), normalized
 //     to RFC3339 UTC. days_until_expiry is derived from it at collect time,
 //     rounded toward zero so an already-expired cert reads negative.
-//   - is_managed ← Managed != nil. auto_renew is a pointer set to true only
-//     for managed certificates (Google auto-renews them); omitted for
-//     self-managed certs, which have no auto-renewal concept — matching
-//     aws.acm, where the auto-renew policy guards on is_managed.
+//   - is_managed ← Managed != nil. auto_renew is a pointer set only for
+//     managed certificates, from ManagedCertificate.State: ACTIVE or
+//     PROVISIONING (renewing) → true, FAILED (Certificate Manager gave up)
+//     → false, any other state → omitted as unknown. Self-managed certs omit
+//     it too: they have no auto-renewal concept — matching aws.acm, where
+//     the auto-renew policy guards on is_managed.
+//   - A certificate with no ExpireTime was never issued (provisioning for
+//     the first time, or failed before issuance). It is skipped: it serves
+//     no traffic, and the schema requires a not_after it does not have.
 //   - status ← an honest enum mapping: an expired cert is EXPIRED; otherwise
 //     a managed cert maps its ManagedCertificate.State (ACTIVE→ISSUED,
 //     PROVISIONING→PENDING_VALIDATION, FAILED→FAILED, else INACTIVE) and a
@@ -69,6 +74,13 @@ const EvidenceTypeID = "tls_certificate"
 
 // SourceID is the registered ID for the gcp.certs plugin instance.
 const SourceID = "gcp.certs"
+
+// Certificate Manager managed-certificate states.
+const (
+	managedStateActive       = "ACTIVE"
+	managedStateProvisioning = "PROVISIONING"
+	managedStateFailed       = "FAILED"
+)
 
 // hoursPerDay converts an expiry duration to whole days.
 const hoursPerDay = 24
@@ -189,7 +201,11 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	scope := p.scope()
 	records := make([]core.EvidenceRecord, 0, len(certs))
 	for _, cert := range certs {
-		if cert == nil {
+		// A certificate with no expireTime was never issued (a managed cert
+		// still provisioning, or one that failed first time). It serves no
+		// traffic and has no expiry to judge; emitting it with an empty
+		// not_after would fail schema validation and error every TLS policy.
+		if cert == nil || cert.ExpireTime == "" {
 			continue
 		}
 		payload := buildPayload(cert, now)
@@ -228,13 +244,30 @@ func buildPayload(cert *certificatemanager.Certificate, now time.Time) certPaylo
 		Scope:           cert.Scope,
 	}
 	if isManaged {
-		// Google auto-renews managed certificates; self-managed certs omit
-		// the field entirely (the auto-renew policy guards on is_managed).
-		t := true
-		p.AutoRenew = &t
+		// Self-managed certs omit auto_renew entirely (the auto-renew policy
+		// guards on is_managed).
+		p.AutoRenew = managedAutoRenew(cert.Managed.State)
 		p.ManagedState = cert.Managed.State
 	}
 	return p
+}
+
+// managedAutoRenew reads auto-renewal from the managed certificate's state.
+// ACTIVE means management is working; PROVISIONING covers a renewal in
+// progress. FAILED means Certificate Manager gave up, so the certificate
+// will expire. Any other state is unknown and yields nil, so auto_renew is
+// omitted rather than guessed.
+func managedAutoRenew(state string) *bool {
+	var v bool
+	switch state {
+	case managedStateActive, managedStateProvisioning:
+		v = true
+	case managedStateFailed:
+		v = false
+	default:
+		return nil
+	}
+	return &v
 }
 
 // expiry parses the certificate's RFC3339 expiry timestamp and returns it
@@ -265,11 +298,11 @@ func mapStatus(cert *certificatemanager.Certificate, expired bool) string {
 	}
 	if cert.Managed != nil {
 		switch cert.Managed.State {
-		case "ACTIVE":
+		case managedStateActive:
 			return "ISSUED"
-		case "PROVISIONING":
+		case managedStateProvisioning:
 			return "PENDING_VALIDATION"
-		case "FAILED":
+		case managedStateFailed:
 			return "FAILED"
 		default: // STATE_UNSPECIFIED or empty
 			return "INACTIVE"

@@ -208,6 +208,10 @@ locally. All `gcp.*` sources share one identity per run.
   slower cadence.
 - `gcp.scc` needs organization-level roles; a project-scoped CI service account usually lacks
   them.
+- `gcp.certs` skips certificates that have never been issued (no expiry time yet). For a
+  Google-managed certificate, `auto_renew` is `true` while Certificate Manager is managing it
+  (state `ACTIVE` or `PROVISIONING`), `false` once provisioning has `FAILED`, and absent in any
+  other state.
 - When GCP reports that a zone or region was unreachable during a listing, `gcp.gke`, `gcp.sql`,
   `gcp.firestore`, `gcp.backup` and `gcp.certs` fail instead of evaluating the partial list.
   Policies bound to them get status `error` for that run.

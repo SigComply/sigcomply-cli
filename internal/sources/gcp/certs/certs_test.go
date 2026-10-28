@@ -305,7 +305,7 @@ func TestLocationFromName(t *testing.T) {
 }
 
 func TestCollect_NilCertSkipped(t *testing.T) {
-	fake := &fakeAPI{certs: []*certificatemanager.Certificate{nil, {Name: "projects/p/locations/us-central1/certificates/real"}}}
+	fake := &fakeAPI{certs: []*certificatemanager.Certificate{nil, {Name: "projects/p/locations/us-central1/certificates/real", ExpireTime: testSelfCertExpiry}}}
 	p := New(Options{API: fake})
 	records, err := p.Collect(context.Background(), certsReq())
 	if err != nil {
@@ -423,4 +423,52 @@ func newTestService(t *testing.T, srv *httptest.Server) *certificatemanager.Serv
 		t.Fatalf("NewService: %v", err)
 	}
 	return svc
+}
+
+// A managed certificate still provisioning (or one that failed before it
+// was ever issued) has no expireTime. It serves no traffic and has no
+// expiry to judge; emitting it with an empty not_after fails schema
+// validation and errors every TLS policy, so it is skipped.
+func TestCollect_UnissuedCertificateSkipped(t *testing.T) {
+	fake := &fakeAPI{certs: []*certificatemanager.Certificate{
+		{Name: "projects/p/locations/global/certificates/pending",
+			Managed: &certificatemanager.ManagedCertificate{State: "PROVISIONING", Domains: []string{testDomainWWW}}},
+		{Name: testManagedCertName, ExpireTime: testManagedCertExpiry, SanDnsnames: []string{testDomainWWW},
+			Managed: &certificatemanager.ManagedCertificate{State: testStateActive}},
+	}}
+	now := time.Date(2026, 6, 16, 0, 0, 0, 0, time.UTC)
+	records, err := New(Options{API: fake, ProjectID: "p", Now: func() time.Time { return now }}).Collect(context.Background(), certsReq())
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if len(records) != 1 || records[0].ID != testManagedCertName {
+		t.Fatalf("records = %v; want only the issued certificate", records)
+	}
+}
+
+// auto_renew reflects whether Certificate Manager is still managing the
+// certificate: ACTIVE or PROVISIONING (renewing) renew, FAILED has been
+// given up on, and an unspecified state is unknown, so the field is
+// omitted rather than guessed.
+func TestBuildPayload_AutoRenewFromManagedState(t *testing.T) {
+	now := time.Date(2026, 6, 16, 0, 0, 0, 0, time.UTC)
+	cases := []struct {
+		state string
+		want  *bool
+	}{
+		{testStateActive, ptrBool(true)},
+		{"PROVISIONING", ptrBool(true)},
+		{"FAILED", ptrBool(false)},
+		{"STATE_UNSPECIFIED", nil},
+		{"", nil},
+	}
+	for _, c := range cases {
+		got := buildPayload(&certificatemanager.Certificate{
+			Name: testManagedCertName, ExpireTime: testManagedCertExpiry,
+			Managed: &certificatemanager.ManagedCertificate{State: c.state},
+		}, now)
+		if !reflect.DeepEqual(got.AutoRenew, c.want) {
+			t.Errorf("state %q: auto_renew = %v; want %v", c.state, got.AutoRenew, c.want)
+		}
+	}
 }
