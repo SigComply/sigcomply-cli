@@ -23,6 +23,7 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -179,6 +180,13 @@ type PullRequest struct {
 	MergedAt       time.Time
 	Reviews        []Review
 	CheckRuns      []CheckRun
+	// CommitStatusState and CommitStatusCount are the head commit's
+	// combined commit status (Status API, used by CI systems that do not
+	// report check runs): GitHub's aggregate state (success / pending /
+	// failure) and the number of statuses behind it. A count of 0 means
+	// no CI reported through the Status API.
+	CommitStatusState string
+	CommitStatusCount int
 }
 
 // Deployment is one release of code to a running environment during the
@@ -209,7 +217,8 @@ type Deployment struct {
 type API interface {
 	// ListRepos returns all repos in the configured organization.
 	// Implementations must page transparently — callers receive the
-	// full list in one slice.
+	// full list in one slice. Archived repos are returned with only
+	// their listing fields; the plugin drops them (see collectRepos).
 	ListRepos(ctx context.Context) ([]Repo, error)
 	// ListOrgMembers returns all members of the configured org along
 	// with their 2FA state and role. 2FA state requires admin scope.
@@ -223,22 +232,23 @@ type API interface {
 	// require an org-admin-scoped token.
 	GetOrgPolicy(ctx context.Context) (OrgPolicy, error)
 	// ListDependabotAlerts returns the org's open Dependabot alerts.
-	// Requires a token with security-events read access; when Dependabot
-	// alerts are disabled for the org (403) the implementation returns an
-	// empty slice rather than an error, so the per-repo enablement gap is
-	// reported by the dependabot_alerts_enabled policy instead of failing
-	// the run.
+	// Requires a token with Dependabot alerts read access. When GitHub
+	// answers that alerts are disabled the implementation returns an
+	// empty slice, so the per-repo gap is reported by the
+	// dependabot_alerts_enabled policy; any other error (a token without
+	// access included) is returned.
 	ListDependabotAlerts(ctx context.Context) ([]DependabotAlert, error)
 	// ListMergedPullRequests returns the org's pull requests merged into
 	// each repository's default branch with a merge timestamp inside
 	// [start, end]. GitHub's pulls listing has no date filter, so
 	// implementations paginate newest-updated-first and stop once a page
-	// predates start. A repository the token cannot read is skipped, not
-	// an error — one inaccessible repo must not fail the whole run.
+	// predates start. Any error reading a repository's pulls, reviews,
+	// checks or statuses is returned: evidence silently missing for one
+	// repo would let the change-management policies pass on the rest.
 	ListMergedPullRequests(ctx context.Context, start, end time.Time) ([]PullRequest, error)
 	// ListDeployments returns the org's deployments created inside
-	// [start, end], including failed ones. Same pagination and
-	// per-repository error tolerance as ListMergedPullRequests.
+	// [start, end], including failed ones. Same pagination and error
+	// handling as ListMergedPullRequests.
 	ListDeployments(ctx context.Context, start, end time.Time) ([]Deployment, error)
 }
 
@@ -546,6 +556,13 @@ func (p *Plugin) collectRepos(ctx context.Context) ([]core.EvidenceRecord, error
 	records := make([]core.EvidenceRecord, 0, len(repos))
 	for i := range repos {
 		r := repos[i]
+		// An archived repository is read-only: its protection and
+		// security settings cannot change without unarchiving it, and no
+		// change can merge into it, so it is out of scope for the
+		// repository policies (docs/reference/sources.md, GitHub caveats).
+		if r.Archived {
+			continue
+		}
 		payload := repoPayload{
 			Name:                    r.Name,
 			DefaultBranch:           r.DefaultBranch,
@@ -776,7 +793,7 @@ func (p *Plugin) collectPullRequests(ctx context.Context, start, end time.Time) 
 			ApprovalCount:            approvals,
 			IndependentApprovalCount: independent,
 			ApprovedBeforeMerge:      beforeMerge,
-			ChecksPassed:             checksPassed(pr.CheckRuns),
+			ChecksPassed:             checksPassed(pr.CheckRuns, pr.CommitStatusState, pr.CommitStatusCount),
 		}
 		body, err := json.Marshal(payload)
 		if err != nil {
@@ -840,13 +857,19 @@ func approvalState(pr *PullRequest) (approvalCount, independentCount int, approv
 }
 
 // checksPassed reports whether every automated check on the merged
-// commit succeeded. A repository that runs NO checks reports false: the
-// schema states explicitly that "no CI configured" is not a pass, since
-// a change merged with nothing verifying it is the condition CC8.1 asks
-// about. neutral and skipped conclusions count as success (a check that
-// deliberately did not apply is not a failure).
-func checksPassed(runs []CheckRun) bool {
-	if len(runs) == 0 {
+// commit succeeded, counting both check runs (Checks API) and commit
+// statuses (Status API, which CI systems without the Checks integration
+// use). A commit with NEITHER reports false: the schema states
+// explicitly that "no CI configured" is not a pass, since a change
+// merged with nothing verifying it is the condition CC8.1 asks about.
+// neutral and skipped conclusions count as success (a check that
+// deliberately did not apply is not a failure). Statuses pass only when
+// GitHub's combined state is success.
+func checksPassed(runs []CheckRun, statusState string, statusCount int) bool {
+	if len(runs) == 0 && statusCount == 0 {
+		return false
+	}
+	if statusCount > 0 && !strings.EqualFold(statusState, "success") {
 		return false
 	}
 	for _, r := range runs {
@@ -967,13 +990,17 @@ func normalizeDeploymentState(state string) string {
 // (which would add a sizable dependency tree). The endpoints used:
 //
 //	GET /orgs/{org}/repos                  — paged listing of repos
-//	GET /repos/{org}/{repo}/branches/{br}/protection  — branch protection
+//	GET /repos/{org}/{repo}/branches/{br}/protection  — classic branch protection
+//	GET /repos/{org}/{repo}/rules/branches/{br}       — active ruleset rules
+//	GET /repos/{org}/{repo}/vulnerability-alerts      — Dependabot alerts on/off
+//	GET /repos/{org}/{repo}/code-scanning/analyses    — code scanning in use
 //	GET /orgs/{org}/members?filter=2fa_disabled       — 2FA-off members
 //	GET /orgs/{org}/members                — full member roster + role
 //	GET /repos/{org}/{repo}/pulls          — closed PRs on the default branch
 //	GET /repos/{org}/{repo}/pulls/{n}      — merged_by (absent from the listing)
 //	GET /repos/{org}/{repo}/pulls/{n}/reviews         — approval history
-//	GET /repos/{org}/{repo}/commits/{sha}/check-runs  — CI outcome
+//	GET /repos/{org}/{repo}/commits/{sha}/check-runs  — CI outcome (Checks API)
+//	GET /repos/{org}/{repo}/commits/{sha}/status      — CI outcome (Status API)
 //	GET /repos/{org}/{repo}/deployments    — deployments, newest first
 //	GET /repos/{org}/{repo}/deployments/{id}/statuses — latest state
 //
@@ -1002,7 +1029,6 @@ type ghRepo struct {
 	SecurityAndAnalysis struct {
 		SecretScanning               ghFeatureStatus `json:"secret_scanning"`
 		SecretScanningPushProtection ghFeatureStatus `json:"secret_scanning_push_protection"`
-		CodeScanningDefaultSetup     ghFeatureStatus `json:"code_scanning_default_setup"`
 	} `json:"security_and_analysis"`
 }
 
@@ -1021,6 +1047,23 @@ type ghProtection struct {
 	RequiredSignatures    ghEnabled `json:"required_signatures"`
 	AllowForcePushes      ghEnabled `json:"allow_force_pushes"`
 	RequiredLinearHistory ghEnabled `json:"required_linear_history"`
+}
+
+// ghRule is one active rule from GET /repos/{o}/{r}/rules/branches/{b},
+// the effective result of every repository and organization ruleset
+// that targets the branch. Only the pull_request rule carries
+// parameters the plugin reads.
+type ghRule struct {
+	Type       string `json:"type"`
+	Parameters struct {
+		RequiredApprovingReviewCount int  `json:"required_approving_review_count"`
+		DismissStaleReviewsOnPush    bool `json:"dismiss_stale_reviews_on_push"`
+		RequireCodeOwnerReview       bool `json:"require_code_owner_review"`
+	} `json:"parameters"`
+}
+
+type ghCodeScanningAnalysis struct {
+	ID int64 `json:"id"`
 }
 
 type ghMember struct {
@@ -1062,14 +1105,15 @@ func (h *httpAPI) ListRepos(ctx context.Context) ([]Repo, error) {
 				Archived:              r.Archived,
 				SecretScanningEnabled: r.SecurityAndAnalysis.SecretScanning.on(),
 				PushProtectionEnabled: r.SecurityAndAnalysis.SecretScanningPushProtection.on(),
-				CodeScanningEnabled:   r.SecurityAndAnalysis.CodeScanningDefaultSetup.on(),
 			}
-			if r.DefaultBranch != "" {
-				h.fetchProtection(ctx, &rp)
+			if r.Archived {
+				// Dropped by the plugin; skip the per-repo calls.
+				out = append(out, rp)
+				continue
 			}
-			// Dependabot vulnerability alerts: 204 = enabled, 404 = disabled.
-			rp.DependabotAlertsEnabled = h.probeEnabled(ctx,
-				fmt.Sprintf("/repos/%s/%s/vulnerability-alerts", url.PathEscape(h.org), url.PathEscape(r.Name)))
+			if err := h.fillRepoDetails(ctx, &rp); err != nil {
+				return nil, fmt.Errorf("repository %s: %w", r.Name, err)
+			}
 			out = append(out, rp)
 		}
 		if !hasMore {
@@ -1079,41 +1123,197 @@ func (h *httpAPI) ListRepos(ctx context.Context) ([]Repo, error) {
 	}
 }
 
-func (h *httpAPI) fetchProtection(ctx context.Context, rp *Repo) {
+// fillRepoDetails reads the per-repository settings the listing does
+// not carry. Every read either answers or returns its error: a guessed
+// value (an unreadable protection read as "unprotected, force-push not
+// allowed") is a verdict the evidence does not support.
+func (h *httpAPI) fillRepoDetails(ctx context.Context, rp *Repo) error {
+	if rp.DefaultBranch != "" {
+		if err := h.fetchProtection(ctx, rp); err != nil {
+			return err
+		}
+	}
+	// Dependabot vulnerability alerts: 204 = enabled, 404 = disabled.
+	on, err := h.probeEnabled(ctx,
+		fmt.Sprintf("/repos/%s/%s/vulnerability-alerts", url.PathEscape(h.org), url.PathEscape(rp.Name)))
+	if err != nil {
+		return fmt.Errorf("dependabot alerts: %w", err)
+	}
+	rp.DependabotAlertsEnabled = on
+	scanning, err := h.codeScanningInUse(ctx, rp.Name)
+	if err != nil {
+		return fmt.Errorf("code scanning: %w", err)
+	}
+	rp.CodeScanningEnabled = scanning
+	return nil
+}
+
+// fetchProtection combines the two ways GitHub protects a branch: classic
+// branch protection and rulesets. The classic endpoint does not see
+// rulesets (it answers "Branch not protected" for a branch governed only
+// by one), so both are read and merged.
+func (h *httpAPI) fetchProtection(ctx context.Context, rp *Repo) error {
+	classic, err := h.fetchClassicProtection(ctx, rp)
+	if err != nil {
+		return fmt.Errorf("branch protection: %w", err)
+	}
+	rules, err := h.fetchBranchRules(ctx, rp)
+	if err != nil {
+		return fmt.Errorf("branch rules: %w", err)
+	}
+	applyProtection(rp, classic, rules)
+	return nil
+}
+
+// fetchClassicProtection returns the branch's classic protection, or nil
+// when the branch has none. GitHub says "none" three ways: 404 "Branch
+// not protected", 404 "Branch not found" (an empty repository), and 403
+// "Upgrade to GitHub Pro or make this repository public" (a private repo
+// on a plan without the feature). Every other error (a token without
+// admin read, a rate limit, a 5xx) is returned.
+func (h *httpAPI) fetchClassicProtection(ctx context.Context, rp *Repo) (*ghProtection, error) {
 	path := fmt.Sprintf("/repos/%s/%s/branches/%s/protection",
 		url.PathEscape(h.org), url.PathEscape(rp.Name), url.PathEscape(rp.DefaultBranch))
 	var p ghProtection
 	if _, err := h.getJSON(ctx, path, &p); err != nil {
-		// 404 = no protection; any other error leaves all protection
-		// fields at their false/zero zero-values. The aggregator decides.
-		return
+		if apiErrorIs(err, http.StatusNotFound, "Branch not protected", "Branch not found") ||
+			apiErrorIs(err, http.StatusForbidden, "Upgrade to GitHub Pro") {
+			return nil, nil
+		}
+		return nil, err
 	}
-	rp.ProtectionOn = true
-	rp.RequiredReviews = p.RequiredPullRequestReviews.RequiredApprovingReviewCount
-	rp.DismissStaleReviews = p.RequiredPullRequestReviews.DismissStaleReviews
-	rp.RequireCodeOwnerReviews = p.RequiredPullRequestReviews.RequireCodeOwnerReviews
-	rp.RequiresSignedCommits = p.RequiredSignatures.Enabled
-	rp.RequiresLinearHistory = p.RequiredLinearHistory.Enabled
-	rp.AllowsForcePush = p.AllowForcePushes.Enabled
+	return &p, nil
 }
 
-// probeEnabled issues a GET and reports whether the response is 2xx.
-// GitHub uses 204/404 to signal feature on/off for endpoints with no
-// body (e.g. vulnerability-alerts), which getJSON cannot decode.
-func (h *httpAPI) probeEnabled(ctx context.Context, path string) bool {
+// fetchBranchRules pages the active ruleset rules for the branch. The
+// endpoint needs only read access. A plan that lacks rulesets for the
+// repository and a branch that does not exist yet both mean no rules.
+func (h *httpAPI) fetchBranchRules(ctx context.Context, rp *Repo) ([]ghRule, error) {
+	var out []ghRule
+	page := 1
+	for {
+		path := fmt.Sprintf("/repos/%s/%s/rules/branches/%s?per_page=100&page=%d",
+			url.PathEscape(h.org), url.PathEscape(rp.Name), url.PathEscape(rp.DefaultBranch), page)
+		var rules []ghRule
+		hasMore, err := h.getJSON(ctx, path, &rules)
+		if err != nil {
+			if apiErrorIs(err, http.StatusNotFound, "Branch not found") ||
+				apiErrorIs(err, http.StatusForbidden, "Upgrade to GitHub Pro") {
+				return nil, nil
+			}
+			return nil, err
+		}
+		out = append(out, rules...)
+		if !hasMore {
+			return out, nil
+		}
+		page++
+	}
+}
+
+// applyProtection merges classic protection (nil = none) and ruleset
+// rules into the repo's protection fields. A requirement holds when
+// either mechanism enforces it; the reviewer count is the stricter of
+// the two. Force-push is allowed unless something blocks it: on a branch
+// with no protection at all GitHub permits force-push, classic
+// protection blocks it unless allow_force_pushes is on, and a
+// non_fast_forward rule blocks it.
+func applyProtection(rp *Repo, classic *ghProtection, rules []ghRule) {
+	forcePushBlocked := false
+	if classic != nil {
+		rp.ProtectionOn = true
+		rp.RequiredReviews = classic.RequiredPullRequestReviews.RequiredApprovingReviewCount
+		rp.DismissStaleReviews = classic.RequiredPullRequestReviews.DismissStaleReviews
+		rp.RequireCodeOwnerReviews = classic.RequiredPullRequestReviews.RequireCodeOwnerReviews
+		rp.RequiresSignedCommits = classic.RequiredSignatures.Enabled
+		rp.RequiresLinearHistory = classic.RequiredLinearHistory.Enabled
+		forcePushBlocked = !classic.AllowForcePushes.Enabled
+	}
+	for i := range rules {
+		r := &rules[i]
+		rp.ProtectionOn = true
+		switch r.Type {
+		case "pull_request":
+			rp.RequiredReviews = max(rp.RequiredReviews, r.Parameters.RequiredApprovingReviewCount)
+			rp.DismissStaleReviews = rp.DismissStaleReviews || r.Parameters.DismissStaleReviewsOnPush
+			rp.RequireCodeOwnerReviews = rp.RequireCodeOwnerReviews || r.Parameters.RequireCodeOwnerReview
+		case "required_signatures":
+			rp.RequiresSignedCommits = true
+		case "required_linear_history":
+			rp.RequiresLinearHistory = true
+		case "non_fast_forward":
+			forcePushBlocked = true
+		}
+	}
+	rp.AllowsForcePush = !forcePushBlocked
+}
+
+// codeScanningInUse reports whether the repository has any code scanning
+// analysis: CodeQL default or advanced setup and third-party SARIF
+// uploads all produce one. 404 ("no analysis found") and a 403 saying
+// code scanning or Advanced Security is not enabled mean no; any other
+// error is returned.
+func (h *httpAPI) codeScanningInUse(ctx context.Context, repo string) (bool, error) {
+	path := fmt.Sprintf("/repos/%s/%s/code-scanning/analyses?per_page=1",
+		url.PathEscape(h.org), url.PathEscape(repo))
+	var analyses []ghCodeScanningAnalysis
+	if _, err := h.getJSON(ctx, path, &analyses); err != nil {
+		if apiErrorIs(err, http.StatusNotFound) ||
+			apiErrorIs(err, http.StatusForbidden, "must be enabled", "not enabled") {
+			return false, nil
+		}
+		return false, err
+	}
+	return len(analyses) > 0, nil
+}
+
+// apiErrorIs reports whether err is a GitHub API error with the given
+// status and, when phrases are given, a message containing one of them.
+func apiErrorIs(err error, status int, phrases ...string) bool {
+	var apiErr *sources.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != status {
+		return false
+	}
+	if len(phrases) == 0 {
+		return true
+	}
+	for _, ph := range phrases {
+		if strings.Contains(apiErr.Message, ph) {
+			return true
+		}
+	}
+	return false
+}
+
+// probeEnabled issues a GET for an endpoint that answers 204 (on) or 404
+// (off) with no body, which getJSON cannot decode. Any other status is
+// an error: a token without the permission is not a feature that is off.
+func (h *httpAPI) probeEnabled(ctx context.Context, path string) (bool, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, h.base+path, http.NoBody)
 	if err != nil {
-		return false
+		return false, err
 	}
 	req.Header.Set("Authorization", "Bearer "+h.token)
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	resp, err := h.client.Do(req)
 	if err != nil {
-		return false
+		return false, err
 	}
 	defer func() { _ = resp.Body.Close() }() //nolint:errcheck // best-effort close
-	return resp.StatusCode >= 200 && resp.StatusCode < 300
+	switch {
+	case resp.StatusCode >= 200 && resp.StatusCode < 300:
+		return true, nil
+	case resp.StatusCode == http.StatusNotFound:
+		return false, nil
+	default:
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096)) //nolint:errcheck // body is only context for the error
+		return false, &sources.APIError{
+			Source:     SourceID,
+			StatusCode: resp.StatusCode,
+			Message:    fmt.Sprintf("%s: %s: %s", h.base+path, resp.Status, strings.TrimSpace(string(body))),
+		}
+	}
 }
 
 func (h *httpAPI) ListOrgMembers(ctx context.Context) ([]Member, error) {
@@ -1240,9 +1440,10 @@ type ghDependabotAlert struct {
 }
 
 // ListDependabotAlerts fetches the org's open Dependabot alerts. A 403
-// (alerts disabled for the org, or the token lacks security-events
-// access) is treated as "no alerts" rather than an error — the per-repo
-// enablement gap is reported by the dependabot_alerts_enabled policy.
+// saying alerts are disabled is "no alerts" — the per-repo enablement gap
+// is reported by the dependabot_alerts_enabled policy. Any other 403 (a
+// token without Dependabot alerts read, a rate limit) is returned, so the
+// vulnerability policies error instead of passing on zero findings.
 //
 // The org-level Dependabot alerts endpoint uses CURSOR pagination only —
 // it rejects the `page` parameter with 400 — so we follow the Link
@@ -1252,9 +1453,9 @@ func (h *httpAPI) ListDependabotAlerts(ctx context.Context) ([]DependabotAlert, 
 	next := h.base + fmt.Sprintf("/orgs/%s/dependabot/alerts?state=open&per_page=100", url.PathEscape(h.org))
 	for next != "" {
 		var alerts []ghDependabotAlert
-		n, status, err := h.getJSONStatus(ctx, next, &alerts)
-		if status == http.StatusForbidden {
-			return nil, nil // alerts disabled / no access: no findings
+		n, err := h.getJSONURL(ctx, next, &alerts)
+		if apiErrorIs(err, http.StatusForbidden, "disabled") {
+			return nil, nil // alerts disabled for the org: no findings
 		}
 		if err != nil {
 			return nil, err
@@ -1375,9 +1576,9 @@ func (h *httpAPI) listRepoRefs(ctx context.Context) ([]repoRef, error) {
 }
 
 // ListMergedPullRequests walks every repo in the org and collects the
-// changes merged into its default branch inside the window. A repo whose
-// pulls listing errors is skipped (same tolerance idiom as
-// fetchProtection) so one inaccessible repository does not fail the run.
+// changes merged into its default branch inside the window. An error on
+// any repo is returned: dropping the repo would let the change policies
+// pass on the subset that could be read.
 func (h *httpAPI) ListMergedPullRequests(ctx context.Context, start, end time.Time) ([]PullRequest, error) {
 	repos, err := h.listRepoRefs(ctx)
 	if err != nil {
@@ -1390,7 +1591,7 @@ func (h *httpAPI) ListMergedPullRequests(ctx context.Context, start, end time.Ti
 		}
 		prs, err := h.listRepoMergedPulls(ctx, r, start, end)
 		if err != nil {
-			continue // inaccessible repo: skip, do not fail the org collection
+			return nil, fmt.Errorf("repository %s pull requests: %w", r.name, err)
 		}
 		out = append(out, prs...)
 	}
@@ -1437,12 +1638,12 @@ func (h *httpAPI) listRepoMergedPulls(ctx context.Context, r repoRef, start, end
 				TargetBranch:   p.Base.Ref,
 				MergeCommitSHA: p.MergeCommitSHA,
 				MergedAt:       merged,
-				MergedBy:       h.fetchPullMergedBy(ctx, r.name, p.Number),
-				Reviews:        h.fetchPullReviews(ctx, r.name, p.Number),
-				CheckRuns:      h.fetchCheckRuns(ctx, r.name, p.Head.SHA),
 			}
 			if p.User != nil {
 				pr.Author = p.User.Login
+			}
+			if err := h.fillPullDetails(ctx, r.name, p.Head.SHA, &pr); err != nil {
+				return nil, fmt.Errorf("#%d: %w", p.Number, err)
 			}
 			out = append(out, pr)
 		}
@@ -1453,22 +1654,46 @@ func (h *httpAPI) listRepoMergedPulls(ctx context.Context, r repoRef, start, end
 	}
 }
 
-// fetchPullMergedBy resolves the merging user via the per-PR detail
-// endpoint (the listing omits it). An error or a null merged_by yields
-// "" — the schema's documented "vendor does not attribute the merge".
-func (h *httpAPI) fetchPullMergedBy(ctx context.Context, repo string, number int) string {
-	path := fmt.Sprintf("/repos/%s/%s/pulls/%d", url.PathEscape(h.org), url.PathEscape(repo), number)
-	var d ghPullDetail
-	if _, err := h.getJSON(ctx, path, &d); err != nil || d.MergedBy == nil {
-		return ""
+// fillPullDetails reads what the pulls listing does not carry: the
+// merging user, the review history, and the head commit's check runs
+// and commit statuses.
+func (h *httpAPI) fillPullDetails(ctx context.Context, repo, headSHA string, pr *PullRequest) error {
+	var err error
+	if pr.MergedBy, err = h.fetchPullMergedBy(ctx, repo, pr.Number); err != nil {
+		return fmt.Errorf("merged_by: %w", err)
 	}
-	return d.MergedBy.Login
+	if pr.Reviews, err = h.fetchPullReviews(ctx, repo, pr.Number); err != nil {
+		return fmt.Errorf("reviews: %w", err)
+	}
+	if headSHA == "" {
+		return nil // nothing to read checks for: checksPassed reads false
+	}
+	if pr.CheckRuns, err = h.fetchCheckRuns(ctx, repo, headSHA); err != nil {
+		return fmt.Errorf("check runs: %w", err)
+	}
+	if pr.CommitStatusState, pr.CommitStatusCount, err = h.fetchCombinedStatus(ctx, repo, headSHA); err != nil {
+		return fmt.Errorf("commit status: %w", err)
+	}
+	return nil
 }
 
-// fetchPullReviews pages a PR's review history. An error yields no
-// reviews, which reads as an unapproved change — failing closed is the
-// correct bias for a review-evidence type.
-func (h *httpAPI) fetchPullReviews(ctx context.Context, repo string, number int) []Review {
+// fetchPullMergedBy resolves the merging user via the per-PR detail
+// endpoint (the listing omits it). A null merged_by yields "" — the
+// schema's documented "vendor does not attribute the merge".
+func (h *httpAPI) fetchPullMergedBy(ctx context.Context, repo string, number int) (string, error) {
+	path := fmt.Sprintf("/repos/%s/%s/pulls/%d", url.PathEscape(h.org), url.PathEscape(repo), number)
+	var d ghPullDetail
+	if _, err := h.getJSON(ctx, path, &d); err != nil {
+		return "", err
+	}
+	if d.MergedBy == nil {
+		return "", nil
+	}
+	return d.MergedBy.Login, nil
+}
+
+// fetchPullReviews pages a PR's review history.
+func (h *httpAPI) fetchPullReviews(ctx context.Context, repo string, number int) ([]Review, error) {
 	var out []Review
 	page := 1
 	for {
@@ -1477,7 +1702,7 @@ func (h *httpAPI) fetchPullReviews(ctx context.Context, repo string, number int)
 		var reviews []ghReview
 		hasMore, err := h.getJSON(ctx, path, &reviews)
 		if err != nil {
-			return out
+			return nil, err
 		}
 		for _, rv := range reviews {
 			r := Review{State: rv.State}
@@ -1490,19 +1715,14 @@ func (h *httpAPI) fetchPullReviews(ctx context.Context, repo string, number int)
 			out = append(out, r)
 		}
 		if !hasMore {
-			return out
+			return out, nil
 		}
 		page++
 	}
 }
 
 // fetchCheckRuns pages the check runs attached to the PR's head commit.
-// An error or an empty head SHA yields no runs, which checksPassed reads
-// as false (deliberately: "no CI configured" is not a pass).
-func (h *httpAPI) fetchCheckRuns(ctx context.Context, repo, headSHA string) []CheckRun {
-	if headSHA == "" {
-		return nil
-	}
+func (h *httpAPI) fetchCheckRuns(ctx context.Context, repo, headSHA string) ([]CheckRun, error) {
 	var out []CheckRun
 	page := 1
 	for {
@@ -1511,21 +1731,40 @@ func (h *httpAPI) fetchCheckRuns(ctx context.Context, repo, headSHA string) []Ch
 		var list ghCheckRunList
 		hasMore, err := h.getJSON(ctx, path, &list)
 		if err != nil {
-			return out
+			return nil, err
 		}
 		for _, cr := range list.CheckRuns {
 			out = append(out, CheckRun{Status: cr.Status, Conclusion: cr.Conclusion})
 		}
 		if !hasMore {
-			return out
+			return out, nil
 		}
 		page++
 	}
 }
 
+// ghCombinedStatus is the subset of GET /repos/{o}/{r}/commits/{ref}/status
+// the adapter reads. state is "pending" when there are no statuses, so
+// total_count is what says whether any CI reported.
+type ghCombinedStatus struct {
+	State      string `json:"state"`
+	TotalCount int    `json:"total_count"`
+}
+
+// fetchCombinedStatus reads the head commit's combined commit status.
+func (h *httpAPI) fetchCombinedStatus(ctx context.Context, repo, headSHA string) (state string, count int, err error) {
+	path := fmt.Sprintf("/repos/%s/%s/commits/%s/status",
+		url.PathEscape(h.org), url.PathEscape(repo), url.PathEscape(headSHA))
+	var cs ghCombinedStatus
+	if _, err := h.getJSON(ctx, path, &cs); err != nil {
+		return "", 0, err
+	}
+	return cs.State, cs.TotalCount, nil
+}
+
 // ListDeployments walks every repo in the org and collects the
 // deployments created inside the window, failed ones included. Same
-// per-repo error tolerance as ListMergedPullRequests.
+// error handling as ListMergedPullRequests.
 func (h *httpAPI) ListDeployments(ctx context.Context, start, end time.Time) ([]Deployment, error) {
 	repos, err := h.listRepoRefs(ctx)
 	if err != nil {
@@ -1535,7 +1774,7 @@ func (h *httpAPI) ListDeployments(ctx context.Context, start, end time.Time) ([]
 	for _, r := range repos {
 		ds, err := h.listRepoDeployments(ctx, r, start, end)
 		if err != nil {
-			continue // inaccessible repo: skip, do not fail the org collection
+			return nil, fmt.Errorf("repository %s deployments: %w", r.name, err)
 		}
 		out = append(out, ds...)
 	}
@@ -1566,6 +1805,10 @@ func (h *httpAPI) listRepoDeployments(ctx context.Context, r repoRef, start, end
 				continue
 			}
 			id := strconv.FormatInt(d.ID, 10)
+			state, err := h.fetchLatestDeploymentState(ctx, r.name, id)
+			if err != nil {
+				return nil, fmt.Errorf("deployment %s status: %w", id, err)
+			}
 			dep := Deployment{
 				Repository:            full,
 				ID:                    id,
@@ -1573,7 +1816,7 @@ func (h *httpAPI) listRepoDeployments(ctx context.Context, r repoRef, start, end
 				Environment:           d.Environment,
 				ProductionEnvironment: d.ProductionEnvironment,
 				CreatedAt:             created,
-				State:                 h.fetchLatestDeploymentState(ctx, r.name, id),
+				State:                 state,
 			}
 			if d.Creator != nil {
 				dep.Creator = d.Creator.Login
@@ -1590,16 +1833,19 @@ func (h *httpAPI) listRepoDeployments(ctx context.Context, r repoRef, start, end
 // fetchLatestDeploymentState returns the newest deployment-status state,
 // or "" when the deployment has none (normalized to "unknown", which the
 // schema keeps distinct from pending). The statuses listing is
-// newest-first. An error also yields "": the plugin must not invent a
-// terminal outcome it could not read.
-func (h *httpAPI) fetchLatestDeploymentState(ctx context.Context, repo, deploymentID string) string {
+// newest-first. An error is returned: the plugin must not invent an
+// outcome it could not read.
+func (h *httpAPI) fetchLatestDeploymentState(ctx context.Context, repo, deploymentID string) (string, error) {
 	path := fmt.Sprintf("/repos/%s/%s/deployments/%s/statuses?per_page=100",
 		url.PathEscape(h.org), url.PathEscape(repo), url.PathEscape(deploymentID))
 	var statuses []ghDeploymentStatus
-	if _, err := h.getJSON(ctx, path, &statuses); err != nil || len(statuses) == 0 {
-		return ""
+	if _, err := h.getJSON(ctx, path, &statuses); err != nil {
+		return "", err
 	}
-	return statuses[0].State
+	if len(statuses) == 0 {
+		return "", nil
+	}
+	return statuses[0].State, nil
 }
 
 func (h *httpAPI) fetchMembershipRole(ctx context.Context, login string) (string, error) {
@@ -1615,56 +1861,48 @@ func (h *httpAPI) fetchMembershipRole(ctx context.Context, login string) (string
 // body into out. It returns hasMore=true when the response carries a `Link`
 // header with a rel="next" entry (page-based callers increment a page number).
 func (h *httpAPI) getJSON(ctx context.Context, path string, out any) (bool, error) {
-	next, _, err := h.getJSONStatus(ctx, h.base+path, out)
+	next, err := h.getJSONURL(ctx, h.base+path, out)
 	return next != "", err
 }
 
-// getJSONStatus GETs an absolute URL, decodes the JSON body into out, and
+// getJSONURL GETs an absolute URL, decodes the JSON body into out, and
 // returns the rel="next" URL from the Link header (empty when there is none).
-// It also reports the HTTP status code, so a caller can distinguish a specific
-// status (e.g. 403 = feature disabled) from a generic transport error; status
-// is 0 when the request never reached a response. Cursor-paginated endpoints
-// (e.g. org Dependabot alerts) follow the returned next URL directly.
-func (h *httpAPI) getJSONStatus(ctx context.Context, fullURL string, out any) (next string, status int, err error) {
+// A non-2xx response is a *sources.APIError carrying the status and the body,
+// so a caller can recognize a specific answer (apiErrorIs). Cursor-paginated
+// endpoints (e.g. org Dependabot alerts) follow the returned next URL directly.
+func (h *httpAPI) getJSONURL(ctx context.Context, fullURL string, out any) (next string, err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, http.NoBody)
 	if err != nil {
-		return "", 0, err
+		return "", err
 	}
 	req.Header.Set("Authorization", "Bearer "+h.token)
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	resp, err := h.client.Do(req)
 	if err != nil {
-		return "", 0, err
+		return "", err
 	}
 	defer func() { _ = resp.Body.Close() }() //nolint:errcheck // best-effort close
-	if resp.StatusCode == http.StatusNotFound {
-		return "", resp.StatusCode, &sources.APIError{
-			Source:     SourceID,
-			StatusCode: resp.StatusCode,
-			Message:    fmt.Sprintf("%s: %s", fullURL, resp.Status),
-		}
-	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, readErr := io.ReadAll(resp.Body)
 		if readErr != nil {
-			return "", resp.StatusCode, &sources.APIError{
+			return "", &sources.APIError{
 				Source:     SourceID,
 				StatusCode: resp.StatusCode,
 				Message:    fmt.Sprintf("%s: %s: %v", fullURL, resp.Status, readErr),
 				Err:        readErr,
 			}
 		}
-		return "", resp.StatusCode, &sources.APIError{
+		return "", &sources.APIError{
 			Source:     SourceID,
 			StatusCode: resp.StatusCode,
 			Message:    fmt.Sprintf("%s: %s: %s", fullURL, resp.Status, strings.TrimSpace(string(body))),
 		}
 	}
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
-		return "", resp.StatusCode, fmt.Errorf("github: decode %s: %w", fullURL, err)
+		return "", fmt.Errorf("github: decode %s: %w", fullURL, err)
 	}
-	return nextLink(resp.Header.Get("Link")), resp.StatusCode, nil
+	return nextLink(resp.Header.Get("Link")), nil
 }
 
 // nextLink returns the rel="next" URL from a Link header, or "" when there is

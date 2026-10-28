@@ -27,6 +27,8 @@ const (
 	compSimpleUser       = "simple-user"
 	compOrgMembership    = "org-membership"
 	compBranchProtection = "branch-protection"
+	compRuleDetailed     = "repository-rule-detailed"
+	compCodeScanAnalysis = "code-scanning-analysis"
 )
 
 // specRoute maps a recorded request (method + URL path) to the OpenAPI
@@ -54,6 +56,10 @@ func specRoute(method, rawURL string) (component string, isArray, matched bool) 
 		return compOrgMembership, false, true
 	case strings.HasSuffix(p, "/protection"):
 		return compBranchProtection, false, true
+	case strings.Contains(p, "/rules/branches/"):
+		return compRuleDetailed, true, true
+	case strings.HasSuffix(p, "/code-scanning/analyses"):
+		return compCodeScanAnalysis, true, true
 	}
 	return "", false, false
 }

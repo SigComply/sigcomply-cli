@@ -114,6 +114,13 @@ func TestGitHubConformance(t *testing.T) {
 		DependabotAlertsEnabled: false, IsPrivate: true,
 	})
 
+	// An unprotected branch permits force-push; classic protection without
+	// allow_force_pushes blocks it.
+	if !repos[repoUnprotected].AllowsForcePush || repos[repoProtected].AllowsForcePush {
+		t.Errorf("allows_force_push: unprotected=%v protected=%v; want true, false",
+			repos[repoUnprotected].AllowsForcePush, repos[repoProtected].AllowsForcePush)
+	}
+
 	// The org member: an admin without 2FA, active, internal (not an outside
 	// collaborator). Exercises is_admin/is_active/is_external mapping.
 	got, ok := users[cassetteAdmin]

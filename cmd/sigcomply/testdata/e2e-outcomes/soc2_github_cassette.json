@@ -636,9 +636,12 @@
     ]
   },
   "soc2.cc8.1.no_force_push_to_main": {
-    "status": "pass",
+    "status": "fail",
     "resources_evaluated": 2,
-    "resources_failed": 0
+    "resources_failed": 1,
+    "violated": [
+      "e2e-unprotected"
+    ]
   },
   "soc2.cc8.1.penetration_test_annual": {
     "status": "pass",

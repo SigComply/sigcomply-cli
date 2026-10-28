@@ -240,16 +240,33 @@ Token lookup order: `token`, then `token_env`, then `GITHUB_TOKEN`.
 
 | Token type | Access |
 |---|---|
-| Classic | `read:org`; `repo` for private repositories; `admin:org` to read the org 2FA requirement; `repo_deployment` for deployments |
-| Fine-grained | Organization members read; repository Administration, Pull requests, Deployments, Checks, Commit statuses, and Dependabot alerts read |
+| Classic | `read:org`; `repo` for private repositories; `security_events` to read code scanning on private repositories; `admin:org` to read the org 2FA requirement; `repo_deployment` for deployments |
+| Fine-grained | Organization members read; repository Administration, Metadata, Pull requests, Deployments, Checks, Commit statuses, Code scanning alerts, and Dependabot alerts read |
 
 Caveats:
 
 - Members carry no email. Link them to the [identity roster](../guides/identity-roster.md) with
   `experimental.roster.aliases` keyed by login, or list them in `non_human`.
+- Archived repositories are skipped: they emit no `git_repository` record, because their settings
+  cannot change without unarchiving them. Changes merged into them during the audit period still
+  emit `pull_request` records. Forks owned by the organization are read like any other repository.
+- Branch protection combines classic branch protection and repository or organization rulesets
+  that apply to the default branch. A branch with neither counts as unprotected, with force-push
+  allowed, which is GitHub's default.
+- `code_scanning_enabled` is true when the repository has at least one code scanning analysis
+  (CodeQL default or advanced setup, or an uploaded SARIF file).
+- `checks_passed` reads both check runs and commit statuses on the change's head commit.
+- A read the source cannot complete (a missing permission, a rate limit, a server error) fails
+  the source, and the policies bound to it report `error`. The source never reads a failed
+  request as a setting that is off.
 - `pull_request` and `deployment` list only changes merged and deployments created in the audit
-  period. Each merged change costs about three API calls and each deployment one, against
-  GitHub's 5,000 requests per hour limit.
+  period. Each merged change costs four API calls (details, reviews, check runs and commit
+  status) on top of the listing pages, and each deployment one. Every policy bound to the source
+  collects again, so a run costs that many calls once per bound policy, against GitHub's 5,000
+  requests per hour for a token (1,000 for `GITHUB_TOKEN` in Actions). A large organization can
+  hit the limit; the affected policies then report `error`.
+- The organization's Dependabot alerts are read as none only when GitHub answers that alerts are
+  disabled. A token without access makes the vulnerability policies report `error`.
 - The org 2FA requirement needs `admin:org`. See [Source caveats](#source-caveats).
 
 ## GitLab

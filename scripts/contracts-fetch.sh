@@ -104,6 +104,9 @@ fetch_openapi \
     "operations consumed by internal/sources/github; see github_spec_conformance_test.go" \
     "GET:/orgs/{org}/repos" \
     "GET:/repos/{owner}/{repo}/branches/{branch}/protection" \
+    "GET:/repos/{owner}/{repo}/rules/branches/{branch}" \
+    "GET:/repos/{owner}/{repo}/code-scanning/analyses" \
+    "GET:/repos/{owner}/{repo}/commits/{ref}/status" \
     "GET:/orgs/{org}/members" \
     "GET:/orgs/{org}/memberships/{username}" \
     "GET:/orgs/{org}/outside_collaborators"
