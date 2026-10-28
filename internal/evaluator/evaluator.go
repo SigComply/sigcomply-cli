@@ -373,7 +373,16 @@ func evaluateRuleRef(ctx context.Context, pp *planner.PlannedPolicy, in *Input, 
 	if err != nil {
 		return core.RuleResult{Status: core.StatusError, Diag: map[string]any{"rule_error": err.Error()}}
 	}
-	return ruleOut
+	switch ruleOut.Status {
+	case core.StatusPass, core.StatusFail, core.StatusError, core.StatusSkip, core.StatusNA:
+		return ruleOut
+	}
+	// waived and carried_forward are decided by the planner and the
+	// exception logic, never by a rule; anything else is a typo. Either
+	// would land in no summary bucket and let the run exit 0.
+	return core.RuleResult{Status: core.StatusError, Diag: map[string]any{
+		diagReason: fmt.Sprintf("rule %q returned unknown status %q; a rule may return pass, fail, error, skip or na", pp.Spec.RuleRef, ruleOut.Status),
+	}}
 }
 
 // manualPeriod is the folder period the planner bound for a manual

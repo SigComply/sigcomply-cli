@@ -547,3 +547,43 @@ func TestEvaluate_ResourceWaiverRecountsUniqueResources(t *testing.T) {
 		t.Errorf("counts = %d evaluated, %d failed; want 3, 1", res[0].ResourcesEvaluated, res[0].ResourcesFailed)
 	}
 }
+
+// A rule may only answer pass, fail, error, skip or na. Anything else
+// ("failed", "waived", "carried_forward") would be counted in no summary
+// bucket and exit 0, so the evaluator turns it into an error.
+func TestEvaluate_RuleUnknownStatusIsError(t *testing.T) {
+	module := `package rules.typo.v1
+result := {"status": "failed", "violations": [{"resource_id": "r1", "reason": "bad"}]}
+`
+	rego, err := NewRegoRule("rules.typo.v1", module, "data.rules.typo.v1.result")
+	if err != nil {
+		t.Fatalf("NewRegoRule: %v", err)
+	}
+	for _, tc := range []struct {
+		name string
+		rule core.Rule
+	}{
+		{"rego", rego},
+		{"go waived", makeRule("rules.typo.v1", core.RuleResult{Status: core.StatusWaived}, nil)},
+		{"go carried_forward", makeRule("rules.typo.v1", core.RuleResult{Status: core.StatusCarriedForward}, nil)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			set := setupRules(t, tc.rule)
+			pp := makePlannedPolicy("p1", "C1", "rules.typo.v1", "u")
+			res, err := Evaluate(context.Background(), &Input{
+				Plan:            &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
+				Rules:           set.Rules,
+				RecordsByPolicy: map[string]map[string][]core.EvidenceRecord{"p1": {"u": {{ID: "r1"}}}},
+			})
+			if err != nil {
+				t.Fatalf("Evaluate: %v", err)
+			}
+			if res[0].Status != core.StatusError {
+				t.Fatalf("status = %q; want error", res[0].Status)
+			}
+			if reason, ok := res[0].Diag[diagReason].(string); !ok || !strings.Contains(reason, "unknown status") {
+				t.Errorf("diag reason = %v; want it to name the unknown status", res[0].Diag[diagReason])
+			}
+		})
+	}
+}

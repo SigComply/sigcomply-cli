@@ -336,7 +336,9 @@ status := "pass" if count(violations) == 0
 status := "fail" if count(violations) > 0
 ```
 
-- `result.status` is a policy status string; missing or non-string makes the policy `error`.
+- `result.status` is `pass`, `fail`, `error`, `skip` or `na`. A missing, non-string or other
+  value (including `waived` and `carried_forward`) makes the policy `error`. Go rules follow the
+  same rule.
 - `result.violations` is optional, a list of `{resource_id, reason, details}`.
 - Input: `policy_id`, `slots.<name>[]` (each `{id, identity_key, source_id, payload}`), `params`
   (every declared parameter, defaulted), `now` (RFC 3339).
