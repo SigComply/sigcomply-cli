@@ -126,7 +126,7 @@
     },
     {
       "id": "fraud_risk_assessment",
-      "control": "CC3.2",
+      "control": "CC3.3",
       "type": "document_upload",
       "frequency": "yearly",
       "temporal_rule": "retrospective",
@@ -247,7 +247,7 @@
     },
     {
       "id": "termination_process_documented",
-      "control": "CC6.5",
+      "control": "CC6.2",
       "type": "document_upload",
       "frequency": "yearly",
       "temporal_rule": "retrospective",
@@ -278,6 +278,18 @@
       "grace_period": "30d",
       "name": "User Provisioning Process",
       "description": "A user provisioning/onboarding SOP exists.",
+      "severity": "medium",
+      "tsc": "security"
+    },
+    {
+      "id": "asset_disposal_process",
+      "control": "CC6.5",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Asset and Media Disposal Process",
+      "description": "Data is made unrecoverable before equipment and media are disposed of or reused.",
       "severity": "medium",
       "tsc": "security"
     },
@@ -461,7 +473,7 @@
     },
     {
       "id": "vendor_risk_assessment",
-      "control": "CC9.1",
+      "control": "CC9.2",
       "type": "document_upload",
       "frequency": "yearly",
       "temporal_rule": "retrospective",
@@ -473,7 +485,7 @@
     },
     {
       "id": "due_diligence_process",
-      "control": "CC9.1",
+      "control": "CC9.2",
       "type": "document_upload",
       "frequency": "yearly",
       "temporal_rule": "retrospective",
@@ -530,6 +542,18 @@
       "description": "Complementary user entity controls (CUECs) from each subservice organization's report are mapped to controls this organization operates.",
       "severity": "medium",
       "tsc": "security"
+    },
+    {
+      "id": "capacity_management_process",
+      "control": "A1.1",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Capacity Management Process",
+      "description": "Current processing capacity and use of system components are monitored and evaluated to meet availability commitments.",
+      "severity": "medium",
+      "tsc": "availability"
     },
     {
       "id": "business_continuity_plan",
@@ -591,7 +615,7 @@
     },
     {
       "id": "nda_policy",
-      "control": "C1.3",
+      "control": "C1.1",
       "type": "document_upload",
       "frequency": "yearly",
       "temporal_rule": "retrospective",
@@ -627,13 +651,13 @@
     },
     {
       "id": "data_retention_disposal",
-      "control": "P6.1",
+      "control": "P4.2",
       "type": "document_upload",
       "frequency": "yearly",
       "temporal_rule": "retrospective",
       "grace_period": "30d",
-      "name": "Data Retention Disposal",
-      "description": "A data retention and disposal policy exists.",
+      "name": "Personal Information Retention and Disposal Policy",
+      "description": "Personal information is retained only as long as needed and then disposed of.",
       "severity": "medium",
       "tsc": "privacy"
     },

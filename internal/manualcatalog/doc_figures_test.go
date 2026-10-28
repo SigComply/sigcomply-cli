@@ -81,7 +81,7 @@ func TestDocFiguresMatchCode(t *testing.T) {
 		want []string
 	}{
 		{"docs/reference/frameworks.md", []string{
-			fmt.Sprintf("%d / %d criteria have a check — %d automated, %d manual-only", s.controls, s.controls, s.ctrlAuto, s.ctrlManual),
+			fmt.Sprintf("%d modeled criteria, %d with a check — %d automated, %d manual-only", s.controls, s.ctrlAuto+s.ctrlManual, s.ctrlAuto, s.ctrlManual),
 			fmt.Sprintf("%d policies: %d automated + %d manual catalog entries", s.policies, s.automated, s.catalogEntries),
 			fmt.Sprintf("%d / %d Annex A controls have a check — %d automated, %d manual-only", i.controls, i.controls, i.ctrlAuto, i.ctrlManual),
 			fmt.Sprintf("%d policies: %d automated + %d manual catalog entries", i.policies, i.automated, i.catalogEntries),

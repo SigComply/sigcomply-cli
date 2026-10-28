@@ -58,24 +58,32 @@ const (
 	etSourceControlOrgPolicy  = "source_control_org_policy"
 )
 
-// controlRefs wraps a single ISO 27001 Annex A control ID into the
+// controlRefs wraps one or more ISO 27001 Annex A control ID into the
 // framework-namespaced ControlRef list every policy carries. The
 // framework ID and version qualify the bare control ID (e.g. "A.8.9")
 // so results and the cloud payload record the framework version. A
 // check satisfying controls in more than one framework is authored with
 // a hand-written multi-element Controls list instead.
-func controlRefs(id string) []core.ControlRef {
-	return []core.ControlRef{{
-		Framework:        FrameworkID,
-		FrameworkVersion: FrameworkVersion,
-		ControlID:        id,
-		Relationship:     core.RelationshipEqual,
-	}}
+func controlRefs(ids ...string) []core.ControlRef {
+	refs := make([]core.ControlRef, len(ids))
+	for i, id := range ids {
+		refs[i] = core.ControlRef{
+			Framework:        FrameworkID,
+			FrameworkVersion: FrameworkVersion,
+			ControlID:        id,
+			Relationship:     core.RelationshipEqual,
+		}
+	}
+	return refs
 }
 
 type autoPolicy struct {
-	id       string
-	control  string
+	id      string
+	control string
+	// also lists further controls the same check backs. One check filed
+	// under two criteria is one policy with both refs, never two copies:
+	// a copy counts one defect twice in the score.
+	also     []string
 	severity core.Severity
 	category string
 	cadence  string
@@ -97,7 +105,7 @@ func (a autoPolicy) policy() core.Policy {
 	clause.Slot = slotName
 	return core.Policy{
 		ID:           a.id,
-		Controls:     controlRefs(a.control),
+		Controls:     controlRefs(append([]string{a.control}, a.also...)...),
 		Description:  a.desc,
 		Remediation:  a.rem,
 		Severity:     a.severity,
@@ -174,6 +182,9 @@ func inRoster(where *core.PassWhenCondition) *core.PassWhenCondition {
 type manualPolicy struct {
 	id      string
 	control string
+	// also lists further controls this evidence backs (see autoPolicy.also).
+	// The catalog entry names the first control only.
+	also    []string
 	cadence string
 	catalog string
 	desc    string
@@ -234,7 +245,7 @@ func (m manualPolicy) entry() manualcatalog.Entry {
 func (m manualPolicy) policy() core.Policy {
 	return core.Policy{
 		ID:           m.id,
-		Controls:     controlRefs(m.control),
+		Controls:     controlRefs(append([]string{m.control}, m.also...)...),
 		Description:  m.desc,
 		Remediation:  m.rem,
 		Severity:     core.SeverityMedium,

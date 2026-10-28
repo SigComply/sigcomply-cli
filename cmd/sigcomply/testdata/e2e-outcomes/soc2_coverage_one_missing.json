@@ -1,10 +1,9 @@
 {
-  "A1.1": "automated/skip",
+  "A1.1": "manual/pass",
   "A1.2": "automated/skip",
   "A1.3": "manual/pass",
   "C1.1": "automated/skip",
   "C1.2": "manual/fail",
-  "C1.3": "manual/pass",
   "CC1.1": "manual/pass",
   "CC1.2": "manual/pass",
   "CC1.3": "manual/pass",
@@ -26,7 +25,7 @@
   "CC6.2": "automated/skip",
   "CC6.3": "automated/skip",
   "CC6.4": "manual/pass",
-  "CC6.5": "automated/skip",
+  "CC6.5": "manual/pass",
   "CC6.6": "automated/skip",
   "CC6.7": "automated/skip",
   "CC6.8": "automated/skip",
@@ -40,6 +39,7 @@
   "CC9.2": "manual/pass",
   "P1.1": "manual/pass",
   "P3.1": "manual/pass",
-  "P6.1": "manual/pass",
+  "P4.2": "manual/pass",
+  "P4.3": "manual/pass",
   "PI1.1": "manual/pass"
 }

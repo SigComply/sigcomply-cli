@@ -77,7 +77,7 @@ These entries fan out over the register:
 | ISO 27001 | `supplier_security_agreements` | A.5.20 | supplier |
 
 The lifecycle entries (`vendor_lifecycle_process` for SOC 2, `supplier_lifecycle_process` for ISO
-27001) and SOC 2's `vendor_risk_assessment` (CC9.1) keep a single folder.
+27001) and SOC 2's `vendor_risk_assessment` (CC9.2) keep a single folder.
 
 A fan-out folder is the entry ID, a dot and the vendor ID:
 

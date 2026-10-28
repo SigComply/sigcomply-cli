@@ -273,7 +273,7 @@ mutually exclusive with every filter flag, so that path is unreachable from the 
 A separate, advisory command. The scaffolded scheduled workflow runs it as a non-failing step.
 
 ```
-manual evidence: 3 of 50 entries have an empty folder (run period 2026-Q3)
+manual evidence: 3 of 52 entries have an empty folder (run period 2026-Q3)
   ENTRY                        CADENCE    PERIOD   DUE IN  UPLOAD TO
   access_review_quarterly      quarterly  2026-Q3  14d     s3://acme-evidence/manual/access_review_quarterly/2026-Q3/
   security_awareness_training  annual     2026     105d    s3://acme-evidence/manual/security_awareness_training/2026/

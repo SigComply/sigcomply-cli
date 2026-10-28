@@ -261,7 +261,7 @@ func TestE2E_WalkingSkeleton(t *testing.T) {
 		"soc2.cc6.3.repo_default_permission_least_privilege": core.StatusPass,
 		// Phase 3a (Dependabot → vulnerability_finding): one open critical
 		// alert → the none-quantifier critical-vuln policy fails.
-		"soc2.cc7.4.no_critical_vulns_active": core.StatusFail,
+		"soc2.cc6.8.no_critical_findings_active": core.StatusFail,
 		// Unbound: no firewall_rule source is registered → skip.
 		"soc2.cc6.6.no_unrestricted_ssh": core.StatusSkip,
 	})

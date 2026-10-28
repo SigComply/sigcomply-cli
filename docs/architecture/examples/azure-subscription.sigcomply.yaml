@@ -118,7 +118,7 @@ policies:
   soc2.cc6.7.storage_encryption_at_rest:
     bindings:
       evidence: [azure.storage]
-  soc2.c1.1.storage_no_public_access:
+  soc2.cc6.7.storage_public_access_blocked:
     bindings:
       evidence: [azure.storage]
 
@@ -129,10 +129,10 @@ policies:
   soc2.cc6.7.database_encryption_at_rest:
     bindings:
       evidence: [azure.sql]
-  soc2.a1.1.database_backup_enabled:
+  soc2.a1.2.database_backup_enabled:
     bindings:
       evidence: [azure.sql]
-  soc2.c1.1.database_no_public_access:
+  soc2.cc6.7.database_no_public_access:
     bindings:
       evidence: [azure.sql]
 
@@ -217,7 +217,7 @@ policies:
     bindings:
       evidence: [azure.defender]
     cadence: hourly
-  soc2.cc7.4.no_critical_vulns_active:
+  soc2.cc6.8.no_critical_findings_active:
     bindings:
       evidence: [azure.defender]
     cadence: hourly
@@ -226,7 +226,7 @@ policies:
   # is_public ← anonymousPullEnabled (NOT publicNetworkAccess, which still
   # requires auth); scan_on_push ← the quarantine policy (the one per-registry
   # signal that gates pulls on scanning).
-  soc2.c1.1.no_public_container_repos:
+  soc2.cc6.8.no_public_container_repos:
     bindings:
       evidence: [azure.acr]
   soc2.cc6.8.container_scan_on_push:
@@ -255,7 +255,7 @@ policies:
   # backup_plan (azure.backup) — a protection policy exists and is active.
   # is_active ← the Recovery Services policy is protecting ≥1 item (a
   # defined-but-unused policy honestly reads false).
-  soc2.a1.1.backup_plan_exists:
+  soc2.a1.2.backup_plan_exists:
     bindings:
       evidence: [azure.backup]
 

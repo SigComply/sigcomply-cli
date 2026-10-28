@@ -164,7 +164,7 @@ policies:
     bindings:
       evidence: [gcp.scc]
     cadence: hourly
-  soc2.cc7.4.no_critical_vulns_active:
+  soc2.cc6.8.no_critical_findings_active:
     bindings:
       evidence: [gcp.scc]
     cadence: hourly

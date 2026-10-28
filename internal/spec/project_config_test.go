@@ -315,7 +315,7 @@ func TestLoadProjectConfig_GCPExample(t *testing.T) {
 		t.Errorf("mfa_enforced_admins evidence binding = %v; want [gcp.directory]", b)
 	}
 	// The org-scoped gcp.scc source emits three types; one binding shown here.
-	if b := cfg.BindingsFor("soc2.cc7.4.no_critical_vulns_active")["evidence"]; len(b) != 1 || b[0].Source != "gcp.scc" {
+	if b := cfg.BindingsFor("soc2.cc6.8.no_critical_findings_active")["evidence"]; len(b) != 1 || b[0].Source != "gcp.scc" {
 		t.Errorf("no_critical_vulns_active evidence binding = %v; want [gcp.scc]", b)
 	}
 }
@@ -350,7 +350,7 @@ func TestLoadProjectConfig_AzureExample(t *testing.T) {
 	}
 	// The subscription-scoped azure.defender source emits three types; one
 	// binding shown here.
-	if b := cfg.BindingsFor("soc2.cc7.4.no_critical_vulns_active")["evidence"]; len(b) != 1 || b[0].Source != "azure.defender" {
+	if b := cfg.BindingsFor("soc2.cc6.8.no_critical_findings_active")["evidence"]; len(b) != 1 || b[0].Source != "azure.defender" {
 		t.Errorf("no_critical_vulns_active evidence binding = %v; want [azure.defender]", b)
 	}
 }

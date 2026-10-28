@@ -8,15 +8,15 @@ import "github.com/sigcomply/sigcomply-cli/internal/core"
 const (
 	ctrlCC61 = "CC6.1"
 	ctrlCC62 = "CC6.2"
-	ctrlCC65 = "CC6.5"
 	ctrlCC66 = "CC6.6"
 	ctrlCC67 = "CC6.7"
 	ctrlCC68 = "CC6.8"
 	ctrlCC71 = "CC7.1"
+	ctrlCC72 = "CC7.2"
 	ctrlCC73 = "CC7.3"
+	ctrlCC74 = "CC7.4"
 	ctrlCC81 = "CC8.1"
 	ctrlCC92 = "CC9.2"
-	ctrlA11  = "A1.1"
 	ctrlA12  = "A1.2"
 	ctrlC11  = "C1.1"
 )
@@ -36,10 +36,12 @@ const (
 	catRisk             = "risk"
 )
 
-// Controls returns the SOC 2 (TSC 2017) control catalog: the common
-// criteria (CC1–CC9) plus the Availability (A1), Confidentiality (C1),
-// Processing Integrity (PI1), and Privacy (P-series) categories
-// referenced by the policy library.
+// Controls returns the SOC 2 control catalog: the 2017 Trust Services
+// Criteria (revised points of focus, 2022) that the policy library maps
+// to. That is all 33 common criteria, the three Availability and two
+// Confidentiality criteria, and only PI1.1 of Processing Integrity and
+// P1.1, P3.1, P4.2 and P4.3 of Privacy. The other 4 PI and 14 P criteria
+// are not modeled; docs/reference/frameworks.md says so.
 func Controls() []core.Control {
 	return []core.Control{
 		// CC1 — Control environment.
@@ -54,7 +56,7 @@ func Controls() []core.Control {
 		ctrl("CC2.3", "External Communication", catGovernance, core.SeverityMedium),
 		// CC3 — Risk assessment.
 		ctrl("CC3.1", "Risk Assessment Objectives", catRisk, core.SeverityMedium),
-		ctrl("CC3.2", "Risk Identification and Fraud", catRisk, core.SeverityMedium),
+		ctrl("CC3.2", "Risk Identification and Analysis", catRisk, core.SeverityMedium),
 		ctrl("CC3.3", "Fraud Risk", catRisk, core.SeverityMedium),
 		ctrl("CC3.4", "Change Risk", catRisk, core.SeverityMedium),
 		// CC4 — Monitoring activities.
@@ -69,7 +71,7 @@ func Controls() []core.Control {
 		ctrl("CC6.2", "User Provisioning", catAccess, core.SeverityHigh),
 		ctrl("CC6.3", "Access Review", catAccess, core.SeverityMedium),
 		ctrl("CC6.4", "Physical Access", catAccess, core.SeverityMedium),
-		ctrl("CC6.5", "Asset Disposal and Secret Hygiene", catDataProtection, core.SeverityMedium),
+		ctrl("CC6.5", "Asset Disposal", catDataProtection, core.SeverityMedium),
 		ctrl("CC6.6", "Network Access Restriction", catNetwork, core.SeverityHigh),
 		ctrl("CC6.7", "Transmission and Encryption", catDataProtection, core.SeverityHigh),
 		ctrl("CC6.8", "Malware and Threat Detection", catMonitoring, core.SeverityHigh),
@@ -82,22 +84,22 @@ func Controls() []core.Control {
 		// CC8 — Change management.
 		ctrl("CC8.1", "Change Management", catChangeManagement, core.SeverityHigh),
 		// CC9 — Risk mitigation.
-		ctrl("CC9.1", "Risk Mitigation and Vendors", catRisk, core.SeverityMedium),
+		ctrl("CC9.1", "Business Disruption Risk Mitigation", catRisk, core.SeverityMedium),
 		ctrl("CC9.2", "Vendor Management", catRisk, core.SeverityMedium),
 		// A1 — Availability.
-		ctrl("A1.1", "Capacity and Backups", catAvailability, core.SeverityHigh),
-		ctrl("A1.2", "Recovery Infrastructure", catAvailability, core.SeverityMedium),
+		ctrl("A1.1", "Capacity Management", catAvailability, core.SeverityMedium),
+		ctrl("A1.2", "Backup and Recovery Infrastructure", catAvailability, core.SeverityHigh),
 		ctrl("A1.3", "Recovery Testing", catAvailability, core.SeverityMedium),
 		// C1 — Confidentiality.
 		ctrl("C1.1", "Confidential Data Protection", catDataProtection, core.SeverityHigh),
 		ctrl("C1.2", "Confidential Data Retention", catDataProtection, core.SeverityMedium),
-		ctrl("C1.3", "Confidentiality Agreements", catGovernance, core.SeverityMedium),
 		// PI1 — Processing integrity.
 		ctrl("PI1.1", "Processing Integrity", catGovernance, core.SeverityMedium),
 		// P-series — Privacy.
 		ctrl("P1.1", "Privacy Notice", catPrivacy, core.SeverityMedium),
 		ctrl("P3.1", "Data Collection", catPrivacy, core.SeverityMedium),
-		ctrl("P6.1", "Data Retention and Disposal", catPrivacy, core.SeverityMedium),
+		ctrl("P4.2", "Personal Information Retention", catPrivacy, core.SeverityMedium),
+		ctrl("P4.3", "Personal Information Disposal", catPrivacy, core.SeverityMedium),
 	}
 }
 

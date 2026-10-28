@@ -1,20 +1,10 @@
 {
-  "soc2.a1.1.backup_plan_exists": {
-    "status": "skip",
-    "resources_evaluated": 0,
+  "soc2.a1.1.capacity_management_process": {
+    "status": "pass",
+    "resources_evaluated": 1,
     "resources_failed": 0
   },
-  "soc2.a1.1.database_backup_enabled": {
-    "status": "skip",
-    "resources_evaluated": 0,
-    "resources_failed": 0
-  },
-  "soc2.a1.1.database_multi_az": {
-    "status": "skip",
-    "resources_evaluated": 0,
-    "resources_failed": 0
-  },
-  "soc2.a1.1.storage_versioning_enabled": {
+  "soc2.a1.2.backup_plan_exists": {
     "status": "skip",
     "resources_evaluated": 0,
     "resources_failed": 0
@@ -22,6 +12,11 @@
   "soc2.a1.2.business_continuity_plan": {
     "status": "pass",
     "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.a1.2.database_backup_enabled": {
+    "status": "skip",
+    "resources_evaluated": 0,
     "resources_failed": 0
   },
   "soc2.a1.2.dynamodb_deletion_protection": {
@@ -39,32 +34,17 @@
     "resources_evaluated": 1,
     "resources_failed": 0
   },
-  "soc2.c1.1.database_no_public_access": {
-    "status": "skip",
-    "resources_evaluated": 0,
-    "resources_failed": 0
-  },
   "soc2.c1.1.dynamodb_encryption_enabled": {
     "status": "skip",
     "resources_evaluated": 0,
     "resources_failed": 0
   },
-  "soc2.c1.1.no_public_container_repos": {
-    "status": "skip",
-    "resources_evaluated": 0,
-    "resources_failed": 0
-  },
-  "soc2.c1.1.storage_no_public_access": {
-    "status": "skip",
-    "resources_evaluated": 0,
-    "resources_failed": 0
-  },
-  "soc2.c1.2.data_retention_policy": {
+  "soc2.c1.1.nda_policy": {
     "status": "pass",
     "resources_evaluated": 1,
     "resources_failed": 0
   },
-  "soc2.c1.3.nda_policy": {
+  "soc2.c1.2.data_retention_policy": {
     "status": "pass",
     "resources_evaluated": 1,
     "resources_failed": 0
@@ -119,7 +99,7 @@
     "resources_evaluated": 1,
     "resources_failed": 0
   },
-  "soc2.cc3.2.fraud_risk_assessment": {
+  "soc2.cc3.3.fraud_risk_assessment": {
     "status": "pass",
     "resources_evaluated": 1,
     "resources_failed": 0
@@ -229,7 +209,17 @@
     "resources_evaluated": 1,
     "resources_failed": 0
   },
+  "soc2.cc6.1.push_protection_enabled": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
   "soc2.cc6.1.root_mfa_enabled": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.1.secret_scanning_enabled": {
     "status": "skip",
     "resources_evaluated": 0,
     "resources_failed": 0
@@ -242,6 +232,11 @@
   "soc2.cc6.2.no_active_accounts_for_inactive_personnel": {
     "status": "skip",
     "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.2.termination_access_removal_process": {
+    "status": "pass",
+    "resources_evaluated": 1,
     "resources_failed": 0
   },
   "soc2.cc6.2.user_provisioning_process": {
@@ -264,17 +259,7 @@
     "resources_evaluated": 1,
     "resources_failed": 0
   },
-  "soc2.cc6.5.push_protection_enabled": {
-    "status": "skip",
-    "resources_evaluated": 0,
-    "resources_failed": 0
-  },
-  "soc2.cc6.5.secret_scanning_enabled": {
-    "status": "skip",
-    "resources_evaluated": 0,
-    "resources_failed": 0
-  },
-  "soc2.cc6.5.termination_access_removal_process": {
+  "soc2.cc6.5.asset_disposal_process": {
     "status": "pass",
     "resources_evaluated": 1,
     "resources_failed": 0
@@ -514,11 +499,6 @@
     "resources_evaluated": 0,
     "resources_failed": 0
   },
-  "soc2.cc7.2.threat_detection_all_regions": {
-    "status": "skip",
-    "resources_evaluated": 0,
-    "resources_failed": 0
-  },
   "soc2.cc7.3.compute_monitoring_enabled": {
     "status": "skip",
     "resources_evaluated": 0,
@@ -537,11 +517,6 @@
   "soc2.cc7.3.security_monitoring_policy": {
     "status": "pass",
     "resources_evaluated": 1,
-    "resources_failed": 0
-  },
-  "soc2.cc7.4.no_critical_vulns_active": {
-    "status": "skip",
-    "resources_evaluated": 0,
     "resources_failed": 0
   },
   "soc2.cc7.4.vulnerability_disclosure_policy": {
@@ -644,17 +619,12 @@
     "resources_evaluated": 1,
     "resources_failed": 0
   },
-  "soc2.cc9.1.due_diligence_process": {
-    "status": "pass",
-    "resources_evaluated": 1,
-    "resources_failed": 0
-  },
-  "soc2.cc9.1.vendor_risk_assessment": {
-    "status": "pass",
-    "resources_evaluated": 1,
-    "resources_failed": 0
-  },
   "soc2.cc9.2.cuec_mapping": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc9.2.due_diligence_process": {
     "status": "pass",
     "resources_evaluated": 1,
     "resources_failed": 0
@@ -674,6 +644,11 @@
     "resources_evaluated": 1,
     "resources_failed": 0
   },
+  "soc2.cc9.2.vendor_risk_assessment": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
   "soc2.p1.1.privacy_notice": {
     "status": "pass",
     "resources_evaluated": 1,
@@ -684,7 +659,7 @@
     "resources_evaluated": 1,
     "resources_failed": 0
   },
-  "soc2.p6.1.data_retention_disposal": {
+  "soc2.p4.2.data_retention_disposal": {
     "status": "pass",
     "resources_evaluated": 1,
     "resources_failed": 0

@@ -57,10 +57,10 @@ List the manual entries for your framework:
 sigcomply evidence catalog -f soc2 -o text
 ```
 
-The SOC 2 catalog has **50 entries**:
+The SOC 2 catalog has **52 entries**:
 
 ```text
-Manual Evidence Catalog: soc2 (v1.0) — 50 entries
+Manual Evidence Catalog: soc2 (v1.0) — 52 entries
 
 ID                                CONTROL  TYPE             FREQUENCY  NAME
 access_review_quarterly           CC6.3    document_upload  quarterly  Access Review Quarterly
@@ -79,7 +79,7 @@ sigcomply evidence due --all
 ```
 
 ```text
-manual evidence: 50 of 50 entries have an empty folder (run period 2026-Q4)
+manual evidence: 52 of 52 entries have an empty folder (run period 2026-Q4)
   ENTRY                             CADENCE    PERIOD   DUE IN  UPLOAD TO
   access_review_quarterly           quarterly  2026-Q4  66d     file://./evidence/manual/access_review_quarterly/2026-Q4/
   accountability_for_controls       annual     2026     66d     file://./evidence/manual/accountability_for_controls/2026/

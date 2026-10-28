@@ -84,17 +84,11 @@ func cc7LoggingPolicies() []core.Policy {
 	}
 }
 
-// cc7OperationsPolicies — CC7.2/7.3/7.4/7.5 operational posture.
+// cc7OperationsPolicies — CC7.3/7.5 operational posture. Threat
+// detection (CC7.2) and active critical findings (CC7.4) are filed under
+// CC6.8 with both refs.
 func cc7OperationsPolicies() []core.Policy {
 	return []core.Policy{
-		autoPolicy{
-			id: "soc2.cc7.2.threat_detection_all_regions", control: "CC7.2", severity: core.SeverityHigh, category: catMonitoring, cadence: cadenceDaily,
-			presence: "threat detection",
-			accepts:  []string{"threat_detection_service"},
-			desc:     "Threat detection is active in every region.",
-			rem:      "Enable the threat detection service in all regions.",
-			clause:   all(leaf("payload.is_enabled", "eq", true), "threat detection service {{.payload.name}} is not enabled"),
-		}.policy(),
 		autoPolicy{
 			id: "soc2.cc7.3.compute_monitoring_enabled", control: ctrlCC73, severity: core.SeverityMedium, category: catMonitoring, cadence: cadenceDaily,
 			accepts: []string{"compute_instance"},
@@ -107,14 +101,7 @@ func cc7OperationsPolicies() []core.Policy {
 			clause: allWhere(leaf("payload.monitoring_enabled", "is_set", nil), leaf("payload.monitoring_enabled", "eq", true), "instance {{.payload.name}} does not have monitoring enabled"),
 		}.policy(),
 		autoPolicy{
-			id: "soc2.cc7.4.no_critical_vulns_active", control: "CC7.4", severity: core.SeverityCritical, category: catMonitoring, cadence: cadenceDaily,
-			accepts: []string{etVulnerabilityFinding},
-			desc:    "No CRITICAL vulnerability remains active.",
-			rem:     "Remediate or suppress all active CRITICAL vulnerabilities.",
-			clause:  noneWhere(allOf(leaf("payload.severity", "eq", "CRITICAL"), leaf("payload.status", "eq", "ACTIVE")), leaf("id", "is_set", nil), "critical vulnerability {{.payload.id}} is active"),
-		}.policy(),
-		autoPolicy{
-			id: "soc2.cc7.5.database_multi_az", control: "CC7.5", severity: core.SeverityMedium, category: catAvailability, cadence: cadenceDaily,
+			id: "soc2.cc7.5.database_multi_az", control: "CC7.5", also: []string{ctrlA12}, severity: core.SeverityMedium, category: catAvailability, cadence: cadenceDaily,
 			accepts: []string{etManagedDatabaseInstance},
 			desc: "All managed databases are deployed across multiple availability zones. " +
 				"Evidences recovery capability configured in infrastructure, not recovery " +

@@ -135,7 +135,7 @@ policies:
       evidence: [azure.network]
 
   # vulnerability_finding (azure.defender) — no active critical vulns.
-  soc2.cc7.4.no_critical_vulns_active:
+  soc2.cc6.8.no_critical_findings_active:
     bindings:
       evidence: [azure.defender]
     cadence: hourly

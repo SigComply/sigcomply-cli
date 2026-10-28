@@ -7,11 +7,12 @@ contents.
 
 | ID | Standard | Coverage |
 |---|---|---|
-| `soc2` | SOC 2, 2017 Trust Services Criteria. The default. | 43 / 43 criteria have a check — 16 automated, 27 manual-only. 139 policies: 89 automated + 50 manual catalog entries. |
+| `soc2` | SOC 2, 2017 Trust Services Criteria (2022 points of focus). The default. | 43 modeled criteria, 43 with a check — 14 automated, 29 manual-only. 134 policies: 82 automated + 52 manual catalog entries. The catalog models the 33 common criteria, A1.1-A1.3, C1.1-C1.2, PI1.1, P1.1, P3.1, P4.2 and P4.3. It does not model PI1.2-PI1.5 or the other 14 privacy criteria, so a report with Processing Integrity or Privacy in scope needs evidence for those outside SigComply. |
 | `iso27001` | ISO/IEC 27001:2022 | 109 controls: 93 Annex A + 16 management-system. 93 / 93 Annex A controls have a check — 26 automated, 67 manual-only. 151 policies: 64 automated + 87 manual catalog entries. The 16 management-system requirements (clauses 4-10), all manual, are counted apart from Annex A and are covered only once you upload the documents. |
 
 A control counts as automated when at least one automated policy stands behind it, and as
-manual-only when only document uploads do. An automated check shows a control's configured
+manual-only when only document uploads do. A policy filed under two controls backs both, so one
+public bucket fails one policy, not one per control. An automated check shows a control's configured
 state, not that it was exercised: a backup that is enabled is not a restore that was tested.
 Where a control needs both, the tested half is a separate manual entry, for example
 `soc2.a1.3.recovery_procedures_tested` and `iso27001.5.30.ict_continuity_tested`.
@@ -72,7 +73,8 @@ sigcomply evidence catalog -f soc2 -o json
 ```
 
 Text output shows the ID, control, type, frequency and name of each entry. JSON adds the
-description, severity, temporal rule, grace period and `tsc` (the SOC 2 criterion).
+description, severity, temporal rule, grace period and `tsc` (the SOC 2 Trust Services category,
+such as `security` or `availability`).
 
 The automated policies are Go code under `internal/frameworks/<framework>/` in this repository,
 for example `internal/frameworks/soc2/`. Each policy carries its `pass_when` condition, so the

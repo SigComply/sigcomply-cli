@@ -209,14 +209,14 @@ func cc6EncryptionPolicies() []core.Policy {
 			clause:  all(leaf("payload.encryption_at_rest_enabled", "eq", true), "bucket {{.payload.name}} is not encrypted at rest"),
 		}.policy(),
 		autoPolicy{
-			id: "soc2.cc6.7.storage_public_access_blocked", control: ctrlCC67, severity: core.SeverityHigh, category: catDataProtection, cadence: cadenceDaily,
+			id: "soc2.cc6.7.storage_public_access_blocked", control: ctrlCC67, also: []string{ctrlC11}, severity: core.SeverityHigh, category: catDataProtection, cadence: cadenceDaily,
 			accepts: []string{etObjectStorageBucket},
 			desc:    "All object storage buckets block public access.",
 			rem:     "Enable public-access-block / uniform bucket-level access on each bucket.",
 			clause:  all(leaf("payload.public_access_blocked", "eq", true), "bucket {{.payload.name}} does not block public access"),
 		}.policy(),
 		autoPolicy{
-			id: "soc2.cc6.7.storage_versioning_enabled", control: ctrlCC67, severity: core.SeverityLow, category: catDataProtection, cadence: cadenceDaily,
+			id: "soc2.cc6.7.storage_versioning_enabled", control: ctrlCC67, also: []string{ctrlA12}, severity: core.SeverityLow, category: catDataProtection, cadence: cadenceDaily,
 			accepts: []string{etObjectStorageBucket},
 			desc:    "All object storage buckets have versioning enabled.",
 			rem:     "Enable object versioning on each bucket.",
@@ -230,7 +230,7 @@ func cc6EncryptionPolicies() []core.Policy {
 			clause:  all(leaf("payload.storage_encrypted", "eq", true), "database {{.payload.name}} is not encrypted at rest"),
 		}.policy(),
 		autoPolicy{
-			id: "soc2.cc6.7.database_no_public_access", control: ctrlCC67, severity: core.SeverityHigh, category: catDataProtection, cadence: cadenceDaily,
+			id: "soc2.cc6.7.database_no_public_access", control: ctrlCC67, also: []string{ctrlC11}, severity: core.SeverityHigh, category: catDataProtection, cadence: cadenceDaily,
 			accepts: []string{etManagedDatabaseInstance},
 			desc:    "No managed database is publicly accessible.",
 			rem:     "Disable public accessibility and place databases in private subnets.",
@@ -315,7 +315,7 @@ func cc6EncryptionPolicies() []core.Policy {
 func cc6ThreatPolicies() []core.Policy {
 	return []core.Policy{
 		autoPolicy{
-			id: "soc2.cc6.8.threat_detection_enabled", control: ctrlCC68, severity: core.SeverityHigh, category: catMonitoring, cadence: cadenceDaily,
+			id: "soc2.cc6.8.threat_detection_enabled", control: ctrlCC68, also: []string{ctrlCC72}, severity: core.SeverityHigh, category: catMonitoring, cadence: cadenceDaily,
 			presence: "threat detection",
 			accepts:  []string{"threat_detection_service"},
 			desc:     "Threat detection is enabled across the account.",
@@ -323,7 +323,7 @@ func cc6ThreatPolicies() []core.Policy {
 			clause:   all(leaf("payload.is_enabled", "eq", true), "threat detection service {{.payload.name}} is not enabled"),
 		}.policy(),
 		autoPolicy{
-			id: "soc2.cc6.8.no_critical_findings_active", control: ctrlCC68, severity: core.SeverityCritical, category: catMonitoring, cadence: cadenceDaily,
+			id: "soc2.cc6.8.no_critical_findings_active", control: ctrlCC68, also: []string{ctrlCC74}, severity: core.SeverityCritical, category: catMonitoring, cadence: cadenceDaily,
 			accepts: []string{etVulnerabilityFinding},
 			desc:    "No CRITICAL vulnerability finding is active.",
 			rem:     "Remediate or formally suppress all active CRITICAL findings.",
@@ -344,7 +344,7 @@ func cc6ThreatPolicies() []core.Policy {
 			clause:  all(leaf("payload.scan_on_push_enabled", "eq", true), "registry {{.payload.name}} does not scan images on push"),
 		}.policy(),
 		autoPolicy{
-			id: "soc2.cc6.8.no_public_container_repos", control: ctrlCC68, severity: core.SeverityHigh, category: catDataProtection, cadence: cadenceDaily,
+			id: "soc2.cc6.8.no_public_container_repos", control: ctrlCC68, also: []string{ctrlC11}, severity: core.SeverityHigh, category: catDataProtection, cadence: cadenceDaily,
 			accepts: []string{etContainerRegistry},
 			desc:    "No container registry is publicly accessible.",
 			rem:     "Make public container repositories private.",

@@ -112,12 +112,12 @@ kinds of lines:
 - `[pass]` and `[fail]` lines for IAM policies, such as `soc2.cc6.1.mfa_enforced_all_users`, and
   for the access key and password policies.
   Under a failing policy, a `↳` line says what failed.
-- `[fail]` lines for documents you haven't uploaded yet. SOC 2 ships 50 catalog entries whose
+- `[fail]` lines for documents you haven't uploaded yet. SOC 2 ships 52 catalog entries whose
   evidence is a document (a policy, a training record, a review), and each line names the
   folder to put it in:
 
   ```
-  [fail] soc2.c1.3.nda_policy — C1.3
+  [fail] soc2.c1.1.nda_policy — C1.1
       ↳ manual evidence not found; expected files in: file://./evidence/manual/nda_policy/2026/
   ```
 
@@ -141,7 +141,7 @@ cp /path/to/any.pdf evidence/manual/nda_policy/2026/
 sigcomply check
 ```
 
-The NDA line now reads `[pass] soc2.c1.3.nda_policy — C1.3`. The CLI checked that a supported
+The NDA line now reads `[pass] soc2.c1.1.nda_policy — C1.1`. The CLI checked that a supported
 file is in the folder for the period. It did not read the file. Judging what a document says
 is your auditor's job. The run still exits `1`, because the other policies still fail.
 

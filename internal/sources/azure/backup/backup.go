@@ -1,7 +1,7 @@
 // Package backup implements the azure.backup source plugin: it enumerates Azure
 // Recovery Services backup protection policies across a subscription and emits
 // one cross-vendor backup_plan record per policy, so the backup_plan policy
-// (soc2.a1.1.backup_plan_exists) evaluates against Azure exactly as it does
+// (soc2.a1.2.backup_plan_exists) evaluates against Azure exactly as it does
 // against AWS Backup and GCP Backup — zero policy changes (Invariant #4).
 //
 // Collection is an N+1 walk: list every Recovery Services vault in the
@@ -10,7 +10,7 @@
 // child resource of a vault, with no subscription-wide list endpoint.
 //
 // Field mapping (the schema-required fields id, name, is_active,
-// has_retention_rule are always present; soc2.a1.1.backup_plan_exists reads
+// has_retention_rule are always present; soc2.a1.2.backup_plan_exists reads
 // is_active and has_retention_rule via plain leaf clauses with no is_set guard,
 // so they must never be absent — per WU-0.2 the evaluator errors on a
 // referenced-but-absent field):

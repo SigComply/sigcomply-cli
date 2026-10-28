@@ -65,18 +65,20 @@ func cc8Policies() []core.Policy {
 	}
 }
 
-// cc6SecretHygienePolicies — CC6.5 secret scanning in repositories.
+// cc6SecretHygienePolicies — CC6.1 credential protection: scanning
+// repositories for committed secrets. (CC6.5 is disposal of physical
+// assets, where these were once filed.)
 func cc6SecretHygienePolicies() []core.Policy {
 	return []core.Policy{
 		autoPolicy{
-			id: "soc2.cc6.5.secret_scanning_enabled", control: ctrlCC65, severity: core.SeverityHigh, category: catDataProtection, cadence: cadenceDaily,
+			id: "soc2.cc6.1.secret_scanning_enabled", control: ctrlCC61, severity: core.SeverityHigh, category: catDataProtection, cadence: cadenceDaily,
 			accepts: []string{etGitRepository},
 			desc:    "All repositories have secret scanning enabled.",
 			rem:     "Enable secret scanning on each repository.",
 			clause:  all(leaf("payload.secret_scanning_enabled", "eq", true), "repository {{.payload.name}} does not have secret scanning enabled"),
 		}.policy(),
 		autoPolicy{
-			id: "soc2.cc6.5.push_protection_enabled", control: ctrlCC65, severity: core.SeverityMedium, category: catDataProtection, cadence: cadenceDaily,
+			id: "soc2.cc6.1.push_protection_enabled", control: ctrlCC61, severity: core.SeverityMedium, category: catDataProtection, cadence: cadenceDaily,
 			accepts: []string{etGitRepository},
 			desc:    "All repositories have push protection enabled.",
 			rem:     "Enable secret push protection on each repository.",

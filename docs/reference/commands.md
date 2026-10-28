@@ -192,7 +192,7 @@ then reads "not evaluated".
 `--view coverage` covers every control in the framework, including controls whose cadence did
 not run this period. It splits controls into two kinds, which the score counts the same: backed
 only by document checks, or with at least one automated check mapped.
-For SOC 2, 27 of 43 criteria are the first kind. The kind comes from the mapped policies, not
+For SOC 2, 29 of 43 criteria are the first kind. The kind comes from the mapped policies, not
 from what ran, so `This period` splits the automated controls by what their automated checks
 did:
 
@@ -209,13 +209,13 @@ Sample output from a SOC 2 project with only the manual evidence source configur
 
 ```
 43 of 43 catalog controls have a check
-  16 automated  — an automated check is mapped; "This period" shows whether it ran
-  27 manual     — only document checks are mapped; their contents are not inspected
+  14 automated  — an automated check is mapped; "This period" shows whether it ran
+  29 manual     — only document checks are mapped; their contents are not inspected
 
 This period
   43 evaluated, 0 not evaluated
-  16 automated control(s): 0 inspected, 16 skipped, 0 waived or not applicable, 0 not evaluated or errored
-  0 manual control(s) with evidence on file, 27 without
+  14 automated control(s): 0 inspected, 14 skipped, 0 waived or not applicable, 0 not evaluated or errored
+  0 manual control(s) with evidence on file, 29 without
 ```
 
 `--format json`, like `result.json` in the vault, uses Go field names as keys (`PolicyID`,

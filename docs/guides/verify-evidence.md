@@ -68,7 +68,7 @@ storage). Threat model: [`SECURITY.md`](../../SECURITY.md).
 Other views of the same vault (`latest`, `exceptions`, `scope`, `coverage`, `soa`) and every
 flag: [commands reference](../reference/commands.md#sigcomply-report). The `coverage` view
 separates controls with an automated check mapped from controls backed only by a document on
-file. For SOC 2, 27 of 43 criteria are backed only by documents. It classifies each control by
+file. For SOC 2, 29 of 43 criteria are backed only by documents. It classifies each control by
 the policies mapped to it (automated or document), not by which policies ran, so a control whose
 automated policy was skipped still counts as automated. Its `This period` section then says how
 many automated controls were inspected, how many only skipped, and how many were waived or

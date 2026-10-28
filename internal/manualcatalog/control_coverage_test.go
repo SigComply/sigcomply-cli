@@ -45,7 +45,9 @@ func TestEveryControlHasAPolicy(t *testing.T) {
 		t.Run(fw.id, func(t *testing.T) {
 			covered := make(map[string]bool)
 			for _, p := range fw.policies() {
-				covered[core.PrimaryControlID(p.Controls)] = true
+				for _, id := range core.PolicyControlIDs(p.Controls) {
+					covered[id] = true
+				}
 			}
 			var orphaned []string
 			for _, c := range fw.controls() {
