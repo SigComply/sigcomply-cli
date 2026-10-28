@@ -175,7 +175,7 @@ func evaluateOne(ctx context.Context, pp *planner.PlannedPolicy, in *Input) core
 	} else {
 		result.ResourcesEvaluated, result.ResourcesFailed = countResources(slots, ruleOut.Violations, inSlotOnlySlots(pp.Spec.PassWhen))
 	}
-	applyResourceExceptions(&result, pp.Exceptions)
+	applyResourceExceptions(&result, pp.Exceptions, ruleOut.Counts != nil)
 	return result
 }
 
@@ -272,7 +272,13 @@ func failedResources(violations []core.Violation) int {
 // exception's scope; each live exception waives its own resources. If
 // every violation is suppressed and the policy would otherwise have
 // failed, the status becomes waived.
-func applyResourceExceptions(result *core.PolicyResult, excs []*planner.Exception) {
+//
+// ruleCounts says the rule supplied its own resource counts. Those are
+// kept: one counted resource is removed per waived violation (a fan-out
+// rule emits one violation per failed instance), since the evaluator
+// cannot rebuild the rule's count from the violations. Otherwise the
+// failed count is recounted by unique resource.
+func applyResourceExceptions(result *core.PolicyResult, excs []*planner.Exception, ruleCounts bool) {
 	if len(excs) == 0 {
 		return
 	}
@@ -294,9 +300,16 @@ func applyResourceExceptions(result *core.PolicyResult, excs []*planner.Exceptio
 		}
 		result.Diag["waived_count"] = waived
 	}
-	// Recount from what is left, by resource: a waived resource may have
-	// failed several clauses, so subtracting violations undercounts.
-	if waived > 0 {
+	switch {
+	case waived == 0:
+	case len(kept) == 0:
+		result.ResourcesFailed = 0
+	case ruleCounts:
+		result.ResourcesFailed = max(result.ResourcesFailed-waived, 1)
+	default:
+		// Recount from what is left, by resource: a waived resource may
+		// have failed several clauses, so subtracting violations
+		// undercounts.
 		result.ResourcesFailed = failedResources(kept)
 	}
 }

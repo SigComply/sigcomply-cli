@@ -548,6 +548,53 @@ func TestEvaluate_ResourceWaiverRecountsUniqueResources(t *testing.T) {
 	}
 }
 
+// A rule that supplies its own counts knows how many resources failed;
+// the evaluator cannot rebuild that from the violations (a fan-out or
+// count rule may report many failures in one violation). A waiver then
+// removes one counted resource per waived violation instead of
+// recounting, and waiving every violation leaves none failed.
+func TestEvaluate_ResourceWaiverKeepsRuleSuppliedCounts(t *testing.T) {
+	tests := []struct {
+		name       string
+		waive      []string
+		wantStatus core.PolicyStatus
+		wantFailed int
+	}{
+		{"one of two waived", []string{"A"}, core.StatusFail, 5},
+		{"all waived", []string{"A", "B"}, core.StatusWaived, 0},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			rule := makeRule("rules.r.v1", core.RuleResult{
+				Status: core.StatusFail,
+				Violations: []core.Violation{
+					{ResourceID: "A", Reason: "instance A missing"},
+					{ResourceID: "B", Reason: "five instances missing"},
+				},
+				Counts: &core.ResourceCounts{Evaluated: 10, Failed: 6},
+			}, nil)
+			set := setupRules(t, rule)
+			pp := makePlannedPolicy("p1", "C1", "rules.r.v1", "u")
+			for _, id := range tc.waive {
+				pp.Exceptions = append(pp.Exceptions, &planner.Exception{State: core.StatusWaived, ResourceID: id})
+			}
+			in := &Input{
+				Plan:            &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
+				Rules:           set.Rules,
+				RecordsByPolicy: map[string]map[string][]core.EvidenceRecord{"p1": {"u": {{ID: "A"}, {ID: "B"}}}},
+			}
+			res, err := Evaluate(context.Background(), in)
+			if err != nil {
+				t.Fatalf("Evaluate: %v", err)
+			}
+			if res[0].Status != tc.wantStatus || res[0].ResourcesEvaluated != 10 || res[0].ResourcesFailed != tc.wantFailed {
+				t.Errorf("status %q, %d evaluated, %d failed; want %q, 10, %d",
+					res[0].Status, res[0].ResourcesEvaluated, res[0].ResourcesFailed, tc.wantStatus, tc.wantFailed)
+			}
+		})
+	}
+}
+
 // A rule may only answer pass, fail, error, skip or na. Anything else
 // ("failed", "waived", "carried_forward") would be counted in no summary
 // bucket and exit 0, so the evaluator turns it into an error.
