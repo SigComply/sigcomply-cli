@@ -205,3 +205,37 @@ func TestPolicyStatePath_Shape(t *testing.T) {
 		t.Errorf("got %q; want %q", got, want)
 	}
 }
+
+// A corrupted shard is overwritten by the next write: the shard is
+// loss-tolerant (Invariant 5), and leaving it broken made every later run
+// warn and never record state for the policy.
+func TestWritePolicyState_OverwritesCorruptShard(t *testing.T) {
+	v := newInMem()
+	path := PolicyStatePath(testFramework, testPolicyID)
+	v.bins[path] = []byte(`{"broken`)
+	ps := &core.PolicyState{
+		Framework: testFramework, PolicyID: testPolicyID,
+		LastRunAt: time.Date(2026, 5, 24, 0, 0, 0, 0, time.UTC), LastRunID: "run-repair", LastRunStatus: core.StatusPass,
+	}
+	if err := WritePolicyState(context.Background(), v, ps); err != nil {
+		t.Fatalf("Write over a corrupt shard: %v", err)
+	}
+	if _, ok := v.jsons[path]; !ok {
+		t.Error("corrupt shard was not overwritten")
+	}
+}
+
+// A read failure that is not corruption (an outage, a permission error)
+// must still stop the write: overwriting then could clobber a newer shard
+// the guard never saw.
+func TestWritePolicyState_ReadErrorStillBlocksWrite(t *testing.T) {
+	v := newInMem()
+	v.getErr = errors.New("disk on fire")
+	ps := &core.PolicyState{Framework: testFramework, PolicyID: testPolicyID, LastRunID: "run-blocked"}
+	if err := WritePolicyState(context.Background(), v, ps); err == nil {
+		t.Fatal("want the read error")
+	}
+	if _, ok := v.jsons[PolicyStatePath(testFramework, testPolicyID)]; ok {
+		t.Error("wrote despite an unreadable existing shard")
+	}
+}

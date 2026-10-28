@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path"
 	"strings"
@@ -36,6 +37,9 @@ func PolicyStatePrefix(framework string) string {
 	return fmt.Sprintf("state/%s/policies/", framework)
 }
 
+// errCorruptShard marks a shard that was read but could not be parsed.
+var errCorruptShard = errors.New("corrupt state shard")
+
 // ReadPolicyState fetches one state shard from the vault. A missing
 // shard returns (nil, nil) — the planner treats this as "first run"
 // and evaluates the policy unconditionally. A corrupted shard
@@ -58,7 +62,7 @@ func ReadPolicyState(ctx context.Context, vault core.Vault, framework, policyID 
 	}
 	var s core.PolicyState
 	if err := json.Unmarshal(body, &s); err != nil {
-		return nil, fmt.Errorf("policy-state: parse %s: %w", policyID, err)
+		return nil, fmt.Errorf("policy-state: parse %s: %w: %w", policyID, errCorruptShard, err)
 	}
 	if s.PolicyID == "" {
 		s.PolicyID = policyID
@@ -102,12 +106,14 @@ func WritePolicyState(ctx context.Context, vault core.Vault, ps *core.PolicyStat
 		ps.SchemaVersion = core.PolicyStateSchemaVersion
 	}
 	existing, err := ReadPolicyState(ctx, vault, ps.Framework, ps.PolicyID)
-	if err != nil {
-		// A parse error on the existing shard is logged-and-overwritten
-		// by callers — but at the WritePolicyState layer we surface it so
-		// the caller can decide. The orchestrator chooses to overwrite
-		// after logging, which is the right default for transient
-		// corruption.
+	switch {
+	case errors.Is(err, errCorruptShard):
+		// The shard is loss-tolerant (Invariant 5): an unparseable one is
+		// replaced, or every later run would warn and never record state
+		// for this policy. A plain read failure is different and still
+		// stops the write, since the guard could not see what is there.
+		existing = nil
+	case err != nil:
 		return err
 	}
 	if !shouldAcceptWrite(existing, ps) {
