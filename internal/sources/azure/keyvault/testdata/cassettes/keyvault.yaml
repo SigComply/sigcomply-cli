@@ -25,7 +25,7 @@ interactions:
         proto_major: 2
         proto_minor: 0
         content_length: 1659
-        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.KeyVault/vaults/sigcomply-e2e-kv-1cd7","name":"sigcomply-e2e-kv-1cd7","type":"Microsoft.KeyVault/vaults","location":"eastus","tags":{},"systemData":{"createdBy":"user-ae0e86b080bc@example.com","createdByType":"User","createdAt":"2026-07-26T17:36:18.156Z","lastModifiedBy":"user-ae0e86b080bc@example.com","lastModifiedByType":"User","lastModifiedAt":"2026-07-26T17:36:18.156Z"},"properties":{"sku":{"family":"A","name":"standard"},"tenantId":"a62d98eb-ea44-431f-9d5a-3ba56f2be3ce","accessPolicies":[{"tenantId":"a62d98eb-ea44-431f-9d5a-3ba56f2be3ce","objectId":"367cc74a-c222-4bd4-b837-8fde51b4a9cd","permissions":{"keys":["all"],"secrets":["all"],"certificates":["all"],"storage":["all"]}}],"enabledForDeployment":false,"enabledForDiskEncryption":false,"enabledForTemplateDeployment":false,"enableSoftDelete":true,"softDeleteRetentionInDays":7,"enableRbacAuthorization":false,"enablePurgeProtection":true,"vaultUri":"https://sigcomply-e2e-kv-1cd7.vault.azure.net/","provisioningState":"Succeeded","publicNetworkAccess":"Enabled"}}],"nextLink":"https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.KeyVault/vaults?api-version=2026-05-15&%24skiptoken=3ZDNaoQwAITfJZSeNkZTf1ZBitA%2fWr1Ut1LxEmPWumqUJNp1xXevW%2foUvcxhGL5hZgGcnVVY80YCbwGPQZwcYuCBL6UG6SHUEU4q1jGuNHIZBdNo3yE5FpKKelB1zyUyaOlg27AhJWYJTcchcG%2b5LqTYtCzK7H1pHNEg%2bqkumZAoqqnoZX9U2hubP8jYKjRdVd6ToYbTFtmoPtaxDXUMdeP2RjZbVd8w7lPc8k%2fsKvp8tsL0MGexMWd35wtJy1OBje%2fipVFZ8tqGqcJh8nTKHqgP1h0goguqSrCKKFYmV9Q2MXiPwO53fkREw8RmLfnfAznw8n%2f0QQ5WsP4A"}'
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.KeyVault/vaults/sigcomply-e2e-kv-1cd7","name":"sigcomply-e2e-kv-1cd7","type":"Microsoft.KeyVault/vaults","location":"eastus","tags":{},"systemData":{"createdBy":"user-ae0e86b080bc@example.com","createdByType":"User","createdAt":"2026-07-26T17:36:18.156Z","lastModifiedBy":"user-ae0e86b080bc@example.com","lastModifiedByType":"User","lastModifiedAt":"2026-07-26T17:36:18.156Z"},"properties":{"sku":{"family":"A","name":"standard"},"tenantId":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","accessPolicies":[{"tenantId":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","objectId":"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb","permissions":{"keys":["all"],"secrets":["all"],"certificates":["all"],"storage":["all"]}}],"enabledForDeployment":false,"enabledForDiskEncryption":false,"enabledForTemplateDeployment":false,"enableSoftDelete":true,"softDeleteRetentionInDays":7,"enableRbacAuthorization":false,"enablePurgeProtection":true,"vaultUri":"https://sigcomply-e2e-kv-1cd7.vault.azure.net/","provisioningState":"Succeeded","publicNetworkAccess":"Enabled"}}],"nextLink":"https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.KeyVault/vaults?api-version=2026-05-15&%24skiptoken=3ZDNaoQwAITfJZSeNkZTf1ZBitA%2fWr1Ut1LxEmPWumqUJNp1xXevW%2foUvcxhGL5hZgGcnVVY80YCbwGPQZwcYuCBL6UG6SHUEU4q1jGuNHIZBdNo3yE5FpKKelB1zyUyaOlg27AhJWYJTcchcG%2b5LqTYtCzK7H1pHNEg%2bqkumZAoqqnoZX9U2hubP8jYKjRdVd6ToYbTFtmoPtaxDXUMdeP2RjZbVd8w7lPc8k%2fsKvp8tsL0MGexMWd35wtJy1OBje%2fipVFZ8tqGqcJh8nTKHqgP1h0goguqSrCKKFYmV9Q2MXiPwO53fkREw8RmLfnfAznw8n%2f0QQ5WsP4A"}'
         headers:
             Cache-Control:
                 - no-cache
@@ -184,7 +184,7 @@ interactions:
             X-Ms-Keyvault-Service-Version:
                 - 2.2.981.0
             X-Ms-Operation-Identifier:
-                - tenantId=a62d98eb-ea44-431f-9d5a-3ba56f2be3ce,objectId=367cc74a-c222-4bd4-b837-8fde51b4a9cd/eastus/04042d8d-612b-4aa9-b326-73a1833b56b9
+                - tenantId=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,objectId=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/eastus/04042d8d-612b-4aa9-b326-73a1833b56b9
             X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
                 - "3749"
             X-Ms-Ratelimit-Remaining-Subscription-Reads:
@@ -251,7 +251,7 @@ interactions:
             X-Ms-Keyvault-Service-Version:
                 - 2.2.981.0
             X-Ms-Operation-Identifier:
-                - tenantId=a62d98eb-ea44-431f-9d5a-3ba56f2be3ce,objectId=367cc74a-c222-4bd4-b837-8fde51b4a9cd/eastus/81fa6f12-c4bd-4597-89a7-1dcc1a1ce8a5
+                - tenantId=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,objectId=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/eastus/81fa6f12-c4bd-4597-89a7-1dcc1a1ce8a5
             X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
                 - "3749"
             X-Ms-Ratelimit-Remaining-Subscription-Reads:
@@ -318,7 +318,7 @@ interactions:
             X-Ms-Keyvault-Service-Version:
                 - 2.2.981.0
             X-Ms-Operation-Identifier:
-                - tenantId=a62d98eb-ea44-431f-9d5a-3ba56f2be3ce,objectId=367cc74a-c222-4bd4-b837-8fde51b4a9cd/eastus/4b0cf92b-1e1a-419c-9fd0-515812c0413f
+                - tenantId=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,objectId=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/eastus/4b0cf92b-1e1a-419c-9fd0-515812c0413f
             X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
                 - "3748"
             X-Ms-Ratelimit-Remaining-Subscription-Reads:

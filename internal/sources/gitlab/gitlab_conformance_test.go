@@ -27,7 +27,8 @@ import (
 // Re-record (maintainer step; the PRIVATE-TOKEN auth header is scrubbed on
 // save): build an sdkAPI whose gitlab.Client uses sourcetest.RecordClient via
 // gitlab.WithHTTPClient and Collect against a live group, then neutralize the
-// group path and member username to the placeholders below.
+// group path and member username to the placeholders below, and each
+// member's name and avatar_url (the gravatar hash identifies the person).
 const (
 	cassetteGroup   = "e2e-group"
 	repoProtected   = "e2e-group/e2e-protected"

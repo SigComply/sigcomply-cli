@@ -109,7 +109,7 @@ interactions:
             X-Ms-Correlation-Request-Id:
                 - f94540a1-46d8-49ad-8828-962bce1586f5
             X-Ms-Operation-Identifier:
-                - tenantId=a62d98eb-ea44-431f-9d5a-3ba56f2be3ce,objectId=367cc74a-c222-4bd4-b837-8fde51b4a9cd/eastus/4b7bfd1e-8318-4117-a410-eed175580e87
+                - tenantId=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,objectId=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/eastus/4b7bfd1e-8318-4117-a410-eed175580e87
             X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
                 - "3749"
             X-Ms-Ratelimit-Remaining-Subscription-Reads:

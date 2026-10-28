@@ -113,7 +113,7 @@ interactions:
             X-Ms-Correlation-Request-Id:
                 - 88168c1f-590c-474d-bfd6-f7aac83db62c
             X-Ms-Operation-Identifier:
-                - tenantId=a62d98eb-ea44-431f-9d5a-3ba56f2be3ce,objectId=367cc74a-c222-4bd4-b837-8fde51b4a9cd/eastus/0ab57485-54bb-4893-ac45-c23fe9b08b2f
+                - tenantId=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,objectId=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/eastus/0ab57485-54bb-4893-ac45-c23fe9b08b2f
             X-Ms-Ratelimit-Remaining-Subscription-Resource-Requests:
                 - "249"
             X-Ms-Request-Id:
