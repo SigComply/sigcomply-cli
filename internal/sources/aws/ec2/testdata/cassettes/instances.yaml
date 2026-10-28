@@ -63,16 +63,18 @@ interactions:
         proto: ""
         proto_major: 0
         proto_minor: 0
-        content_length: 74
+        content_length: 104
         host: ""
-        body: Action=DescribeVolumes&Version=2016-11-15&VolumeId.1=vol-0785a94c64c2bc7ae
+        body: Action=DescribeVolumes&Filter.1.Name=volume-id&Filter.1.Value.1=vol-0785a94c64c2bc7ae&Version=2016-11-15
         form:
             Action:
                 - DescribeVolumes
+            Filter.1.Name:
+                - volume-id
+            Filter.1.Value.1:
+                - vol-0785a94c64c2bc7ae
             Version:
                 - "2016-11-15"
-            VolumeId.1:
-                - vol-0785a94c64c2bc7ae
         headers:
             Amz-Sdk-Invocation-Id:
                 - 5c6728b4-5197-4373-add3-80cd151fda92

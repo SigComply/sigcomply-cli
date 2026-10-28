@@ -14,6 +14,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awsec2 "github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
@@ -111,13 +112,23 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	if !req.Accepts(EvidenceTypeID) {
 		return nil, fmt.Errorf("aws.ec2: slot AcceptedTypes %v does not include %q", req.AcceptedTypes, EvidenceTypeID)
 	}
-	instances, err := p.listAllInstances(ctx)
+	all, err := p.listAllInstances(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("aws.ec2: describe instances: %w", err)
 	}
+	// Shutting-down and terminated instances are on their way out and
+	// their volumes may already be deleted; they are not judged.
+	instances := make([]ec2types.Instance, 0, len(all))
+	for i := range all {
+		switch safeState(all[i].State) {
+		case string(ec2types.InstanceStateNameShuttingDown), string(ec2types.InstanceStateNameTerminated):
+			continue
+		}
+		instances = append(instances, all[i])
+	}
 	// A DescribeVolumes failure is returned: reading it as "unencrypted"
 	// would fail every instance with a remediation that cannot help.
-	volumeEncrypted, err := p.rootVolumeEncryptionMap(ctx, instances)
+	volumeEncrypted, volumeMissing, err := p.rootVolumeEncryptionMap(ctx, instances)
 	if err != nil {
 		return nil, fmt.Errorf("aws.ec2: describe volumes: %w", err)
 	}
@@ -126,7 +137,12 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	for i := range instances {
 		inst := &instances[i]
 		id := safeInstanceID(inst)
-		if id == "" {
+		// The root volume was deleted after DescribeInstances listed it
+		// (the instance started terminating between the two calls). Its
+		// encryption cannot be read, and root_volume_encrypted is a
+		// required field, so the instance is left out rather than given
+		// an invented value.
+		if id == "" || volumeMissing[id] {
 			continue
 		}
 		public := safeString(inst.PublicIpAddress)
@@ -164,10 +180,52 @@ const describeVolumesBatch = 200
 
 // rootVolumeEncryptionMap returns a map of instanceID → encrypted for each
 // instance's root EBS volume. An instance without an EBS root volume is
-// absent (read as false by the caller).
-func (p *Plugin) rootVolumeEncryptionMap(ctx context.Context, instances []ec2types.Instance) (map[string]bool, error) {
-	result := make(map[string]bool, len(instances))
-	// Build map of volumeID → instanceID for root volumes.
+// absent (read as false by the caller). The second map names instances
+// whose root volume no longer exists.
+//
+// The volume-id filter is used rather than VolumeIds: naming a deleted
+// volume in VolumeIds fails the whole call with InvalidVolume.NotFound,
+// while the filter returns only the volumes that exist.
+func (p *Plugin) rootVolumeEncryptionMap(ctx context.Context, instances []ec2types.Instance) (encrypted, missing map[string]bool, err error) {
+	encrypted = make(map[string]bool, len(instances))
+	missing = map[string]bool{}
+	volToInstance := rootVolumes(instances)
+	if len(volToInstance) == 0 {
+		return encrypted, missing, nil
+	}
+	volIDs := make([]string, 0, len(volToInstance))
+	for vid := range volToInstance {
+		volIDs = append(volIDs, vid)
+	}
+	sort.Strings(volIDs) // stable request bodies
+	found := make(map[string]bool, len(volIDs))
+	for start := 0; start < len(volIDs); start += describeVolumesBatch {
+		batch := volIDs[start:min(start+describeVolumesBatch, len(volIDs))]
+		vols, err := p.describeVolumes(ctx, batch)
+		if err != nil {
+			return nil, nil, err
+		}
+		for i := range vols {
+			v := &vols[i]
+			if v.VolumeId == nil {
+				continue
+			}
+			if instID, ok := volToInstance[*v.VolumeId]; ok {
+				found[*v.VolumeId] = true
+				encrypted[instID] = v.Encrypted != nil && *v.Encrypted
+			}
+		}
+	}
+	for vid, instID := range volToInstance {
+		if !found[vid] {
+			missing[instID] = true
+		}
+	}
+	return encrypted, missing, nil
+}
+
+// rootVolumes maps each instance's root EBS volume ID to the instance ID.
+func rootVolumes(instances []ec2types.Instance) map[string]string {
 	volToInstance := make(map[string]string)
 	for i := range instances {
 		inst := &instances[i]
@@ -183,33 +241,30 @@ func (p *Plugin) rootVolumeEncryptionMap(ctx context.Context, instances []ec2typ
 			}
 		}
 	}
-	if len(volToInstance) == 0 {
-		return result, nil
-	}
-	volIDs := make([]string, 0, len(volToInstance))
-	for vid := range volToInstance {
-		volIDs = append(volIDs, vid)
-	}
-	sort.Strings(volIDs) // stable request bodies
-	for start := 0; start < len(volIDs); start += describeVolumesBatch {
-		batch := volIDs[start:min(start+describeVolumesBatch, len(volIDs))]
-		out, err := p.api.DescribeVolumes(ctx, &awsec2.DescribeVolumesInput{VolumeIds: batch})
+	return volToInstance
+}
+
+// describeVolumes returns the volumes among ids that still exist,
+// following NextToken.
+func (p *Plugin) describeVolumes(ctx context.Context, ids []string) ([]ec2types.Volume, error) {
+	var (
+		vols []ec2types.Volume
+		next *string
+	)
+	for {
+		out, err := p.api.DescribeVolumes(ctx, &awsec2.DescribeVolumesInput{
+			Filters:   []ec2types.Filter{{Name: aws.String("volume-id"), Values: ids}},
+			NextToken: next,
+		})
 		if err != nil {
 			return nil, err
 		}
-		for i := range out.Volumes {
-			v := &out.Volumes[i]
-			if v.VolumeId == nil {
-				continue
-			}
-			instID, ok := volToInstance[*v.VolumeId]
-			if !ok {
-				continue
-			}
-			result[instID] = v.Encrypted != nil && *v.Encrypted
+		vols = append(vols, out.Volumes...)
+		if out.NextToken == nil || *out.NextToken == "" {
+			return vols, nil
 		}
+		next = out.NextToken
 	}
-	return result, nil
 }
 
 func (p *Plugin) listAllInstances(ctx context.Context) ([]ec2types.Instance, error) {

@@ -34,13 +34,38 @@ func (f *fakeAPI) DescribeInstances(_ context.Context, _ *awsec2.DescribeInstanc
 	return &awsec2.DescribeInstancesOutput{Reservations: f.reservations}, nil
 }
 
+// DescribeVolumes behaves like EC2: naming a volume that no longer
+// exists in VolumeIds fails the whole call with InvalidVolume.NotFound,
+// while a volume-id filter returns only the volumes that exist.
 func (f *fakeAPI) DescribeVolumes(_ context.Context, in *awsec2.DescribeVolumesInput, _ ...func(*awsec2.Options)) (*awsec2.DescribeVolumesOutput, error) {
 	f.volCount++
-	f.volBatch = append(f.volBatch, in.VolumeIds)
 	if f.volErr != nil {
 		return nil, f.volErr
 	}
-	return &awsec2.DescribeVolumesOutput{Volumes: f.volumes}, nil
+	exists := map[string]ec2types.Volume{}
+	for i := range f.volumes {
+		exists[*f.volumes[i].VolumeId] = f.volumes[i]
+	}
+	var want []string
+	for _, id := range in.VolumeIds {
+		if _, ok := exists[id]; !ok {
+			return nil, errors.New("InvalidVolume.NotFound: The volume '" + id + "' does not exist.")
+		}
+		want = append(want, id)
+	}
+	for _, flt := range in.Filters {
+		if flt.Name != nil && *flt.Name == "volume-id" {
+			want = append(want, flt.Values...)
+		}
+	}
+	f.volBatch = append(f.volBatch, want)
+	out := &awsec2.DescribeVolumesOutput{}
+	for _, id := range want {
+		if v, ok := exists[id]; ok {
+			out.Volumes = append(out.Volumes, v)
+		}
+	}
+	return out, nil
 }
 
 func ptr[T any](v T) *T { return &v }
@@ -287,4 +312,50 @@ func rootVolumeReservations(n int) []ec2types.Reservation {
 		})
 	}
 	return []ec2types.Reservation{{Instances: insts}}
+}
+
+// A root volume deleted between DescribeInstances and DescribeVolumes
+// (an instance terminating) must not fail every EC2 policy. Shutting-down
+// and terminated instances are skipped; any other instance whose root
+// volume no longer exists has no readable encryption state, so it is
+// left out rather than reported unencrypted.
+func TestCollect_VanishedRootVolumeDoesNotFailCollect(t *testing.T) {
+	inst := func(id, vol string, state ec2types.InstanceStateName) ec2types.Instance {
+		return ec2types.Instance{
+			InstanceId:     ptr(id),
+			State:          &ec2types.InstanceState{Name: state},
+			RootDeviceName: ptr("/dev/xvda"),
+			BlockDeviceMappings: []ec2types.InstanceBlockDeviceMapping{
+				{DeviceName: ptr("/dev/xvda"), Ebs: &ec2types.EbsInstanceBlockDevice{VolumeId: ptr(vol)}},
+			},
+		}
+	}
+	fake := &fakeAPI{
+		reservations: []ec2types.Reservation{{Instances: []ec2types.Instance{
+			inst("i-ok", "vol-ok", ec2types.InstanceStateNameRunning),
+			inst("i-terminating", "vol-gone-1", ec2types.InstanceStateNameShuttingDown),
+			inst("i-terminated", "vol-gone-2", ec2types.InstanceStateNameTerminated),
+			inst("i-raced", "vol-gone-3", ec2types.InstanceStateNameRunning),
+			{InstanceId: ptr("i-terminated-novol"), State: &ec2types.InstanceState{Name: ec2types.InstanceStateNameTerminated}},
+		}}},
+		volumes: []ec2types.Volume{{VolumeId: ptr("vol-ok"), Encrypted: ptr(true)}},
+	}
+	recs, err := New(Options{API: fake}).Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if len(recs) != 1 || recs[0].ID != "i-ok" {
+		ids := make([]string, 0, len(recs))
+		for _, r := range recs {
+			ids = append(ids, r.ID)
+		}
+		t.Fatalf("records = %v; want only i-ok", ids)
+	}
+	var pl instancePayload
+	if err := json.Unmarshal(recs[0].Payload, &pl); err != nil {
+		t.Fatal(err)
+	}
+	if !pl.RootVolumeEncrypted {
+		t.Error("i-ok root_volume_encrypted = false; want true")
+	}
 }

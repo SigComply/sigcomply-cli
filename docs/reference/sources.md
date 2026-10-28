@@ -122,6 +122,8 @@ For `role_arn`, the target role's trust policy must allow the ambient principal 
 
 ### Caveats
 
+- `aws.ec2` skips shutting-down and terminated instances, and any instance whose root volume
+  disappears while the source runs.
 - `aws.iam` emits no email. To link IAM users to the [identity roster](../guides/identity-roster.md),
   add `experimental.roster.aliases` keyed by username, or list them in `non_human`. The root
   account is treated as non-human.

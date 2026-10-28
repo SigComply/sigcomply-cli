@@ -98,7 +98,8 @@ this file lists the changes a user notices.
 - `aws.acm` lists certificates of every key type and reads the real renewal state; certificates
   that were never issued are skipped (also on GCP).
 - `aws.ecr` decides whether a repository is public from its repository policy (it was always
-  private); `aws.ec2` fails when root volumes can't be read; `aws.iam` counts inline policies and
+  private); `aws.ec2` fails when root volumes can't be read and skips shutting-down and terminated
+  instances, whose volumes may already be gone; `aws.iam` counts inline policies and
   reads activity from access keys; `aws.rds` reads Aurora settings from the DB cluster and
   surfaces parameter-group errors; `aws.kms` leaves keys that can't rotate out of the rotation
   policies.
