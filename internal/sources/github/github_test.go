@@ -1810,7 +1810,7 @@ func TestHTTPAPI_ListRepos_ProtectionSemantics(t *testing.T) {
 		},
 		{
 			name:    "token without admin read on protection",
-			resp:    map[string]repoDetailResp{epProtection: {http.StatusForbidden, `{"message":"Must have admin rights to Repository."}`}},
+			resp:    map[string]repoDetailResp{epProtection: {http.StatusForbidden, msgAdminRights}},
 			wantErr: "admin rights",
 		},
 		{
@@ -1878,7 +1878,7 @@ func TestHTTPAPI_ListRepos_SecurityFeatureSemantics(t *testing.T) {
 			`{"message":"Resource not accessible by integration"}`}}, wantErr: "code scanning"},
 		{name: "dependabot alerts disabled", resp: map[string]repoDetailResp{epVulnerability: {http.StatusNotFound, ``}}},
 		{name: "dependabot probe denied", resp: map[string]repoDetailResp{epVulnerability: {http.StatusForbidden,
-			`{"message":"Must have admin rights to Repository."}`}}, wantErr: "dependabot"},
+			msgAdminRights}}, wantErr: "dependabot"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1914,5 +1914,40 @@ func TestCollectRepos_DropsArchivedRepos(t *testing.T) {
 	}
 	if len(recs) != 1 || recs[0].ID != "live" {
 		t.Errorf("records = %v; want only the unarchived repo", recordIDs(recs))
+	}
+}
+
+// msgAdminRights is GitHub's 403 body for a non-admin token on an
+// admin-only repository read.
+const msgAdminRights = `{"message":"Must have admin rights to Repository."}`
+
+// Classic branch protection and the vulnerability-alerts probe need admin
+// on the repository. A token without it fails the source (fail closed),
+// and the error names the repository and the permission to grant, so the
+// customer can fix the token instead of guessing.
+func TestHTTPAPI_ListRepos_AdminPermissionErrorNamesRepoAndPermission(t *testing.T) {
+	denied := `{"message":"Resource not accessible by integration"}`
+	tests := []struct {
+		name string
+		resp map[string]repoDetailResp
+	}{
+		{"protection denied to GITHUB_TOKEN", map[string]repoDetailResp{epProtection: {http.StatusForbidden, denied}}},
+		{"protection denied to a non-admin user", map[string]repoDetailResp{epProtection: {http.StatusForbidden,
+			msgAdminRights}}},
+		{"protection hidden from the token", map[string]repoDetailResp{epProtection: {http.StatusNotFound, `{"message":"Not Found"}`}}},
+		{"vulnerability alerts denied", map[string]repoDetailResp{epVulnerability: {http.StatusForbidden, denied}}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := listOneRepo(t, tc.resp)
+			if err == nil {
+				t.Fatal("ListRepos = nil error; want the permission failure")
+			}
+			for _, want := range []string{"repository app", "admin", "Administration: read", "GITHUB_TOKEN"} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("err = %q; want it to contain %q", err, want)
+				}
+			}
+		})
 	}
 }

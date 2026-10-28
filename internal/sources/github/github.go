@@ -1137,7 +1137,7 @@ func (h *httpAPI) fillRepoDetails(ctx context.Context, rp *Repo) error {
 	on, err := h.probeEnabled(ctx,
 		fmt.Sprintf("/repos/%s/%s/vulnerability-alerts", url.PathEscape(h.org), url.PathEscape(rp.Name)))
 	if err != nil {
-		return fmt.Errorf("dependabot alerts: %w", err)
+		return fmt.Errorf("dependabot alerts: %w", adminHint(err))
 	}
 	rp.DependabotAlertsEnabled = on
 	scanning, err := h.codeScanningInUse(ctx, rp.Name)
@@ -1180,9 +1180,27 @@ func (h *httpAPI) fetchClassicProtection(ctx context.Context, rp *Repo) (*ghProt
 			apiErrorIs(err, http.StatusForbidden, "Upgrade to GitHub Pro") {
 			return nil, nil
 		}
-		return nil, err
+		return nil, adminHint(err)
 	}
 	return &p, nil
+}
+
+// adminHint adds the fix to a 403 or 404 from an endpoint that needs
+// admin on the repository (classic branch protection, the
+// vulnerability-alerts probe). Without it the customer sees only "403
+// Forbidden" for one repository in an org listing. A rate-limit 403 is
+// returned as is.
+func adminHint(err error) error {
+	var apiErr *sources.APIError
+	if !errors.As(err, &apiErr) || strings.Contains(strings.ToLower(apiErr.Message), "rate limit") {
+		return err
+	}
+	if apiErr.StatusCode != http.StatusForbidden && apiErr.StatusCode != http.StatusNotFound {
+		return err
+	}
+	return fmt.Errorf("%w (the token needs admin on this repository: a classic token whose user is a "+
+		"repository admin, or a fine-grained token or GitHub App with Administration: read; "+
+		"the Actions GITHUB_TOKEN cannot read this)", err)
 }
 
 // fetchBranchRules pages the active ruleset rules for the branch. The

@@ -70,7 +70,7 @@ exits `3` before collection with `token required`.
 
 | Source | Variable | Token |
 |---|---|---|
-| `github` | `GITHUB_TOKEN` | A fine-grained personal access token or a GitHub App installation token with read access to the organization. The access each policy needs is in the [GitHub section of the sources reference](../reference/sources.md#github). |
+| `github` | `GITHUB_TOKEN` | A fine-grained personal access token or a GitHub App installation token with read access to the organization, including repository Administration: read on every repository. A classic token's user must be an admin of every repository. The access each policy needs is in the [GitHub section of the sources reference](../reference/sources.md#github). |
 | `gitlab` | `GITLAB_TOKEN` | A personal, group or project access token with `read_api`, whose user is at least Reporter on each project. Maintainer reads code-owner approval settings; member MFA needs a group-owner token. |
 | `okta` | `OKTA_API_TOKEN` | An API token created by a read-only administrator. |
 | `active_directory` | `SIGCOMPLY_AD_BIND_PASSWORD` | The bind user's password. The runner must reach the domain controller, which hosted runners rarely can. |
@@ -79,7 +79,8 @@ To give two instances of a source different tokens, set `token_env` on each inst
 of its variable.
 
 GitHub Actions does not pass its built-in `GITHUB_TOKEN` to steps on its own, and that token is
-scoped to one repository: it cannot read organization members or settings. Store an organization
+scoped to one repository: it cannot read organization members or settings, or any repository's
+branch protection, which needs admin access. Store an organization
 token as a repository or organization secret (here `SIGCOMPLY_GH_TOKEN`) and map it in the step:
 
 ```yaml

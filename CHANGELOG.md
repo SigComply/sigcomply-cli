@@ -92,7 +92,9 @@ this file lists the changes a user notices.
 - GitHub: an unprotected default branch fails the no-force-push policies (it used to pass),
   repository rulesets are read with classic branch protection, archived repositories are skipped,
   commit statuses count as checks, code scanning is read from the analyses API, and permission,
-  rate-limit and server errors fail the source instead of reading as compliant.
+  rate-limit and server errors fail the source instead of reading as compliant. A denied
+  branch-protection or Dependabot read names the repository and the admin access the token needs;
+  `docs/reference/sources.md` says the token needs admin on every repository.
 - GitLab: an unprotected default branch fails the no-force-push policies, a protection read error
   fails the source, and projects shared into the group from elsewhere are not scanned.
 - `aws.acm` lists certificates of every key type and reads the real renewal state; certificates

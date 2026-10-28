@@ -313,6 +313,12 @@ Token lookup order: `token`, then `token_env`, then `GITHUB_TOKEN`.
 | Classic | `read:org`; `repo` for private repositories; `security_events` to read code scanning on private repositories; `admin:org` to read the org 2FA requirement; `repo_deployment` for deployments |
 | Fine-grained | Organization members read; repository Administration, Metadata, Pull requests, Deployments, Checks, Commit statuses, Code scanning alerts, and Dependabot alerts read |
 
+Classic branch protection and a repository's Dependabot alert setting are admin-only reads. The
+token needs admin on every repository in the organization: a classic token's user must be a
+repository admin (an organization owner is one), and a fine-grained token or GitHub App needs
+repository Administration: read. The `GITHUB_TOKEN` that GitHub Actions creates can't read them.
+If one repository denies the read, the source fails and the error names that repository.
+
 Caveats:
 
 - Members carry no email. Link them to the [identity roster](../guides/identity-roster.md) with
