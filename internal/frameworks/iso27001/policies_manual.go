@@ -97,6 +97,9 @@ func organizationalManualSpecs() []manualPolicy {
 		{id: "iso27001.5.12.data_classification_policy", control: "A.5.12", cadence: cadenceAnnual, catalog: "data_classification_policy", desc: "A data classification policy exists.", rem: "Upload the data classification policy."},
 		{id: "iso27001.5.13.information_labeling_policy", control: "A.5.13", cadence: cadenceAnnual, catalog: "information_labeling_policy", desc: "An information labeling policy exists.", rem: "Upload the information labeling policy."},
 		{id: "iso27001.5.14.information_transfer_policy", control: "A.5.14", cadence: cadenceAnnual, catalog: "information_transfer_policy", desc: "An information transfer policy exists.", rem: "Upload the information transfer policy."},
+		// A.5.15 requires access control rules to be established; the
+		// automated check covers one repository setting, not the rules.
+		{id: "iso27001.5.15.access_control_policy", control: ctrlAccessControl, cadence: cadenceAnnual, catalog: "access_control_policy", name: "Access Control Policy", desc: "Rules to control physical and logical access to information are established, based on business and information security requirements.", rem: "Upload the approved access control policy (the topic-specific policy A.5.15 and A.5.1 call for)."},
 		{id: "iso27001.5.18.access_rights_review", control: ctrlAccessRights, cadence: cadenceQuarterly, catalog: "access_rights_review", desc: "A periodic access rights review is performed.", rem: "Upload the access rights review evidence."},
 		{id: "iso27001.5.19.supplier_security_policy", control: ctrlSupplierRelationships, cadence: cadenceAnnual, catalog: "supplier_security_policy", desc: "A supplier security policy exists.", rem: "Upload the supplier security policy."},
 		// Fans out over the project's third-party register: one folder
@@ -198,12 +201,22 @@ func technologicalManualSpecs() []manualPolicy {
 	return []manualPolicy{
 		{id: "iso27001.8.1.endpoint_device_policy", control: "A.8.1", cadence: cadenceAnnual, catalog: "endpoint_device_policy", desc: "An endpoint / user device security policy exists.", rem: "Upload the endpoint device policy."},
 		{id: "iso27001.8.6.capacity_management_process", control: "A.8.6", cadence: cadenceAnnual, catalog: "capacity_management_process", desc: "A capacity management process exists.", rem: "Upload the capacity management process."},
+		// A.8.8: how vulnerability information is obtained, exposure
+		// evaluated and measures taken. The automated checks show scanners
+		// are on, not that the process exists.
+		{id: "iso27001.8.8.vulnerability_management_process", control: ctrlVulnerabilityManagement, cadence: cadenceAnnual, catalog: "vulnerability_management_process", name: "Technical Vulnerability Management Process", desc: "Information about technical vulnerabilities is obtained, exposure is evaluated, and appropriate measures are taken.", rem: "Upload the vulnerability management procedure, including remediation timelines by severity, plus the period's remediation records or a recent penetration test report."},
 		{id: "iso27001.8.10.information_deletion_policy", control: "A.8.10", cadence: cadenceAnnual, catalog: "information_deletion_policy", desc: "An information deletion policy exists.", rem: "Upload the information deletion policy."},
 		{id: "iso27001.8.11.data_masking_policy", control: "A.8.11", cadence: cadenceAnnual, catalog: "data_masking_policy", desc: "Data masking is applied where required to limit exposure of sensitive data.", rem: "Upload the data masking policy."},
+		// A.8.15: logs are produced, stored, protected and analyzed. The
+		// automated checks cover production and protection, not review.
+		{id: "iso27001.8.15.log_review_process", control: ctrlLoggingControl, cadence: cadenceAnnual, catalog: "log_review_process", name: "Log Review Process", desc: "Logs recording activities, exceptions, faults and other relevant events are reviewed and analyzed.", rem: "Upload the log review procedure and evidence of reviews performed during the period."},
 		{id: "iso27001.8.17.clock_synchronization", control: "A.8.17", cadence: cadenceAnnual, catalog: "clock_synchronization", desc: "System clocks are synchronized to an approved time source.", rem: "Upload the clock synchronization standard and evidence of its configuration."},
 		{id: "iso27001.8.18.privileged_utility_programs", control: "A.8.18", cadence: cadenceAnnual, catalog: "privileged_utility_programs", desc: "Use of privileged utility programs is restricted and controlled.", rem: "Upload the privileged utility program policy."},
 		{id: "iso27001.8.19.software_installation_policy", control: "A.8.19", cadence: cadenceAnnual, catalog: "software_installation_policy", desc: "A software installation policy for operational systems exists.", rem: "Upload the software installation policy."},
 		{id: "iso27001.8.23.web_filtering_policy", control: "A.8.23", cadence: cadenceAnnual, catalog: "web_filtering_policy", desc: "A web filtering policy exists.", rem: "Upload the web filtering policy."},
+		// A.8.24 requires rules for the effective use of cryptography,
+		// including key management, to be defined.
+		{id: "iso27001.8.24.cryptography_policy", control: ctrlCryptography, cadence: cadenceAnnual, catalog: "cryptography_policy", name: "Cryptography and Key Management Policy", desc: "Rules for the effective use of cryptography, including cryptographic key management, are defined and implemented.", rem: "Upload the cryptography and key management policy."},
 		{id: "iso27001.8.26.application_security_requirements", control: "A.8.26", cadence: cadenceAnnual, catalog: "application_security_requirements", desc: "Application security requirements are defined.", rem: "Upload the application security requirements."},
 		{id: "iso27001.8.27.secure_architecture_principles", control: "A.8.27", cadence: cadenceAnnual, catalog: "secure_architecture_principles", desc: "Secure system architecture principles are documented.", rem: "Upload the secure architecture principles."},
 		{id: "iso27001.8.30.outsourced_development_policy", control: "A.8.30", cadence: cadenceAnnual, catalog: "outsourced_development_policy", desc: "Outsourced development is governed and monitored.", rem: "Upload the outsourced development policy."},

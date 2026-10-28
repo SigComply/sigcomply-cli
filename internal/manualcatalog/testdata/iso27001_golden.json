@@ -147,6 +147,17 @@
       "severity": "medium"
     },
     {
+      "id": "access_control_policy",
+      "control": "A.5.15",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Access Control Policy",
+      "description": "Rules to control physical and logical access to information are established, based on business and information security requirements.",
+      "severity": "medium"
+    },
+    {
       "id": "access_rights_review",
       "control": "A.5.18",
       "type": "document_upload",
@@ -685,6 +696,17 @@
       "severity": "medium"
     },
     {
+      "id": "vulnerability_management_process",
+      "control": "A.8.8",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Technical Vulnerability Management Process",
+      "description": "Information about technical vulnerabilities is obtained, exposure is evaluated, and appropriate measures are taken.",
+      "severity": "medium"
+    },
+    {
       "id": "information_deletion_policy",
       "control": "A.8.10",
       "type": "document_upload",
@@ -704,6 +726,17 @@
       "grace_period": "30d",
       "name": "Data Masking Policy",
       "description": "Data masking is applied where required to limit exposure of sensitive data.",
+      "severity": "medium"
+    },
+    {
+      "id": "log_review_process",
+      "control": "A.8.15",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Log Review Process",
+      "description": "Logs recording activities, exceptions, faults and other relevant events are reviewed and analyzed.",
       "severity": "medium"
     },
     {
@@ -748,6 +781,17 @@
       "grace_period": "30d",
       "name": "Web Filtering Policy",
       "description": "A web filtering policy exists.",
+      "severity": "medium"
+    },
+    {
+      "id": "cryptography_policy",
+      "control": "A.8.24",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Cryptography and Key Management Policy",
+      "description": "Rules for the effective use of cryptography, including cryptographic key management, are defined and implemented.",
       "severity": "medium"
     },
     {

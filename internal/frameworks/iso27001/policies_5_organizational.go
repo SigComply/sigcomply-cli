@@ -41,7 +41,7 @@ func organizationalAutomatedPolicies() []core.Policy {
 			clause: allWhere(allOf(isSet("payload.is_active"), leaf("payload.is_active", "eq", true)), allOf(leaf("payload.unused_days", "gte", 0), leaf("payload.unused_days", "lte", 90)), "user {{.payload.display_name}} has been inactive for more than 90 days (or never logged in)"),
 		}.policy(),
 		autoPolicy{
-			id: "iso27001.5.15.repo_default_permission_least_privilege", control: "A.5.15", severity: core.SeverityMedium, category: catAccess, cadence: cadenceDaily,
+			id: "iso27001.5.15.repo_default_permission_least_privilege", control: ctrlAccessControl, severity: core.SeverityMedium, category: catAccess, cadence: cadenceDaily,
 			accepts: []string{etSourceControlOrgPolicy},
 			desc:    "The source-control organization grants members a least-privilege default repository permission (access control).",
 			rem:     "Set the default member repository permission to `none` or `read`; grant write/admin per team.",

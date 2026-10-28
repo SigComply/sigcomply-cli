@@ -11,6 +11,7 @@ import (
 // entries the policy tables point at, so each reference is written once.
 const (
 	ctrlIdentityManagement      = "A.5.16" // Identity management
+	ctrlAccessControl           = "A.5.15" // Access control
 	ctrlAccessRights            = "A.5.18" // Access rights
 	ctrlSupplierRelationships   = "A.5.19" // Information security in supplier relationships
 	ctrlProtectionOfRecords     = "A.5.33" // Protection of records

@@ -45,7 +45,7 @@ upload covers every run in that year. The upload must fall inside the year plus 
 period, and you can't upload ahead into a future year. Folder and file rules:
 [Upload manual evidence](manual-evidence.md#3-upload-the-files).
 
-To see the whole ISO catalog (87 entries, of which these 16 are the clause ones):
+To see the whole ISO catalog (91 entries, of which these 16 are the clause ones):
 
 ```bash
 sigcomply evidence catalog -f iso27001 -o text

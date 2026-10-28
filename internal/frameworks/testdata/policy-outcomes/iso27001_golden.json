@@ -125,6 +125,27 @@
       "reason": "manual evidence: no record collected (source not configured or collection failed)"
     }
   },
+  "iso27001.5.15.access_control_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/access_control_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
   "iso27001.5.15.repo_default_permission_least_privilege": {
     "compliant": {
       "status": "pass",
@@ -1565,6 +1586,27 @@
       "reason": "required slot has no records"
     }
   },
+  "iso27001.8.15.log_review_process": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/log_review_process"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
   "iso27001.8.16.compute_monitoring_enabled": {
     "compliant": {
       "status": "pass",
@@ -1935,6 +1977,27 @@
       "resources_evaluated": 0,
       "resources_failed": 0,
       "reason": "required slot has no records"
+    }
+  },
+  "iso27001.8.24.cryptography_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/cryptography_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
     }
   },
   "iso27001.8.24.database_encryption_at_rest": {
@@ -2633,6 +2696,27 @@
       "resources_evaluated": 0,
       "resources_failed": 0,
       "reason": "required slot has no records"
+    }
+  },
+  "iso27001.8.8.vulnerability_management_process": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/vulnerability_management_process"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
     }
   },
   "iso27001.8.9.config_all_resources": {

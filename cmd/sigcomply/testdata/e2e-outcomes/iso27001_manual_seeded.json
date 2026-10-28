@@ -29,6 +29,11 @@
     "resources_evaluated": 1,
     "resources_failed": 0
   },
+  "iso27001.5.15.access_control_policy": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
   "iso27001.5.15.repo_default_permission_least_privilege": {
     "status": "skip",
     "resources_evaluated": 0,
@@ -369,6 +374,11 @@
     "resources_evaluated": 0,
     "resources_failed": 0
   },
+  "iso27001.8.15.log_review_process": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
   "iso27001.8.16.compute_monitoring_enabled": {
     "status": "skip",
     "resources_evaluated": 0,
@@ -452,6 +462,11 @@
   "iso27001.8.24.compute_disk_encrypted": {
     "status": "skip",
     "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "iso27001.8.24.cryptography_policy": {
+    "status": "pass",
+    "resources_evaluated": 1,
     "resources_failed": 0
   },
   "iso27001.8.24.database_encryption_at_rest": {
@@ -617,6 +632,11 @@
   "iso27001.8.8.no_critical_vulnerabilities": {
     "status": "skip",
     "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "iso27001.8.8.vulnerability_management_process": {
+    "status": "pass",
+    "resources_evaluated": 1,
     "resources_failed": 0
   },
   "iso27001.8.9.config_all_resources": {
