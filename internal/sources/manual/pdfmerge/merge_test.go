@@ -3,6 +3,7 @@ package pdfmerge_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"testing"
 
 	pdfapi "github.com/pdfcpu/pdfcpu/pkg/api"
@@ -121,5 +122,19 @@ func TestMerge_UserPasswordPDFStillFails(t *testing.T) {
 	locked := encrypt(t, realPDF(t), "user-secret", "owner-secret")
 	if _, err := pdfmerge.Merge(context.Background(), [][]byte{realPDF(t), locked}); err == nil {
 		t.Fatal("Merge = nil error; want a failure for a PDF that needs a password to open")
+	}
+}
+
+// A failed merge names which input could not be read, so the caller can
+// name the file instead of "merge source 1".
+func TestMerge_FailureNamesThePart(t *testing.T) {
+	good := realPDF(t)
+	_, err := pdfmerge.Merge(context.Background(), [][]byte{good, []byte("%PDF-1.4 garbage"), good})
+	var pe *pdfmerge.PartError
+	if !errors.As(err, &pe) {
+		t.Fatalf("want a *PartError; got %v", err)
+	}
+	if pe.Index != 1 {
+		t.Errorf("PartError.Index = %d; want 1", pe.Index)
 	}
 }

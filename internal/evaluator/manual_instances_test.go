@@ -93,7 +93,7 @@ func TestEvaluateManual_Instances_ReasonsMatchFailureKind(t *testing.T) {
 			name: "outside window",
 			inst: map[string]any{"id": "a", keyRequired: true, keySatisfied: false,
 				keyFilePresent: true, keyInTemporalWindow: false, keyFileHash: "sha256:00"},
-			want: "outside the configured temporal window",
+			want: "outside its upload window",
 		},
 		{
 			// No usable file, so the window was never judged.

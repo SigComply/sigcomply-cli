@@ -3,8 +3,11 @@ package evaluator
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/planner"
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
 
@@ -22,6 +25,8 @@ type manualPayload struct {
 	// so in_temporal_window=false says nothing and the validation
 	// failures are the real reason.
 	FileHash string `json:"file_hash"`
+	// UploadedAt is the latest upload time among the folder's files.
+	UploadedAt time.Time `json:"uploaded_at"`
 
 	// Instances is non-empty only for a fan-out entry (one catalog
 	// entry, N folders — today, one per vendor in the project register).
@@ -33,15 +38,16 @@ type manualPayload struct {
 // into one policy status plus the two counts that cross the aggregation
 // boundary.
 type manualInstance struct {
-	ID               string   `json:"id"`
-	Name             string   `json:"name"`
-	Required         bool     `json:"required"`
-	Satisfied        bool     `json:"satisfied"`
-	FilePresent      bool     `json:"file_present"`
-	InTemporalWindow bool     `json:"in_temporal_window"`
-	ExpectedURI      string   `json:"expected_uri"`
-	ValidationFails  []string `json:"validation_failures"`
-	FileHash         string   `json:"file_hash"`
+	ID               string    `json:"id"`
+	Name             string    `json:"name"`
+	Required         bool      `json:"required"`
+	Satisfied        bool      `json:"satisfied"`
+	FilePresent      bool      `json:"file_present"`
+	InTemporalWindow bool      `json:"in_temporal_window"`
+	ExpectedURI      string    `json:"expected_uri"`
+	ValidationFails  []string  `json:"validation_failures"`
+	FileHash         string    `json:"file_hash"`
+	UploadedAt       time.Time `json:"uploaded_at"`
 }
 
 // evaluateManual implements Path A: the universal evidence presence check
@@ -62,6 +68,13 @@ type manualInstance struct {
 //     conversion failures, and structural PDF errors all surface here.
 //  5. All checks pass → status=pass.
 func evaluateManual(slots map[string][]core.EvidenceRecord) core.RuleResult {
+	return evaluateManualIn(slots, nil)
+}
+
+// evaluateManualIn is evaluateManual with the folder's period, from the
+// manual binding, so an out-of-window failure can state the window.
+// period may be nil.
+func evaluateManualIn(slots map[string][]core.EvidenceRecord, period *planner.Period) core.RuleResult {
 	records := slots[spec.ManualSlotName]
 	if len(records) == 0 {
 		return core.RuleResult{
@@ -79,7 +92,7 @@ func evaluateManual(slots map[string][]core.EvidenceRecord) core.RuleResult {
 	}
 
 	if len(p.Instances) > 0 {
-		return evaluateManualInstances(p.Instances)
+		return evaluateManualInstances(p.Instances, period)
 	}
 
 	if !p.FilePresent {
@@ -98,7 +111,7 @@ func evaluateManual(slots map[string][]core.EvidenceRecord) core.RuleResult {
 		return core.RuleResult{
 			Status: core.StatusFail,
 			Violations: []core.Violation{
-				{ResourceID: rec.ID, Reason: fmt.Sprintf("manual evidence at %s was uploaded outside the configured temporal window", p.ExpectedURI)},
+				{ResourceID: rec.ID, Reason: "manual evidence at " + p.ExpectedURI + windowDetail(p.UploadedAt, period)},
 			},
 		}
 	}
@@ -131,7 +144,7 @@ func evaluateManual(slots map[string][]core.EvidenceRecord) core.RuleResult {
 // how many came up short — never which ones. A vendor list is a set of
 // third-party identifiers, and the non-custodial model does not put
 // those on the wire.
-func evaluateManualInstances(instances []manualInstance) core.RuleResult {
+func evaluateManualInstances(instances []manualInstance, period *planner.Period) core.RuleResult {
 	var violations []core.Violation
 	failed := 0
 
@@ -143,7 +156,7 @@ func evaluateManualInstances(instances []manualInstance) core.RuleResult {
 		failed++
 		violations = append(violations, core.Violation{
 			ResourceID: in.ID,
-			Reason:     manualInstanceReason(in),
+			Reason:     manualInstanceReason(in, period),
 		})
 	}
 
@@ -164,7 +177,7 @@ func evaluateManualInstances(instances []manualInstance) core.RuleResult {
 
 // manualInstanceReason explains one unsatisfied instance, mirroring the
 // single-folder check's ordering so the two read alike.
-func manualInstanceReason(in *manualInstance) string {
+func manualInstanceReason(in *manualInstance, period *planner.Period) string {
 	label := in.ID
 	if in.Name != "" {
 		label = fmt.Sprintf("%s (%s)", in.Name, in.ID)
@@ -176,10 +189,31 @@ func manualInstanceReason(in *manualInstance) string {
 		}
 		return fmt.Sprintf("%s: no evidence found", label)
 	case !in.InTemporalWindow && in.FileHash != "":
-		return fmt.Sprintf("%s: evidence at %s was uploaded outside the configured temporal window", label, in.ExpectedURI)
+		return fmt.Sprintf("%s: evidence at %s%s", label, in.ExpectedURI, windowDetail(in.UploadedAt, period))
 	case len(in.ValidationFails) > 0:
 		return fmt.Sprintf("%s: evidence failed validation: %v", label, in.ValidationFails)
 	default:
 		return fmt.Sprintf("%s: evidence did not satisfy the requirement", label)
 	}
+}
+
+// windowDetail completes "evidence at <folder>" for an upload outside its
+// window: when the latest file was uploaded and the window it had to
+// fall in. The grace period is not in the plan, so it is named rather
+// than added; `sigcomply evidence catalog -o json` lists it per entry.
+func windowDetail(uploadedAt time.Time, period *planner.Period) string {
+	var b strings.Builder
+	b.WriteString(" was uploaded")
+	if !uploadedAt.IsZero() {
+		b.WriteString(" at " + uploadedAt.UTC().Format(time.RFC3339))
+	}
+	b.WriteString(", outside its upload window")
+	if period != nil && !period.Start.IsZero() && !period.End.IsZero() {
+		fmt.Fprintf(&b, " (%s to %s UTC, plus the entry's grace period)",
+			period.Start.UTC().Format(time.DateOnly), period.End.UTC().Format(time.DateOnly))
+	} else {
+		b.WriteString(" (the folder's period plus the entry's grace period)")
+	}
+	b.WriteString("; a file uploaded before the period starts is outside it too")
+	return b.String()
 }

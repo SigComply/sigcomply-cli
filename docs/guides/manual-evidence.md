@@ -127,6 +127,8 @@ Rules for the files:
   between the start of
   the period and its end plus the entry's grace period. A file uploaded before the period starts
   fails as outside the window, so you can't stage next year's evidence early.
+- Period boundaries are in UTC. A file uploaded at 21:00 on 31 March in New York (UTC-4) is
+  01:00 on 1 April UTC, so it falls in the second quarter, not the first.
 - The CLI takes the run's period from the commit time of `HEAD`, not the clock. After the period
   closes and new commits land, runs read the next period's folder.
 - Don't copy last period's file unchanged. If every file in the folder is byte-identical to the

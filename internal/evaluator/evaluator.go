@@ -14,6 +14,7 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/planner"
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
+	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
 
 // diagReason is the RuleResult.Diag key carrying the human-readable
@@ -116,7 +117,7 @@ func evaluateOne(ctx context.Context, pp *planner.PlannedPolicy, in *Input) core
 	case core.EvidenceModeManual:
 		// Path A: universal PDF presence check. No slot population check —
 		// the manual check handles missing records explicitly.
-		ruleOut = evaluateManual(slots)
+		ruleOut = evaluateManualIn(slots, manualPeriod(pp))
 
 	case core.EvidenceModeAutomated:
 		// Nothing configured can feed any slot: the policy examined no
@@ -331,4 +332,15 @@ func evaluateRuleRef(ctx context.Context, pp *planner.PlannedPolicy, in *Input, 
 		return core.RuleResult{Status: core.StatusError, Diag: map[string]any{"rule_error": err.Error()}}
 	}
 	return ruleOut
+}
+
+// manualPeriod is the folder period the planner bound for a manual
+// policy, or nil when there is none.
+func manualPeriod(pp *planner.PlannedPolicy) *planner.Period {
+	for _, b := range pp.Bindings[spec.ManualSlotName] {
+		if b.Period != nil {
+			return b.Period
+		}
+	}
+	return nil
 }

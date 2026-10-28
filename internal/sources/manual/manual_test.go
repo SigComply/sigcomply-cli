@@ -1020,7 +1020,7 @@ func TestMergeAndValidate_MergeFailure(t *testing.T) {
 	// pdfmerge.Merge with a single PDF is a no-op pass-through; to trigger
 	// a real merge error we need ≥2 inputs that pdfcpu cannot parse.
 	bad := []byte("not a pdf at all")
-	merged, hash, failures := mergeAndValidate(context.Background(), [][]byte{bad, bad})
+	merged, hash, failures := mergeAndValidate(context.Background(), [][]byte{bad, bad}, []string{"a.pdf", "b.pdf"})
 	if hash != "" {
 		t.Errorf("hash = %q; want empty on merge failure", hash)
 	}
@@ -1038,6 +1038,10 @@ func TestMergeAndValidate_MergeFailure(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("failures = %v; want merge_failed entry", failures)
+	}
+	// The failure names the uploaded file, not a merge input index.
+	if !strings.Contains(strings.Join(failures, " "), `"a.pdf"`) {
+		t.Errorf("failures = %v; want the unreadable file named", failures)
 	}
 }
 

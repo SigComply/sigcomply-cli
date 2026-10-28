@@ -285,7 +285,11 @@ func (p *Plugin) scanFolder(ctx context.Context, folderID, periodID, priorID str
 		return out
 	}
 
-	merged, mergedHash, mergeFailures := mergeAndValidate(ctx, pdfParts)
+	names := make([]string, len(sourceFiles))
+	for i := range sourceFiles {
+		names[i] = sourceFiles[i].Filename
+	}
+	merged, mergedHash, mergeFailures := mergeAndValidate(ctx, pdfParts, names)
 	out.merged, out.hash, out.size = merged, mergedHash, len(merged)
 	out.failures = append(out.failures, mergeFailures...)
 	out.inWindow = isInTemporalWindow(latestAt, periodStart, periodEnd, grace)
@@ -418,12 +422,18 @@ func EvidenceFiles(folderPrefix string, items []FileInfo) []FileInfo {
 }
 
 // mergeAndValidate merges pdfParts into one PDF and validates the result.
-// It returns the merged bytes, their "sha256:"-prefixed hex hash, and any
-// validation failures (merge errors or structural PDF failures). A failed
-// merge returns no bytes, so there is nothing to store.
-func mergeAndValidate(ctx context.Context, pdfParts [][]byte) (merged []byte, mergedHash string, failures []string) {
+// names[i] is the uploaded file pdfParts[i] came from, so a merge failure
+// can name the file to fix. It returns the merged bytes, their
+// "sha256:"-prefixed hex hash, and any validation failures (merge errors
+// or structural PDF failures). A failed merge returns no bytes, so there
+// is nothing to store.
+func mergeAndValidate(ctx context.Context, pdfParts [][]byte, names []string) (merged []byte, mergedHash string, failures []string) {
 	merged, err := pdfmerge.Merge(ctx, pdfParts)
 	if err != nil {
+		var pe *pdfmerge.PartError
+		if errors.As(err, &pe) && pe.Index < len(names) {
+			return nil, "", []string{fmt.Sprintf("merge_failed: %q is not a readable PDF: %v", names[pe.Index], pe.Err)}
+		}
 		return nil, "", []string{fmt.Sprintf("merge_failed: %v", err)}
 	}
 	failures = validatePDF(merged)

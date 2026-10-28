@@ -57,7 +57,28 @@ func Merge(ctx context.Context, pdfs [][]byte) ([]byte, error) {
 
 	var out bytes.Buffer
 	if err := pdfapi.MergeRaw(ctx, rsc, &out, false, conf); err != nil {
+		// pdfcpu's error does not say which input broke the merge, and
+		// the user needs a file name to act on. Re-read each input on
+		// its own to find the first one pdfcpu cannot read.
+		for i, p := range pdfs {
+			if _, readErr := pdfapi.ReadAndValidate(ctx, bytes.NewReader(p), conf); readErr != nil {
+				return nil, &PartError{Index: i, Err: readErr}
+			}
+		}
 		return nil, fmt.Errorf("pdfmerge: merge failed: %w", err)
 	}
 	return out.Bytes(), nil
 }
+
+// PartError reports the input, by its position in the slice given to
+// Merge, that pdfcpu could not read.
+type PartError struct {
+	Index int
+	Err   error
+}
+
+func (e *PartError) Error() string {
+	return fmt.Sprintf("pdfmerge: input %d is not a readable PDF: %v", e.Index, e.Err)
+}
+
+func (e *PartError) Unwrap() error { return e.Err }

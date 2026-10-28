@@ -86,10 +86,18 @@ The folder had no files for the period. Upload to exactly that folder; copy the 
 message. The period part is the entry's own cadence window (`2026` for an annual entry), not the
 `--period` you pass to `report`. See [Upload manual evidence](manual-evidence.md#3-upload-the-files).
 
-### `uploaded outside the configured temporal window`
+### `outside its upload window`
 
-The newest file's upload time is outside the period plus grace. Upload the file again during the
-period it covers.
+The message gives the newest file's upload time and the folder's period. The upload time must
+fall between the start of that period and its end plus the entry's grace period (15 days for a
+quarterly entry, 30 days for the others; `sigcomply evidence catalog -o json` lists each
+entry's `grace_period`). Period dates are in UTC. Upload the file again during the period it
+covers.
+
+### `merge_failed`
+
+The CLI could not merge the folder's files into one PDF. The message names the file it could not
+read. Open that file to check it is a complete PDF, then replace it.
 
 ### `unsupported_file_type`
 
