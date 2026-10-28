@@ -1,0 +1,739 @@
+{
+  "soc2.a1.1.backup_plan_exists": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.a1.1.database_backup_enabled": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.a1.1.database_multi_az": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.a1.1.storage_versioning_enabled": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.a1.2.business_continuity_plan": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.a1.2.dynamodb_deletion_protection": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.a1.2.dynamodb_pitr_enabled": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.a1.3.recovery_procedures_tested": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.c1.1.database_no_public_access": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.c1.1.dynamodb_encryption_enabled": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.c1.1.no_public_container_repos": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.c1.1.storage_no_public_access": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.c1.2.data_retention_policy": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.c1.3.nda_policy": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc1.1.code_of_conduct_acknowledgment": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc1.1.security_awareness_training": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc1.2.board_security_oversight": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc1.3.org_chart_security_roles": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc1.4.background_check_policy": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc1.5.accountability_for_controls": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc2.1.information_security_policy": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc2.2.internal_security_communication": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc2.3.external_security_communication": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc3.1.risk_assessment": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc3.2.fraud_risk_assessment": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc3.3.fraud_risk_considered": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc3.4.change_risk_assessment": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc4.1.control_monitoring": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc4.2.control_deficiency_communication": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc5.1.control_selection_rationale": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc5.2.technology_control_activities": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc5.3.technology_controls_deployment": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc6.1.access_keys_rotated_90d": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.1.mfa_enforced_admins": {
+    "status": "fail",
+    "resources_evaluated": 1,
+    "resources_failed": 1,
+    "violated": [
+      "e2e-admin"
+    ]
+  },
+  "soc2.cc6.1.mfa_enforced_all_users": {
+    "status": "fail",
+    "resources_evaluated": 1,
+    "resources_failed": 1,
+    "violated": [
+      "e2e-admin"
+    ]
+  },
+  "soc2.cc6.1.no_direct_iam_policies": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.1.no_never_used_active_keys": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.1.no_root_access_keys": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.1.no_unused_active_keys_90d": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.1.org_2fa_required": {
+    "status": "fail",
+    "resources_evaluated": 1,
+    "resources_failed": 1,
+    "violated": [
+      "e2e-test-org"
+    ]
+  },
+  "soc2.cc6.1.password_complexity": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.1.password_expiry_90d": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.1.password_min_length_14": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.1.password_reuse_depth_24": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.1.password_reuse_prevention": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.1.privileged_access_policy": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc6.1.root_mfa_enabled": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.2.accounts_linked_to_roster": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.2.no_active_accounts_for_inactive_personnel": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.2.user_provisioning_process": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc6.3.access_review_quarterly": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc6.3.repo_default_permission_least_privilege": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc6.4.subservice_org_reports": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc6.5.push_protection_enabled": {
+    "status": "fail",
+    "resources_evaluated": 2,
+    "resources_failed": 2,
+    "violated": [
+      "e2e-protected",
+      "e2e-unprotected"
+    ]
+  },
+  "soc2.cc6.5.secret_scanning_enabled": {
+    "status": "fail",
+    "resources_evaluated": 2,
+    "resources_failed": 2,
+    "violated": [
+      "e2e-protected",
+      "e2e-unprotected"
+    ]
+  },
+  "soc2.cc6.5.termination_access_removal_process": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc6.6.firewall_review_policy": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc6.6.network_segmentation_policy": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc6.6.no_default_vpc_in_use": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.6.no_unrestricted_all_traffic": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.6.no_unrestricted_mysql": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.6.no_unrestricted_postgres": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.6.no_unrestricted_rdp": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.6.no_unrestricted_ssh": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.6.vpc_flow_logs_enabled": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.7.compute_root_volume_encrypted": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.7.data_classification_policy": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc6.7.database_encryption_at_rest": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.7.database_no_public_access": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.7.database_ssl_required": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.7.kms_customer_managed_keys": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.7.kms_key_rotation_enabled": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.7.kubernetes_secrets_encrypted": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.7.secrets_kms_encrypted": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.7.secrets_rotation_enabled": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.7.storage_encryption_at_rest": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.7.storage_public_access_blocked": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.7.storage_versioning_enabled": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.7.tls_auto_renew_enabled": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.7.tls_certificates_not_expiring": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.8.container_scan_on_push": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.8.macie_enabled": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.8.no_critical_findings_active": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.8.no_high_findings_unaddressed": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.8.no_public_container_repos": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.8.threat_detection_enabled": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc7.1.audit_log_integrity_enabled": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc7.1.audit_log_kms_encrypted": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc7.1.audit_logging_enabled": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc7.1.config_all_resource_types": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc7.1.config_recording_enabled": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc7.1.inspector_enabled": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc7.1.log_retention_min_90d": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc7.1.log_review_process": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc7.1.securityhub_enabled": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc7.2.alarm_cloudtrail_config_changes": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc7.2.alarm_console_login_no_mfa": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc7.2.alarm_iam_policy_changes": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc7.2.alarm_kms_key_deletion": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc7.2.alarm_root_account_usage": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc7.2.alarm_security_group_changes": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc7.2.alarm_unauthorized_api_calls": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc7.2.alarm_vpc_changes": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc7.2.threat_detection_all_regions": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc7.3.compute_monitoring_enabled": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc7.3.incident_response_plan": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc7.3.incident_response_tested": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc7.3.security_monitoring_policy": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc7.4.no_critical_vulns_active": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc7.4.vulnerability_disclosure_policy": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc7.5.database_deletion_protection": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc7.5.database_multi_az": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc8.1.approval_precedes_merge": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc8.1.change_management_policy": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc8.1.changes_independently_approved": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc8.1.changes_passed_checks": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc8.1.code_review_policy": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc8.1.code_scanning_enabled": {
+    "status": "fail",
+    "resources_evaluated": 2,
+    "resources_failed": 2,
+    "violated": [
+      "e2e-protected",
+      "e2e-unprotected"
+    ]
+  },
+  "soc2.cc8.1.default_branch_protected": {
+    "status": "fail",
+    "resources_evaluated": 2,
+    "resources_failed": 1,
+    "violated": [
+      "e2e-unprotected"
+    ]
+  },
+  "soc2.cc8.1.dependabot_alerts_enabled": {
+    "status": "fail",
+    "resources_evaluated": 2,
+    "resources_failed": 1,
+    "violated": [
+      "e2e-unprotected"
+    ]
+  },
+  "soc2.cc8.1.dismiss_stale_reviews": {
+    "status": "fail",
+    "resources_evaluated": 2,
+    "resources_failed": 2,
+    "violated": [
+      "e2e-protected",
+      "e2e-unprotected"
+    ]
+  },
+  "soc2.cc8.1.no_force_push_to_main": {
+    "status": "pass",
+    "resources_evaluated": 2,
+    "resources_failed": 0
+  },
+  "soc2.cc8.1.penetration_test_annual": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc8.1.production_deploys_from_approved_changes": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc8.1.require_code_owner_reviews": {
+    "status": "fail",
+    "resources_evaluated": 2,
+    "resources_failed": 2,
+    "violated": [
+      "e2e-protected",
+      "e2e-unprotected"
+    ]
+  },
+  "soc2.cc8.1.required_code_reviews": {
+    "status": "fail",
+    "resources_evaluated": 2,
+    "resources_failed": 1,
+    "violated": [
+      "e2e-unprotected"
+    ]
+  },
+  "soc2.cc8.1.security_sdlc_process": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc8.1.signed_commits_required": {
+    "status": "fail",
+    "resources_evaluated": 2,
+    "resources_failed": 2,
+    "violated": [
+      "e2e-protected",
+      "e2e-unprotected"
+    ]
+  },
+  "soc2.cc8.1.vulnerability_management_policy": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc9.1.due_diligence_process": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc9.1.vendor_risk_assessment": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc9.2.cuec_mapping": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc9.2.vendor_assurance": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc9.2.vendor_contracts_reviewed": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc9.2.vendor_lifecycle_process": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.p1.1.privacy_notice": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.p3.1.data_collection_policy": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.p6.1.data_retention_disposal": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.pi1.1.processing_integrity_policy": {
+    "status": "pass",
+    "resources_evaluated": 1,
+    "resources_failed": 0
+  }
+}
