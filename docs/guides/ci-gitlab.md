@@ -2,7 +2,10 @@
 
 Add SigComply jobs to a GitLab project and drive them with pipeline schedules. The jobs use a
 GitLab ID token to assume a read-only AWS role and, if you use the paid dashboard, to
-authenticate to SigComply Cloud. You store no long-lived secret.
+authenticate to SigComply Cloud.
+AWS and SigComply Cloud need no long-lived secret. GitHub, GitLab, Okta and Active Directory
+sources do need a token: see
+[Supply credentials in CI](configure-sources.md#supply-github-gitlab-okta-and-active-directory-credentials-in-ci).
 
 ## Prerequisites
 

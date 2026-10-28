@@ -78,7 +78,7 @@ with exit `3` and `project config: "<key>" was removed and has no effect; delete
 |---|---|---|---|---|
 | `period.fiscal_calendar.type` | string | `calendar_quarter` | `calendar_quarter`, `fiscal_year`, `custom` | Sets the run's period ID: `2026-Q1`, `FY2026`, or a custom `id`. |
 | `period.fiscal_calendar.starts` | string | `january` | Month name, any case | First month of the fiscal year. Read only for `fiscal_year`. `FY2026` is the year that starts in that month of 2026. |
-| `period.fiscal_calendar.periods` | list | none | `{id, start, end}`, dates `YYYY-MM-DD` | Required for `custom`. `end` is inclusive. A run whose clock falls in no listed period fails. |
+| `period.fiscal_calendar.periods` | list | none | `{id, start, end}`, dates `YYYY-MM-DD` | Required for `custom`. `end` is inclusive. Each `id` is at most 50 characters of letters, digits, `.`, `_` and `-`, and unique; periods must not overlap and are sorted by start when the config loads. A run whose clock falls in no listed period fails. |
 | `period.time_basis` | string | `wall_clock` | `commit`, `wall_clock` | `wall_clock` (also when unset) takes the period from the run's start time. `commit` takes it from the HEAD commit's time, so re-running an old commit gives the same period, but a repository with no recent commit keeps evaluating a period that has closed. |
 
 The run's period names the vault folder for the run and the period sent to SigComply Cloud.
