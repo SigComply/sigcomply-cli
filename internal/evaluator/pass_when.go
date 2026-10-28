@@ -278,28 +278,8 @@ func filterErr(clause *core.PassWhenClause, err error) core.RuleResult {
 // filter is an error too (see filterRecords).
 func (ec *evalCtx) evalCondition(cond *core.PassWhenCondition, rec *core.EvidenceRecord) (bool, error) {
 	switch cond.Op {
-	case "all_of":
-		for _, sub := range cond.Conditions {
-			ok, err := ec.evalCondition(sub, rec)
-			if err != nil {
-				return false, err
-			}
-			if !ok {
-				return false, nil
-			}
-		}
-		return true, nil
-	case "any_of":
-		for _, sub := range cond.Conditions {
-			ok, err := ec.evalCondition(sub, rec)
-			if err != nil {
-				return false, err
-			}
-			if ok {
-				return true, nil
-			}
-		}
-		return false, nil
+	case "all_of", "any_of", "not":
+		return ec.evalCompound(cond, rec)
 	case "is_set":
 		v, ok := ec.getField(rec, cond.Field)
 		return ok && v != nil, nil
@@ -587,4 +567,29 @@ func navigateContext(ctx map[string]any, parts []string) (any, bool) {
 		return nil, false
 	}
 	return navigateMap(nested, parts[1:])
+}
+
+// evalCompound evaluates all_of (short-circuits on false), any_of
+// (short-circuits on true) and not. not negates exactly one sub-condition
+// (spec.ValidatePassWhen); an error inside stays an error, because
+// negating "could not evaluate" into a match would be a guess.
+func (ec *evalCtx) evalCompound(cond *core.PassWhenCondition, rec *core.EvidenceRecord) (bool, error) {
+	if cond.Op == "not" {
+		if len(cond.Conditions) != 1 {
+			return false, fmt.Errorf("op \"not\" takes exactly one sub-condition, got %d", len(cond.Conditions))
+		}
+		ok, err := ec.evalCondition(cond.Conditions[0], rec)
+		return !ok && err == nil, err
+	}
+	stopOn := cond.Op == "any_of"
+	for _, sub := range cond.Conditions {
+		ok, err := ec.evalCondition(sub, rec)
+		if err != nil {
+			return false, err
+		}
+		if ok == stopOn {
+			return stopOn, nil
+		}
+	}
+	return !stopOn, nil
 }

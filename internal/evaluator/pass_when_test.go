@@ -776,3 +776,37 @@ func TestPassWhen_CountExactThresholdPasses(t *testing.T) {
 		}
 	}
 }
+
+// not negates one sub-condition. Paired with an is_set guard it states
+// "absent or true": a record that does not carry the field stays in
+// scope, one that says false is out. An unevaluable sub-condition is
+// still an error, never silently negated into a match.
+func TestPassWhen_NotOperator(t *testing.T) {
+	const fieldConsole = "payload.console"
+	consoleOff := &core.PassWhenCondition{Op: "not", Conditions: []*core.PassWhenCondition{{
+		Op: "all_of", Conditions: []*core.PassWhenCondition{
+			{Op: "is_set", Field: fieldConsole},
+			{Op: "eq", Field: fieldConsole, Value: false},
+		},
+	}}}
+	ec := newEvalCtx(nil, nil, nil)
+	for name, tc := range map[string]struct {
+		payload map[string]any
+		want    bool
+	}{
+		"field missing": {map[string]any{}, true},
+		"true":          {map[string]any{"console": true}, true},
+		"false":         {map[string]any{"console": false}, false},
+	} {
+		rec := makeRecord("u", tc.payload)
+		got, err := ec.evalCondition(consoleOff, &rec)
+		if err != nil || got != tc.want {
+			t.Errorf("%s: got %v, %v; want %v", name, got, err, tc.want)
+		}
+	}
+	unguarded := &core.PassWhenCondition{Op: "not", Conditions: []*core.PassWhenCondition{{Op: "eq", Field: fieldConsole, Value: false}}}
+	rec := makeRecord("u", map[string]any{})
+	if _, err := ec.evalCondition(unguarded, &rec); err == nil {
+		t.Error("not over an absent field must error, not match")
+	}
+}

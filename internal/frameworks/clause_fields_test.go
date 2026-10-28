@@ -122,7 +122,7 @@ func (fc fieldCheck) cond(slot string, c *core.PassWhenCondition, guarded map[st
 			fc.cond(slot, sub, inner)
 		}
 		return
-	case "any_of":
+	case "any_of", "not":
 		for _, sub := range c.Conditions {
 			fc.cond(slot, sub, guarded)
 		}

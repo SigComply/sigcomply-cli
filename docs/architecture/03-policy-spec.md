@@ -226,13 +226,16 @@ pass_when:
 ### Conditions
 
 A condition is `{op, field, value}`. Operators: `eq`, `neq`, `lt`, `lte`, `gt`, `gte`, `in`,
-`not_in`, `is_set` (no `value`), `all_of` and `any_of` (take a `conditions:` list), and
-`matches_in`.
+`not_in`, `is_set` (no `value`), `all_of` and `any_of` (take a `conditions:` list), `not` (takes
+a `conditions:` list of exactly one), and `matches_in`.
 
 - `field` resolves `id`, `type`, `source_id`, `account.*`, or `payload.<dot.path>`. A bare name
   without `payload.` is not found. A missing field makes the policy `error`, in a `filter` too.
 - Guard a schema-optional field with `is_set` inside `all_of` (which short-circuits; `any_of` does
   not). `TestEveryFilterGuardsOptionalFields` enforces this for shipped policies.
+- `not` negates its one condition; an error inside it stays an error. "Absent or true" is
+  `not: [all_of: [is_set f, f eq false]]` (the MFA policies use it to skip users whose
+  `has_console_access` is false).
 - Parameters go on the value side only, as the string `"$params.<name>"`.
 - Keys are decoded strictly: `normalise:` fails the load.
 

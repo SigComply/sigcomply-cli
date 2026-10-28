@@ -564,6 +564,7 @@ var validPassWhenOps = map[string]struct{}{
 	"is_set":         {},
 	"all_of":         {},
 	"any_of":         {},
+	opNot:            {},
 	core.OpMatchesIn: {},
 }
 
@@ -618,14 +619,9 @@ func validateCondition(cond *core.PassWhenCondition, slots map[string]core.Slot,
 		return fmt.Errorf("pass_when condition invalid op %q", cond.Op)
 	}
 	switch cond.Op {
-	case "all_of", "any_of":
-		if len(cond.Conditions) == 0 {
-			return fmt.Errorf("pass_when condition op %q requires at least one sub-condition in \"conditions\"", cond.Op)
-		}
-		for i, sub := range cond.Conditions {
-			if err := validateCondition(sub, slots, inWhere); err != nil {
-				return fmt.Errorf("conditions[%d]: %w", i, err)
-			}
+	case "all_of", "any_of", opNot:
+		if err := validateCompound(cond, slots, inWhere); err != nil {
+			return err
 		}
 	case core.OpMatchesIn:
 		return validateMatchesIn(cond, slots, inWhere)
@@ -647,6 +643,26 @@ func validateLeaf(cond *core.PassWhenCondition) error {
 	}
 	if cond.Op != "is_set" && cond.Value == nil {
 		return fmt.Errorf("pass_when condition op %q requires \"value\"", cond.Op)
+	}
+	return nil
+}
+
+// opNot is the negation operator.
+const opNot = "not"
+
+// validateCompound checks all_of and any_of (one or more sub-conditions)
+// and not (exactly one), then each sub-condition.
+func validateCompound(cond *core.PassWhenCondition, slots map[string]core.Slot, inWhere bool) error {
+	if cond.Op == opNot && len(cond.Conditions) != 1 {
+		return fmt.Errorf("pass_when condition op \"not\" takes exactly one sub-condition in \"conditions\", got %d", len(cond.Conditions))
+	}
+	if len(cond.Conditions) == 0 {
+		return fmt.Errorf("pass_when condition op %q requires at least one sub-condition in \"conditions\"", cond.Op)
+	}
+	for i, sub := range cond.Conditions {
+		if err := validateCondition(sub, slots, inWhere); err != nil {
+			return fmt.Errorf("conditions[%d]: %w", i, err)
+		}
 	}
 	return nil
 }

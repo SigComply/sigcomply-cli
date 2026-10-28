@@ -408,3 +408,23 @@ pass_when:
 		})
 	}
 }
+
+// not takes exactly one sub-condition.
+func TestValidatePassWhen_NotTakesExactlyOneCondition(t *testing.T) {
+	leaf := &core.PassWhenCondition{Op: "eq", Field: "payload.x", Value: true}
+	for name, tc := range map[string]struct {
+		conds []*core.PassWhenCondition
+		ok    bool
+	}{
+		"one":  {[]*core.PassWhenCondition{leaf}, true},
+		"none": {nil, false},
+		"two":  {[]*core.PassWhenCondition{leaf, leaf}, false},
+	} {
+		p := core.Policy{ID: "p", Slots: map[string]core.Slot{"s": {Accepts: []string{"t"}}},
+			PassWhen: &core.PassWhenSpec{Clauses: []core.PassWhenClause{{Slot: "s", Quantifier: core.QuantifierAll,
+				Condition: &core.PassWhenCondition{Op: "not", Conditions: tc.conds}}}}}
+		if err := ValidatePassWhen(p); (err == nil) != tc.ok {
+			t.Errorf("%s: err = %v; want ok=%v", name, err, tc.ok)
+		}
+	}
+}

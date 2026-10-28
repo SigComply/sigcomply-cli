@@ -123,9 +123,10 @@ func unguardedFields(cond *core.PassWhenCondition, guarded map[string]bool) []st
 			out = append(out, unguardedFields(sub, inner)...)
 		}
 		return out
-	case "any_of":
+	case "any_of", "not":
 		// any_of keeps evaluating past a false, so an is_set sibling
-		// guards nothing. Only an inherited guard counts.
+		// guards nothing; not wraps one condition. Only an inherited
+		// guard counts.
 		var out []string
 		for _, sub := range cond.Conditions {
 			out = append(out, unguardedFields(sub, guarded)...)
