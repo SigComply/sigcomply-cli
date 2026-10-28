@@ -139,7 +139,7 @@ The SoA starts with a summary, then one row per Annex A control:
 Of the 92 applicable
    0 implemented           — every check that ran passed
    0 partially implemented — some checks passed, some did not
-  67 not implemented       — every check that ran failed
+  67 not implemented       — no check that ran passed: each failed, errored or was skipped
   25 not evaluated         — no check ran this period
 
 CONTROL  NAME                                APPLICABLE  STATUS           ASSURANCE  JUSTIFICATION
@@ -149,7 +149,7 @@ A.5.1    Policies for information security   yes         not implemented  manual
 | Column | Meaning |
 |---|---|
 | `APPLICABLE` | `no` only where you declared `not_applicable`. |
-| `STATUS` | From this period's results: `implemented`, `partially implemented`, `not implemented`, `not evaluated` (no check ran) or `excluded`. A waived policy counts as passed; an `na` policy counts for nothing. |
+| `STATUS` | From this period's results: `implemented`, `partially implemented`, `not implemented`, `not evaluated` (no check ran) or `excluded`. A waived policy counts as passed; an `na` policy counts for nothing. A skipped policy counts as not passed, so a control whose checks were all skipped (no source configured) reads `not implemented`. |
 | `ASSURANCE` | `automated` (an automated check is mapped to the control; `STATUS` says whether it ran), `manual` (only document checks are mapped; a document's contents are never checked) or `none`. |
 | `JUSTIFICATION` | Your `justification` or `reason`, or a derived text marked `(derived)`. |
 

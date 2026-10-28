@@ -123,12 +123,12 @@ A record lacks a field the policy reads. The CLI reports `error` (exit `2`) inst
 If you wrote the policy, guard optional fields with `is_set`. For a built-in policy, report it
 with the error text.
 
-### Controls are skipped and the score went up
+### Policies are skipped and the score went up
 
 The run ends with:
 
 ```text
-6 control(s) were SKIPPED and are NOT counted in the compliance score:
+6 policies were SKIPPED and are NOT counted in the compliance score:
   soc2.cc6.1.password_min_length_14 — no configured source emits
     [password_policy.v2 password_policy] (slot "evidence")
 ```

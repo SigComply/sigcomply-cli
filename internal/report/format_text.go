@@ -351,7 +351,7 @@ func writeSoAHeadline(w io.Writer, v *SoAView) error {
 	}{
 		{v.Implemented, "implemented           — every check that ran passed"},
 		{v.Partial, "partially implemented — some checks passed, some did not"},
-		{v.NotImplemented, "not implemented       — every check that ran failed"},
+		{v.NotImplemented, "not implemented       — no check that ran passed: each failed, errored or was skipped"},
 		{v.NotEvaluated, "not evaluated         — no check ran this period"},
 	}
 	// Right-align the counts so the labels and their dashes line up
