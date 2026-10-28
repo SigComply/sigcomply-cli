@@ -334,11 +334,6 @@
     "resources_evaluated": 0,
     "resources_failed": 0
   },
-  "soc2.cc6.7.kms_customer_managed_keys": {
-    "status": "skip",
-    "resources_evaluated": 0,
-    "resources_failed": 0
-  },
   "soc2.cc6.7.kms_key_rotation_enabled": {
     "status": "skip",
     "resources_evaluated": 0,

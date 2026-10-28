@@ -258,13 +258,6 @@ func cc6EncryptionPolicies() []core.Policy {
 				leaf("payload.rotation_enabled", "eq", true), "KMS key {{.payload.key_id}} does not have rotation enabled"),
 		}.policy(),
 		autoPolicy{
-			id: "soc2.cc6.7.kms_customer_managed_keys", control: ctrlCC67, severity: core.SeverityLow, category: catDataProtection, cadence: cadenceDaily,
-			accepts: []string{"kms_key"},
-			desc:    "Encryption uses customer-managed KMS keys.",
-			rem:     "Migrate workloads to customer-managed keys where compliance requires key control.",
-			clause:  all(leaf("payload.is_customer_managed", "eq", true), "KMS key {{.payload.key_id}} is not customer-managed"),
-		}.policy(),
-		autoPolicy{
 			id: "soc2.cc6.7.compute_root_volume_encrypted", control: ctrlCC67, severity: core.SeverityHigh, category: catDataProtection, cadence: cadenceDaily,
 			accepts: []string{"compute_instance"},
 			desc:    "All compute instances have encrypted root volumes.",

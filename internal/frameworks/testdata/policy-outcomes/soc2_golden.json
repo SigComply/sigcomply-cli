@@ -1438,27 +1438,6 @@
       ]
     }
   },
-  "soc2.cc6.7.kms_customer_managed_keys": {
-    "compliant": {
-      "status": "pass",
-      "resources_evaluated": 1,
-      "resources_failed": 0
-    },
-    "noncompliant": {
-      "status": "fail",
-      "resources_evaluated": 4,
-      "resources_failed": 1,
-      "violated": [
-        "key-aws-managed"
-      ]
-    },
-    "sparse": {
-      "status": "error",
-      "resources_evaluated": 1,
-      "resources_failed": 0,
-      "reason": "policy references field \"payload.is_customer_managed\" which is not present on record \"projects/p/keyRings/r/cryptoKeys/k\" (type \"kms_key\") — reference a field the evidence type guarantees, or guard it with is_set"
-    }
-  },
   "soc2.cc6.7.kms_key_rotation_enabled": {
     "compliant": {
       "status": "pass",
