@@ -28,6 +28,10 @@ const SourceID = "aws.rds"
 type API interface {
 	DescribeDBInstances(ctx context.Context, params *awsrds.DescribeDBInstancesInput, optFns ...func(*awsrds.Options)) (*awsrds.DescribeDBInstancesOutput, error)
 	DescribeDBParameters(ctx context.Context, params *awsrds.DescribeDBParametersInput, optFns ...func(*awsrds.Options)) (*awsrds.DescribeDBParametersOutput, error)
+	// Aurora instances belong to a DB cluster that owns their deletion
+	// protection, Multi-AZ, backup, encryption and TLS settings.
+	DescribeDBClusters(ctx context.Context, params *awsrds.DescribeDBClustersInput, optFns ...func(*awsrds.Options)) (*awsrds.DescribeDBClustersOutput, error)
+	DescribeDBClusterParameters(ctx context.Context, params *awsrds.DescribeDBClusterParametersInput, optFns ...func(*awsrds.Options)) (*awsrds.DescribeDBClusterParametersOutput, error)
 }
 
 // Plugin is the in-process aws.rds source.
@@ -122,10 +126,11 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		return nil, fmt.Errorf("aws.rds: describe db instances: %w", err)
 	}
 	now := p.now()
-	// sslCache memoizes per-parameter-group SSL lookups within this one
-	// Collect call: many instances share a parameter group, and the
-	// plugin caches nothing across Collect calls (KISS-no-DRY axiom).
-	sslCache := map[string]*bool{}
+	// The caches memoize per-parameter-group SSL lookups and per-cluster
+	// reads within this one Collect call: many instances share a group or
+	// a cluster, and the plugin caches nothing across Collect calls
+	// (KISS-no-DRY axiom).
+	c := &collectCache{ssl: map[string]*bool{}, clusters: map[string]*rdstypes.DBCluster{}}
 	records := make([]core.EvidenceRecord, 0, len(instances))
 	for i := range instances {
 		inst := &instances[i]
@@ -133,21 +138,9 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		if id == "" {
 			continue
 		}
-		payload := instancePayload{
-			ID:                 id,
-			Name:               id,
-			Provider:           "aws",
-			Engine:             safeString(inst.Engine),
-			EngineVersion:      safeString(inst.EngineVersion),
-			StorageEncrypted:   safeBool(inst.StorageEncrypted),
-			PubliclyAccessible: safeBool(inst.PubliclyAccessible),
-			BackupEnabled:      safeBackupEnabled(inst),
-			SSLRequired:        p.sslRequired(ctx, inst, sslCache),
-			MultiAZ:            safeBool(inst.MultiAZ),
-			DeletionProtection: safeBool(inst.DeletionProtection),
-			KMSKeyID:           safeString(inst.KmsKeyId),
-			ARN:                safeString(inst.DBInstanceArn),
-			Status:             safeString(inst.DBInstanceStatus),
+		payload, err := p.instancePayload(ctx, inst, c)
+		if err != nil {
+			return nil, fmt.Errorf("aws.rds: %s: %w", id, err)
 		}
 		body, err := json.Marshal(payload)
 		if err != nil {
@@ -163,6 +156,78 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	}
 	sort.Slice(records, func(i, j int) bool { return records[i].ID < records[j].ID })
 	return records, nil
+}
+
+type collectCache struct {
+	ssl      map[string]*bool
+	clusters map[string]*rdstypes.DBCluster
+}
+
+// instancePayload maps one DB instance. An Aurora instance reports its
+// cluster's settings: AWS returns cluster-managed values such as
+// DeletionProtection and MultiAZ as false on the instance, and Aurora's
+// TLS parameter lives in the DB cluster parameter group.
+func (p *Plugin) instancePayload(ctx context.Context, inst *rdstypes.DBInstance, c *collectCache) (instancePayload, error) {
+	id := safeIdentifier(inst)
+	payload := instancePayload{
+		ID:                 id,
+		Name:               id,
+		Provider:           "aws",
+		Engine:             safeString(inst.Engine),
+		EngineVersion:      safeString(inst.EngineVersion),
+		StorageEncrypted:   safeBool(inst.StorageEncrypted),
+		PubliclyAccessible: safeBool(inst.PubliclyAccessible),
+		BackupEnabled:      safeBackupEnabled(inst),
+		MultiAZ:            safeBool(inst.MultiAZ),
+		DeletionProtection: safeBool(inst.DeletionProtection),
+		KMSKeyID:           safeString(inst.KmsKeyId),
+		ARN:                safeString(inst.DBInstanceArn),
+		Status:             safeString(inst.DBInstanceStatus),
+	}
+	param, onValue := sslParamByEngine(payload.Engine)
+	clusterID := safeString(inst.DBClusterIdentifier)
+	if clusterID == "" {
+		ssl, err := p.sslRequired(ctx, param, onValue, primaryParameterGroup(inst), false, c.ssl)
+		if err != nil {
+			return payload, err
+		}
+		payload.SSLRequired = ssl
+		return payload, nil
+	}
+	cl, err := p.cluster(ctx, clusterID, c.clusters)
+	if err != nil {
+		return payload, fmt.Errorf("db cluster %s: %w", clusterID, err)
+	}
+	payload.DeletionProtection = safeBool(cl.DeletionProtection)
+	payload.MultiAZ = safeBool(cl.MultiAZ)
+	payload.StorageEncrypted = safeBool(cl.StorageEncrypted)
+	payload.BackupEnabled = cl.BackupRetentionPeriod != nil && *cl.BackupRetentionPeriod > 0
+	if k := safeString(cl.KmsKeyId); k != "" {
+		payload.KMSKeyID = k
+	}
+	ssl, err := p.sslRequired(ctx, param, onValue, safeString(cl.DBClusterParameterGroup), true, c.ssl)
+	if err != nil {
+		return payload, err
+	}
+	payload.SSLRequired = ssl
+	return payload, nil
+}
+
+// cluster reads one DB cluster, memoized per Collect.
+func (p *Plugin) cluster(ctx context.Context, id string, cache map[string]*rdstypes.DBCluster) (*rdstypes.DBCluster, error) {
+	if cl, ok := cache[id]; ok {
+		return cl, nil
+	}
+	out, err := p.api.DescribeDBClusters(ctx, &awsrds.DescribeDBClustersInput{DBClusterIdentifier: &id})
+	if err != nil {
+		return nil, err
+	}
+	if out == nil || len(out.DBClusters) == 0 {
+		return nil, fmt.Errorf("DescribeDBClusters returned no cluster")
+	}
+	cl := &out.DBClusters[0]
+	cache[id] = cl
+	return cl, nil
 }
 
 func (p *Plugin) listAllInstances(ctx context.Context) ([]rdstypes.DBInstance, error) {
@@ -186,29 +251,38 @@ func (p *Plugin) listAllInstances(ctx context.Context) ([]rdstypes.DBInstance, e
 
 // sslRequired determines whether the instance enforces in-transit
 // encryption by inspecting the engine-appropriate parameter in its DB
-// parameter group. Returns nil (field omitted) when the engine is not
-// introspectable this way (e.g. oracle/sqlserver use option groups), so
-// the consuming policy skips rather than false-fails such instances.
-func (p *Plugin) sslRequired(ctx context.Context, inst *rdstypes.DBInstance, cache map[string]*bool) *bool {
-	param, onValue := sslParamByEngine(safeString(inst.Engine))
-	if param == "" {
-		return nil
+// parameter group (cluster parameter group for Aurora). Returns nil
+// (field omitted) when the engine is not introspectable this way (e.g.
+// oracle/sqlserver use option groups) or the group does not carry the
+// parameter, so the consuming policy skips rather than false-fails such
+// instances. A failed read is an error: omitting the field would make
+// the policy skip a database it could not judge.
+func (p *Plugin) sslRequired(ctx context.Context, param, onValue, group string, clusterGroup bool, cache map[string]*bool) (*bool, error) {
+	if param == "" || group == "" {
+		return nil, nil
 	}
-	group := primaryParameterGroup(inst)
-	if group == "" {
-		return nil
+	key := group
+	if clusterGroup {
+		key = "cluster:" + group
 	}
-	if v, ok := cache[group]; ok {
-		return v
+	if v, ok := cache[key]; ok {
+		return v, nil
 	}
-	val, found := p.lookupParameter(ctx, group, param)
+	lookup := p.lookupParameter
+	if clusterGroup {
+		lookup = p.lookupClusterParameter
+	}
+	val, found, err := lookup(ctx, group, param)
+	if err != nil {
+		return nil, fmt.Errorf("parameter group %s: %w", group, err)
+	}
 	var result *bool
 	if found {
 		on := strings.EqualFold(val, onValue)
 		result = &on
 	}
-	cache[group] = result
-	return result
+	cache[key] = result
+	return result, nil
 }
 
 // sslParamByEngine maps an RDS engine to the parameter that enforces TLS
@@ -231,10 +305,9 @@ func primaryParameterGroup(inst *rdstypes.DBInstance) string {
 	return safeString(inst.DBParameterGroups[0].DBParameterGroupName)
 }
 
-// lookupParameter scans a parameter group (paged) for the named parameter
-// and returns its value. found=false when the parameter is absent or the
-// API errors — the caller treats that as "undeterminable".
-func (p *Plugin) lookupParameter(ctx context.Context, group, name string) (value string, found bool) {
+// lookupParameter scans a DB parameter group (paged) for the named
+// parameter. found=false when the group does not carry it.
+func (p *Plugin) lookupParameter(ctx context.Context, group, name string) (value string, found bool, err error) {
 	var marker *string
 	for {
 		page, err := p.api.DescribeDBParameters(ctx, &awsrds.DescribeDBParametersInput{
@@ -242,20 +315,48 @@ func (p *Plugin) lookupParameter(ctx context.Context, group, name string) (value
 			Marker:               marker,
 		})
 		if err != nil {
-			return "", false
+			return "", false, err
 		}
-		for i := range page.Parameters {
-			pm := &page.Parameters[i]
-			if pm.ParameterName != nil && *pm.ParameterName == name {
-				return safeString(pm.ParameterValue), true
-			}
+		if v, ok := findParameter(page.Parameters, name); ok {
+			return v, true, nil
 		}
-		if page.Marker != nil && *page.Marker != "" {
-			marker = page.Marker
-			continue
+		if page.Marker == nil || *page.Marker == "" {
+			return "", false, nil
 		}
-		return "", false
+		marker = page.Marker
 	}
+}
+
+// lookupClusterParameter is lookupParameter for a DB cluster parameter
+// group.
+func (p *Plugin) lookupClusterParameter(ctx context.Context, group, name string) (value string, found bool, err error) {
+	var marker *string
+	for {
+		page, err := p.api.DescribeDBClusterParameters(ctx, &awsrds.DescribeDBClusterParametersInput{
+			DBClusterParameterGroupName: &group,
+			Marker:                      marker,
+		})
+		if err != nil {
+			return "", false, err
+		}
+		if v, ok := findParameter(page.Parameters, name); ok {
+			return v, true, nil
+		}
+		if page.Marker == nil || *page.Marker == "" {
+			return "", false, nil
+		}
+		marker = page.Marker
+	}
+}
+
+func findParameter(params []rdstypes.Parameter, name string) (string, bool) {
+	for i := range params {
+		pm := &params[i]
+		if pm.ParameterName != nil && *pm.ParameterName == name {
+			return safeString(pm.ParameterValue), true
+		}
+	}
+	return "", false
 }
 
 func safeBackupEnabled(inst *rdstypes.DBInstance) bool {

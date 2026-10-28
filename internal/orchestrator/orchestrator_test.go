@@ -491,6 +491,14 @@ func (emptyRDSAPI) DescribeDBInstances(context.Context, *awsrds.DescribeDBInstan
 	return &awsrds.DescribeDBInstancesOutput{}, nil
 }
 
+func (emptyRDSAPI) DescribeDBClusters(context.Context, *awsrds.DescribeDBClustersInput, ...func(*awsrds.Options)) (*awsrds.DescribeDBClustersOutput, error) {
+	return &awsrds.DescribeDBClustersOutput{}, nil
+}
+
+func (emptyRDSAPI) DescribeDBClusterParameters(context.Context, *awsrds.DescribeDBClusterParametersInput, ...func(*awsrds.Options)) (*awsrds.DescribeDBClusterParametersOutput, error) {
+	return &awsrds.DescribeDBClusterParametersOutput{}, nil
+}
+
 func (emptyRDSAPI) DescribeDBParameters(context.Context, *awsrds.DescribeDBParametersInput, ...func(*awsrds.Options)) (*awsrds.DescribeDBParametersOutput, error) {
 	return &awsrds.DescribeDBParametersOutput{}, nil
 }

@@ -80,7 +80,7 @@ those credentials, so the ambient principal needs that permission on the target 
 | `aws.kms` | `kms_key` | `kms:ListKeys`, `kms:DescribeKey`, `kms:GetKeyRotationStatus` |
 | `aws.lambda` | `serverless_function` | `lambda:ListFunctions` |
 | `aws.password_policy` | `password_policy.v2` | `iam:GetAccountPasswordPolicy` |
-| `aws.rds` | `managed_database_instance` | `rds:DescribeDBInstances`, `rds:DescribeDBParameters` |
+| `aws.rds` | `managed_database_instance` | `rds:DescribeDBInstances`, `rds:DescribeDBParameters`; for Aurora also `rds:DescribeDBClusters`, `rds:DescribeDBClusterParameters` |
 | `aws.s3` | `object_storage_bucket` | `s3:ListAllMyBuckets`, `s3:GetEncryptionConfiguration`, `s3:GetBucketVersioning`, `s3:GetBucketPublicAccessBlock`, `s3:GetBucketLocation` |
 | `aws.secretsmanager` | `secret` | `secretsmanager:ListSecrets` |
 | `aws.security_alert` | `security_alert` | `cloudwatch:DescribeAlarms`, `logs:DescribeMetricFilters` |
@@ -118,6 +118,9 @@ For `role_arn`, the target role's trust policy must allow the ambient principal 
   resource uses is not renewed and reports `false`.
 - `aws.ecr` reports `is_public: true` when the repository policy has an `Allow` statement for the
   principal `*` with no `Condition`. A statement with a condition counts as restricted.
+- `aws.rds` reports an Aurora instance's deletion protection, Multi-AZ, backup, encryption and
+  `ssl_required` from its DB cluster and cluster parameter group. `ssl_required` is omitted for
+  engines without a TLS parameter (Oracle, SQL Server), and the SSL policy skips them.
 - `aws.kms` reports `rotation_enabled: false` for customer-managed keys that KMS cannot rotate
   automatically (asymmetric, HMAC, imported key material, custom key store) without asking KMS.
   The shipped rotation policies check only enabled customer-managed keys, so keys that are disabled
