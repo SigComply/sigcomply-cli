@@ -41,7 +41,7 @@ func newPublishFixture(t *testing.T) *publishFixture {
 		t.Fatal(err)
 	}
 	f.gh = filepath.Join(dir, "assets.txt")
-	f.env = append(envWithoutGitRepoVars(),
+	f.env = append(environWithoutGit(),
 		"PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"),
 		"GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_NOSYSTEM=1",
 		"GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@example.invalid",
@@ -61,23 +61,18 @@ func newPublishFixture(t *testing.T) *publishFixture {
 	return f
 }
 
-// envWithoutGitRepoVars drops the variables git exports to hooks
-// (GIT_DIR, GIT_INDEX_FILE, GIT_WORK_TREE, ...). Under a pre-commit hook in
-// a linked worktree they name the outer repository's absolute paths, so
-// the fixture's git commands would act on that repository, not on the
-// temporary clone.
-func envWithoutGitRepoVars() []string {
-	env := os.Environ()
-	out := make([]string, 0, len(env))
-	for _, kv := range env {
-		switch strings.SplitN(kv, "=", 2)[0] {
-		case "GIT_DIR", "GIT_INDEX_FILE", "GIT_WORK_TREE", "GIT_COMMON_DIR",
-			"GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_PREFIX":
-			continue
+// environWithoutGit drops the GIT_* variables git exports to hooks
+// (GIT_DIR, GIT_INDEX_FILE, ...). Run from a pre-commit hook, an
+// inherited GIT_DIR made the fixture's "git init --bare" re-initialize
+// the developer's own repository as bare and add remotes to it.
+func environWithoutGit() []string {
+	var env []string
+	for _, kv := range os.Environ() {
+		if !strings.HasPrefix(kv, "GIT_") {
+			env = append(env, kv)
 		}
-		out = append(out, kv)
 	}
-	return out
+	return env
 }
 
 func (f *publishFixture) git(dir string, args ...string) string {
