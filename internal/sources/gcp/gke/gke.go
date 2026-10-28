@@ -50,6 +50,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	container "google.golang.org/api/container/v1"
@@ -304,6 +305,12 @@ func (r *realGKE) ListClusters(ctx context.Context, project string) ([]*containe
 	resp, err := r.svc.Projects.Locations.Clusters.List(parent).Context(ctx).Do()
 	if err != nil {
 		return nil, err
+	}
+	// A zone GKE couldn't reach means its clusters are missing from the
+	// list. Surfacing this as an error (rather than returning a partial
+	// set) keeps all-quantifier policies honest.
+	if len(resp.MissingZones) > 0 {
+		return nil, fmt.Errorf("unreachable zones: %s", strings.Join(resp.MissingZones, ", "))
 	}
 	return resp.Clusters, nil
 }

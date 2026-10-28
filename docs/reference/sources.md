@@ -208,6 +208,9 @@ locally. All `gcp.*` sources share one identity per run.
   slower cadence.
 - `gcp.scc` needs organization-level roles; a project-scoped CI service account usually lacks
   them.
+- When GCP reports that a zone or region was unreachable during a listing, `gcp.gke`, `gcp.sql`,
+  `gcp.firestore`, `gcp.backup` and `gcp.certs` fail instead of evaluating the partial list.
+  Policies bound to them get status `error` for that run.
 - `gcp.audit` reports `is_enabled`, `is_multi_region` and `log_file_validation_enabled` as `true`
   because Admin Activity audit logs are always on in GCP.
 

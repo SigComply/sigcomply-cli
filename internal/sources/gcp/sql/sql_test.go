@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"google.golang.org/api/option"
 	sqladmin "google.golang.org/api/sqladmin/v1"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
@@ -269,5 +272,26 @@ func TestCollect_KISSNoDRY_EachCallReFetches(t *testing.T) {
 	}
 	if fake.listCount != 3 {
 		t.Errorf("listCount = %d; want 3 (no caching across Collect calls per KISS-no-DRY)", fake.listCount)
+	}
+}
+
+// A REGION_UNREACHABLE warning means the page is missing that region's
+// instances. The adapter must fail rather than return a partial list
+// that all-quantifier policies would evaluate and pass.
+func TestRealSQL_RegionUnreachableIsAnError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"items":[{"name":"db1"}],` + //nolint:errcheck // test handler
+			`"warnings":[{"code":"REGION_UNREACHABLE","region":"us-east1","message":"unreachable"}]}`))
+	}))
+	defer srv.Close()
+	svc, err := sqladmin.NewService(context.Background(),
+		option.WithoutAuthentication(), option.WithEndpoint(srv.URL), option.WithHTTPClient(srv.Client()))
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	_, err = (&realSQL{svc: svc}).ListInstances(context.Background(), "p")
+	if err == nil || !strings.Contains(err.Error(), "us-east1") {
+		t.Fatalf("err = %v; want an error naming the unreachable region", err)
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -300,6 +301,23 @@ func TestRealGKE_ListClusters(t *testing.T) {
 	}
 	if len(clusters) != 2 {
 		t.Fatalf("len = %d; want 2", len(clusters))
+	}
+}
+
+// A response naming missingZones is a partial list: the clusters in those
+// zones are absent. It must fail rather than let all-quantifier policies
+// evaluate a subset (or nothing) and pass.
+func TestRealGKE_MissingZonesIsAnError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"clusters":[],"missingZones":["us-central1-a"]}`)) //nolint:errcheck // test handler
+	}))
+	defer srv.Close()
+
+	r := &realGKE{svc: newTestService(t, srv)}
+	_, err := r.ListClusters(context.Background(), "p")
+	if err == nil || !strings.Contains(err.Error(), "us-central1-a") {
+		t.Fatalf("err = %v; want an error naming the missing zone", err)
 	}
 }
 

@@ -265,6 +265,14 @@ type realSQL struct {
 func (r *realSQL) ListInstances(ctx context.Context, project string) ([]*sqladmin.DatabaseInstance, error) {
 	var out []*sqladmin.DatabaseInstance
 	err := r.svc.Instances.List(project).Pages(ctx, func(page *sqladmin.InstancesListResponse) error {
+		// A region Cloud SQL couldn't reach means its instances are missing
+		// from the page. Surfacing this as an error (rather than returning a
+		// partial set) keeps all-quantifier policies honest.
+		for _, w := range page.Warnings {
+			if w != nil && w.Code == "REGION_UNREACHABLE" {
+				return fmt.Errorf("unreachable region %q: %s", w.Region, w.Message)
+			}
+		}
 		out = append(out, page.Items...)
 		return nil
 	})
