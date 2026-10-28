@@ -121,8 +121,8 @@ func cc7OperationsPolicies() []core.Policy {
 }
 
 // cc7AlarmPolicies — CC7.2 security-event alerting. Each checks that at
-// least one enabled security_alert covers the given normalized
-// event_class. The AWS-specific classification (CloudTrail event names ->
+// least one enabled security_alert with a notification target covers the
+// given normalized event_class. The AWS-specific classification (CloudTrail event names ->
 // event_class) lives in the security_alert source plugin, so these are
 // plain pass_when clauses, not a rule: escape hatch.
 func cc7AlarmPolicies() []core.Policy {
@@ -133,7 +133,12 @@ func cc7AlarmPolicies() []core.Policy {
 			accepts:  []string{"security_alert"},
 			desc:     desc,
 			rem:      "Create a monitoring alert (metric filter + alarm with a notification target) covering this event class.",
-			clause:   anyWhere(leaf("payload.event_class", "eq", eventClass), leaf("payload.is_enabled", "eq", true), "no enabled alert covers "+eventClass),
+			// An alarm that notifies no one is not an alert. The target is
+			// optional in the schema, so it is is_set-guarded: a source that
+			// cannot say whether anyone is notified does not pass.
+			clause: anyWhere(leaf("payload.event_class", "eq", eventClass),
+				allOf(leaf("payload.is_enabled", "eq", true), isSet("payload.has_notification_target"), leaf("payload.has_notification_target", "eq", true)),
+				"no enabled alert with a notification target covers "+eventClass),
 		}.policy()
 	}
 	return []core.Policy{
