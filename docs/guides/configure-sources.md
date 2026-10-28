@@ -37,8 +37,10 @@ policies evaluate.
    # AWS: the standard SDK chain (AWS_PROFILE, AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY, or a role)
    ```
 
-   In CI, use an OIDC role instead of stored keys: see [GitHub Actions](ci-github.md) or
-   [GitLab CI](ci-gitlab.md).
+   In CI, AWS, GCP and Azure can use an OIDC role instead of stored keys: see
+   [GitHub Actions](ci-github.md) or [GitLab CI](ci-gitlab.md). GitHub, GitLab, Okta and Active
+   Directory have no OIDC route and need a stored secret: see
+   [Supply GitHub, GitLab, Okta and Active Directory credentials in CI](#supply-github-gitlab-okta-and-active-directory-credentials-in-ci).
 
 4. Run the check:
 
@@ -56,9 +58,50 @@ policies evaluate.
   the variables to set.
 - A credential that the API rejects, or that lacks a permission, fails the affected policies with
   `error` and exit code `2`.
-- If the run ends with `control(s) were SKIPPED`, no listed source emits the evidence those
+- If the run ends with `policies were SKIPPED`, no listed source emits the evidence those
   policies need. Skipped controls leave the compliance score. See
-  [Troubleshooting](troubleshooting.md#controls-are-skipped-and-the-score-went-up).
+  [Troubleshooting](troubleshooting.md#policies-are-skipped-and-the-score-went-up).
+
+## Supply GitHub, GitLab, Okta and Active Directory credentials in CI
+
+These sources read a token from an environment variable. A CI job does not set it for you: store
+the token as a secret and pass it to the step that runs `sigcomply check`. Without it, the run
+exits `3` before collection with `token required`.
+
+| Source | Variable | Token |
+|---|---|---|
+| `github` | `GITHUB_TOKEN` | A fine-grained personal access token or a GitHub App installation token with read access to the organization. The access each policy needs is in the [GitHub section of the sources reference](../reference/sources.md#github). |
+| `gitlab` | `GITLAB_TOKEN` | A personal, group or project access token with `read_api`, whose user is at least Reporter on each project. Maintainer reads code-owner approval settings; member MFA needs a group-owner token. |
+| `okta` | `OKTA_API_TOKEN` | An API token created by a read-only administrator. |
+| `active_directory` | `SIGCOMPLY_AD_BIND_PASSWORD` | The bind user's password. The runner must reach the domain controller, which hosted runners rarely can. |
+
+To give two instances of a source different tokens, set `token_env` on each instance to the name
+of its variable.
+
+GitHub Actions does not pass its built-in `GITHUB_TOKEN` to steps on its own, and that token is
+scoped to one repository: it cannot read organization members or settings. Store an organization
+token as a repository or organization secret (here `SIGCOMPLY_GH_TOKEN`) and map it in the step:
+
+```yaml
+- name: Run SigComply
+  run: sigcomply check --scheduled
+  env:
+    GITHUB_TOKEN: ${{ secrets.SIGCOMPLY_GH_TOKEN }}
+    OKTA_API_TOKEN: ${{ secrets.SIGCOMPLY_OKTA_TOKEN }}
+```
+
+To avoid a long-lived personal token, create a GitHub App with read-only organization and
+repository permissions, install it on the organization, and mint a short-lived installation
+token in the job, for example with `actions/create-github-app-token`. Pass that token as
+`GITHUB_TOKEN`.
+
+In GitLab CI, add the token as a masked CI/CD variable named `GITLAB_TOKEN` (or
+`OKTA_API_TOKEN`). GitLab exports CI/CD variables to jobs, so no `variables:` entry is needed. A
+variable marked protected reaches only jobs on protected branches and tags, which suits a check
+that runs on the default branch. The job's own `CI_JOB_TOKEN` cannot read group members or settings, so it does not work
+as `GITLAB_TOKEN`.
+
+Never put the token in `.sigcomply.yaml`: the file is committed with the repository.
 
 ## Pin a policy to one source
 

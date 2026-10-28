@@ -43,5 +43,11 @@ func ResolveToken(cfg map[string]any, sourceID, configKey, fallbackEnv string) (
 	if tok := os.Getenv(fallbackEnv); tok != "" {
 		return tok, nil
 	}
-	return "", fmt.Errorf("%s: token required (set %s in config, or token_env naming an environment variable, or %s)", sourceID, configKey, fallbackEnv)
+	// The environment comes first in the message: a secret in
+	// .sigcomply.yaml ends up in git, and in CI the variable must be
+	// passed to the step explicitly (GitHub Actions exports no
+	// GITHUB_TOKEN to steps on its own).
+	return "", fmt.Errorf("%s: token required: export %s, or set token_env to the name of the variable that holds it "+
+		"(in CI, pass it to the step from a secret or masked variable). %s in the config also works but puts the secret in the repository",
+		sourceID, fallbackEnv, configKey)
 }

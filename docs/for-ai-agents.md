@@ -109,6 +109,11 @@ config. Then:
 
 Setup details: [CI on GitHub](guides/ci-github.md), [CI on GitLab](guides/ci-gitlab.md).
 
+The scaffolded workflows pass no GitHub, GitLab, Okta or Active Directory token. If `sources:`
+lists one of those, the customer stores the token as a CI secret and the workflow step maps it to
+the variable in the table in step 3; without it, `check` exits `3`. Steps and token scopes:
+[Supply credentials in CI](guides/configure-sources.md#supply-github-gitlab-okta-and-active-directory-credentials-in-ci).
+
 ## 7. Cloud submission (only if the customer has SigComply Cloud)
 
 Add to `.sigcomply.yaml`:

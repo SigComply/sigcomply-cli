@@ -55,4 +55,9 @@ func TestResolveToken_MissingListsEveryOption(t *testing.T) {
 			t.Errorf("error should mention %q: %v", want, err)
 		}
 	}
+	// The environment variable is the recommended route and leads; a
+	// literal token in a committed file is the last resort.
+	if strings.Index(err.Error(), "OKTA_API_TOKEN") > strings.Index(err.Error(), "api_token in the config") {
+		t.Errorf("error should lead with the environment variable: %v", err)
+	}
 }
