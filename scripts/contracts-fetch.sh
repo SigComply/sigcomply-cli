@@ -127,7 +127,7 @@ fetch_openapi_yaml \
 echo "AWS:"
 fetch_smithy iam iam \
     ListUsers ListMFADevices ListAccessKeys ListAttachedUserPolicies ListUserPolicies \
-    ListGroupsForUser ListAttachedGroupPolicies GenerateCredentialReport \
+    ListGroupsForUser ListAttachedGroupPolicies GenerateCredentialReport GetLoginProfile \
     GetCredentialReport GetAccessKeyLastUsed GetAccountPasswordPolicy
 fetch_smithy s3 s3 ListBuckets GetBucketEncryption GetPublicAccessBlock GetBucketVersioning GetBucketLocation
 fetch_smithy rds rds DescribeDBInstances DescribeDBParameters DescribeDBClusters DescribeDBClusterParameters

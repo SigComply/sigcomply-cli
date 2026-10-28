@@ -66,7 +66,9 @@ this file lists the changes a user notices.
 - A policy mapped to several controls counts for each of them in coverage and the Statement of
   Applicability.
 - The all-users MFA policies cover users who can sign in interactively; programmatic-only IAM
-  users no longer fail them.
+  users no longer fail them. `aws.iam` checks console access with `iam:GetLoginProfile` when the
+  cached credential report shows no password, so add that permission if you don't use
+  `ReadOnlyAccess`.
 - Unknown `--cadence` and `--cadences` values, an `evidence_mode: automated` override on a policy
   with no automated check, a non-https Okta `org_url`, and invalid custom period IDs (over 50
   characters, unsafe characters, duplicates or overlaps) are config errors (exit 3).

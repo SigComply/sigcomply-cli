@@ -47,6 +47,30 @@ type fakeAPI struct {
 	credReport      []byte
 	credReportErr   error
 	credGenerateErr error
+
+	// loginProfiles names the users GetLoginProfile finds a console
+	// password for; any other user gets NoSuchEntity, as in AWS.
+	// loginProfileErr, when set, is returned for every user instead.
+	loginProfiles     map[string]bool
+	loginProfileErr   error
+	loginProfileCalls []string
+}
+
+// noSuchEntity is the error AWS returns from GetLoginProfile for a user
+// without a console password.
+func noSuchEntity() error {
+	return &iamtypes.NoSuchEntityException{Message: ptr("Login Profile for User cannot be found.")}
+}
+
+func (f *fakeAPI) GetLoginProfile(_ context.Context, in *awsiam.GetLoginProfileInput, _ ...func(*awsiam.Options)) (*awsiam.GetLoginProfileOutput, error) {
+	f.loginProfileCalls = append(f.loginProfileCalls, *in.UserName)
+	if f.loginProfileErr != nil {
+		return nil, f.loginProfileErr
+	}
+	if !f.loginProfiles[*in.UserName] {
+		return nil, noSuchEntity()
+	}
+	return &awsiam.GetLoginProfileOutput{LoginProfile: &iamtypes.LoginProfile{UserName: in.UserName}}, nil
 }
 
 // rootReportCSV builds a minimal credential-report CSV with a single
@@ -466,6 +490,10 @@ func (f *mfaErrAPI) GenerateCredentialReport(_ context.Context, _ *awsiam.Genera
 	return &awsiam.GenerateCredentialReportOutput{State: iamtypes.ReportStateTypeComplete}, nil
 }
 
+func (f *mfaErrAPI) GetLoginProfile(_ context.Context, _ *awsiam.GetLoginProfileInput, _ ...func(*awsiam.Options)) (*awsiam.GetLoginProfileOutput, error) {
+	return nil, noSuchEntity()
+}
+
 func (f *mfaErrAPI) GetCredentialReport(_ context.Context, _ *awsiam.GetCredentialReportInput, _ ...func(*awsiam.Options)) (*awsiam.GetCredentialReportOutput, error) {
 	return &awsiam.GetCredentialReportOutput{Content: rootReportCSV(true, false, false, true)}, nil
 }
@@ -689,4 +717,59 @@ func rootRecordFromAPI(ctx context.Context, p *Plugin, now time.Time) (core.Evid
 		return core.EvidenceRecord{}, err
 	}
 	return rootRecord(rows, now)
+}
+
+// The credential report can be up to four hours old. A user given a
+// console password after it was generated, who has not signed in yet,
+// shows no password in the report (or is missing from it); the plugin
+// must confirm with GetLoginProfile rather than report no console access,
+// or the all-users MFA policies skip that user. Users the report already
+// shows with a password cost no extra call.
+func TestCollect_ConsoleAccessConfirmedWithLoginProfile(t *testing.T) {
+	fake := &fakeAPI{
+		users: []iamtypes.User{
+			{UserName: ptr("new-password"), UserId: ptr("A1")},
+			{UserName: ptr("not-in-report"), UserId: ptr("A2")},
+			{UserName: ptr("key-only"), UserId: ptr("A3")},
+			{UserName: ptr("reported"), UserId: ptr("A4")},
+		},
+		credReport: userReportCSV(
+			"new-password,arn:aws:iam::1:user/new-password,false,false,N/A,false,N/A,false,N/A\n",
+			"key-only,arn:aws:iam::1:user/key-only,false,false,N/A,true,N/A,false,N/A\n",
+			"reported,arn:aws:iam::1:user/reported,false,true,no_information,false,N/A,false,N/A\n",
+		),
+		loginProfiles: map[string]bool{"new-password": true, "not-in-report": true},
+	}
+	recs, err := New(Options{API: fake}).Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	want := map[string]bool{"new-password": true, "not-in-report": true, "key-only": false, "reported": true}
+	for _, r := range recs {
+		var pl userPayload
+		if err := json.Unmarshal(r.Payload, &pl); err != nil {
+			t.Fatal(err)
+		}
+		if w, ok := want[pl.Username]; ok && pl.HasConsoleAccess != w {
+			t.Errorf("%s: has_console_access = %v; want %v", pl.Username, pl.HasConsoleAccess, w)
+		}
+	}
+	for _, u := range fake.loginProfileCalls {
+		if u == "reported" {
+			t.Errorf("GetLoginProfile called for %q, which the report already shows with a password", u)
+		}
+	}
+}
+
+// A GetLoginProfile failure other than NoSuchEntity leaves console access
+// unknown, so Collect fails rather than report false.
+func TestCollect_LoginProfileErrorFailsCollect(t *testing.T) {
+	fake := &fakeAPI{
+		users:           []iamtypes.User{{UserName: ptr(userPlain), UserId: ptr("A1")}},
+		loginProfileErr: errors.New("AccessDenied: not authorized to perform iam:GetLoginProfile"),
+	}
+	_, err := New(Options{API: fake}).Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+	if err == nil || !strings.Contains(err.Error(), "GetLoginProfile") {
+		t.Fatalf("Collect error = %v; want a GetLoginProfile failure", err)
+	}
 }

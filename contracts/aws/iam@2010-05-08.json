@@ -18,6 +18,9 @@
      "target": "com.amazonaws.iam#GetCredentialReport"
     },
     {
+     "target": "com.amazonaws.iam#GetLoginProfile"
+    },
+    {
      "target": "com.amazonaws.iam#ListAccessKeys"
     },
     {
@@ -870,6 +873,50 @@
     "smithy.api#output": {}
    }
   },
+  "com.amazonaws.iam#GetLoginProfile": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.iam#GetLoginProfileRequest"
+   },
+   "output": {
+    "target": "com.amazonaws.iam#GetLoginProfileResponse"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.iam#NoSuchEntityException"
+    },
+    {
+     "target": "com.amazonaws.iam#ServiceFailureException"
+    }
+   ],
+   "traits": {}
+  },
+  "com.amazonaws.iam#GetLoginProfileRequest": {
+   "type": "structure",
+   "members": {
+    "UserName": {
+     "target": "com.amazonaws.iam#userNameType",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.iam#GetLoginProfileResponse": {
+   "type": "structure",
+   "members": {
+    "LoginProfile": {
+     "target": "com.amazonaws.iam#LoginProfile",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
   "com.amazonaws.iam#Group": {
    "type": "structure",
    "members": {
@@ -1435,6 +1482,30 @@
    "traits": {
     "smithy.api#output": {}
    }
+  },
+  "com.amazonaws.iam#LoginProfile": {
+   "type": "structure",
+   "members": {
+    "UserName": {
+     "target": "com.amazonaws.iam#userNameType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "CreateDate": {
+     "target": "com.amazonaws.iam#dateType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "PasswordResetRequired": {
+     "target": "com.amazonaws.iam#booleanType",
+     "traits": {
+      "smithy.api#default": false
+     }
+    }
+   },
+   "traits": {}
   },
   "com.amazonaws.iam#MFADevice": {
    "type": "structure",

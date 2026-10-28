@@ -188,6 +188,10 @@ func (s *stubIAMAPI) GenerateCredentialReport(_ context.Context, _ *awsiam.Gener
 	return &awsiam.GenerateCredentialReportOutput{State: iamtypes.ReportStateTypeComplete}, nil
 }
 
+func (s *stubIAMAPI) GetLoginProfile(_ context.Context, _ *awsiam.GetLoginProfileInput, _ ...func(*awsiam.Options)) (*awsiam.GetLoginProfileOutput, error) {
+	return nil, &iamtypes.NoSuchEntityException{}
+}
+
 func (s *stubIAMAPI) GetCredentialReport(_ context.Context, _ *awsiam.GetCredentialReportInput, _ ...func(*awsiam.Options)) (*awsiam.GetCredentialReportOutput, error) {
 	// Root: MFA on, no access keys, console enabled — a compliant root so
 	// the orchestrator E2E doesn't trip the root policies.

@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -60,6 +61,12 @@ type API interface {
 	// iam:GetCredentialReport.
 	GenerateCredentialReport(ctx context.Context, params *awsiam.GenerateCredentialReportInput, optFns ...func(*awsiam.Options)) (*awsiam.GenerateCredentialReportOutput, error)
 	GetCredentialReport(ctx context.Context, params *awsiam.GetCredentialReportInput, optFns ...func(*awsiam.Options)) (*awsiam.GetCredentialReportOutput, error)
+	// GetLoginProfile confirms a console password the credential report
+	// does not show: AWS reuses a report for up to four hours, so a
+	// password set since then is missing from it. Called only for users
+	// the report does not show with a password.
+	// Required IAM permission: iam:GetLoginProfile.
+	GetLoginProfile(ctx context.Context, params *awsiam.GetLoginProfileInput, optFns ...func(*awsiam.Options)) (*awsiam.GetLoginProfileOutput, error)
 }
 
 // adminPolicyName is the AWS-managed policy that grants full
@@ -204,19 +211,19 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 			return nil, fmt.Errorf("aws.iam: privilege check for user %s: %w", safeUserName(u), err)
 		}
 		row, inReport := rows[safeUserName(u)]
+		console, err := p.userHasConsoleAccess(ctx, u, inReport && row.passwordEnabled)
+		if err != nil {
+			return nil, fmt.Errorf("aws.iam: console access for user %s: %w", safeUserName(u), err)
+		}
 		payload := userPayload{
-			ID:          safeUserID(u),
-			Username:    safeUserName(u),
-			DisplayName: safeUserName(u),
-			MFAEnabled:  mfa,
-			IsAdmin:     isAdmin,
-			IsActive:    true,  // IAM list calls only return active users
-			IsRoot:      false, // ListUsers never returns root; the synthetic root record is added separately
-			// The report's password_enabled says whether the user has a
-			// console password. A user created after the report was
-			// generated (AWS reuses a report for up to four hours) is not
-			// in it; PasswordLastUsed then proves a password that was used.
-			HasConsoleAccess:      (inReport && row.passwordEnabled) || u.PasswordLastUsed != nil,
+			ID:                    safeUserID(u),
+			Username:              safeUserName(u),
+			DisplayName:           safeUserName(u),
+			MFAEnabled:            mfa,
+			IsAdmin:               isAdmin,
+			IsActive:              true,  // IAM list calls only return active users
+			IsRoot:                false, // ListUsers never returns root; the synthetic root record is added separately
+			HasConsoleAccess:      console,
 			HasProgrammaticAccess: hasKeys,
 			DirectPolicyCount:     directCount,
 			UnusedDays:            unusedDays(u, row, now),
@@ -250,6 +257,28 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	records = append(records, rootRec)
 	sort.Slice(records, func(i, j int) bool { return records[i].ID < records[j].ID })
 	return records, nil
+}
+
+// userHasConsoleAccess reports whether u has a console password. The
+// credential report's password_enabled column is the cheap answer, but
+// AWS reuses a report for up to four hours: a user created, or given a
+// password, since then shows none. PasswordLastUsed proves a password
+// that was used; otherwise GetLoginProfile settles it (NoSuchEntity means
+// no password). Any other GetLoginProfile error fails the source, since
+// reporting false would drop the user from the all-users MFA policies.
+func (p *Plugin) userHasConsoleAccess(ctx context.Context, u *iamtypes.User, reportPassword bool) (bool, error) {
+	if reportPassword || u.PasswordLastUsed != nil {
+		return true, nil
+	}
+	_, err := p.api.GetLoginProfile(ctx, &awsiam.GetLoginProfileInput{UserName: u.UserName})
+	if err == nil {
+		return true, nil
+	}
+	var notFound *iamtypes.NoSuchEntityException
+	if errors.As(err, &notFound) {
+		return false, nil
+	}
+	return false, fmt.Errorf("GetLoginProfile: %w", err)
 }
 
 // rootAccountUser is the user-column value of the credential report's
