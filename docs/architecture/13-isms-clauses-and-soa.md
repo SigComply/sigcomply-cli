@@ -158,8 +158,8 @@ Marking one `applicable` is a no-op and allowed; so is recording an
 what applicability is for and is untouched.
 
 Without this check nothing would have *failed* — which is the problem.
-Control-level applicability **cascades**: every policy mapping to a
-`not_applicable` control is set to `na` in the run
+Control-level applicability **cascades**: every policy whose controls are
+all `not_applicable` is set to `na` in the run
 ([08-project-config.md](08-project-config.md#the-controls-section)). So
 `controls: {C.9.2: {applicability: not_applicable}}` would quietly turn
 the internal-audit requirement into a non-result, remove it from the

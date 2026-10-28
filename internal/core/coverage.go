@@ -59,10 +59,9 @@ type CoverageSummary struct {
 // One automated policy outranks any number of manual ones: the control
 // is genuinely inspected, whatever else also hangs off it.
 //
-// Policies are attributed by PrimaryControlID, matching how every other
-// single-control display surface in the tree resolves a multi-framework
-// mapping. A policy naming a control the framework does not declare is
-// ignored rather than inventing a row.
+// A policy backs every control it maps to: one check filed under two
+// criteria is a check for each. A policy naming a control the framework
+// does not declare is ignored rather than inventing a row.
 //
 // The input is the framework catalog, so this describes what the
 // framework declares — not what any particular run did. A run's own
@@ -77,18 +76,20 @@ func ClassifyControls(controls []Control, policies []Policy) []ControlCoverage {
 	}
 
 	for i := range policies {
-		c, ok := byID[PrimaryControlID(policies[i].Controls)]
-		if !ok {
-			continue
-		}
-		if policies[i].EvidenceMode == EvidenceModeAutomated {
-			c.AutomatedPolicies++
-			c.Assurance = AssuranceAutomated
-			continue
-		}
-		c.ManualPolicies++
-		if c.Assurance == AssuranceNone {
-			c.Assurance = AssuranceManual
+		for _, id := range PolicyControlIDs(policies[i].Controls) {
+			c, ok := byID[id]
+			if !ok {
+				continue
+			}
+			if policies[i].EvidenceMode == EvidenceModeAutomated {
+				c.AutomatedPolicies++
+				c.Assurance = AssuranceAutomated
+				continue
+			}
+			c.ManualPolicies++
+			if c.Assurance == AssuranceNone {
+				c.Assurance = AssuranceManual
+			}
 		}
 	}
 

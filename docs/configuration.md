@@ -228,7 +228,7 @@ reads these keys.
 
 | Key | Type | Default | Effect |
 |---|---|---|---|
-| `applicability` | string | applicable | `applicable` or `not_applicable`. `not_applicable` sets every policy mapped to the control to `na`. |
+| `applicability` | string | applicable | `applicable` or `not_applicable`. `not_applicable` sets every policy mapped only to excluded controls to `na`. |
 | `reason` | string | none | Required with `not_applicable`: why the control is excluded. |
 | `justification` | string | none | Why an applicable control is included. Not allowed with `not_applicable`. |
 | `approved_by` | string | none | Who approved the decision. |

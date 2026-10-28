@@ -30,29 +30,34 @@ func resolveExceptions(exceptions []spec.PolicyException, now time.Time) []*Exce
 	return live
 }
 
-// resolveControlException returns a whole-policy N/A exception when any
-// control the policy maps to is marked not_applicable in the project
-// config. This is the control-level cascade: one Statement-of-
-// Applicability exclusion at the control level applies to every policy
-// under it. Control applicability takes precedence over policy-level
-// waivers (the caller resolves this first). Returns nil when no mapped
-// control is excluded.
+// resolveControlException returns a whole-policy N/A exception when
+// every control the policy maps to is marked not_applicable in the
+// project config. This is the control-level cascade: one Statement-of-
+// Applicability exclusion applies to every policy that serves only
+// excluded controls. A policy filed under two controls still runs while
+// one of them is in scope, since that control relies on it. Control
+// applicability takes precedence over policy-level waivers (the caller
+// resolves this first). The reason and approver come from the first
+// mapped control. Returns nil when any mapped control is in scope.
 func resolveControlException(policy *core.Policy, controls map[string]spec.ControlConfig) *Exception {
-	if len(controls) == 0 {
+	if len(controls) == 0 || len(policy.Controls) == 0 {
 		return nil
 	}
+	var first *spec.ControlConfig
 	for i := range policy.Controls {
 		cc, ok := controls[policy.Controls[i].ControlID]
 		if !ok || cc.Applicability != "not_applicable" {
-			continue
+			return nil
 		}
-		return &Exception{
-			State:      core.StatusNA,
-			Reason:     cc.Reason,
-			ApprovedBy: cc.ApprovedBy,
+		if first == nil {
+			first = &cc
 		}
 	}
-	return nil
+	return &Exception{
+		State:      core.StatusNA,
+		Reason:     first.Reason,
+		ApprovedBy: first.ApprovedBy,
+	}
 }
 
 // exceptionExpired reports whether an ISO 8601 expiry date is in the

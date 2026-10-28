@@ -114,8 +114,9 @@ controls:
     approved_by: ciso@example.com
 ```
 
-- `not_applicable` cascades: every policy mapped to the control becomes `na` with the control's
-  reason. The planner resolves this before policy exceptions, so it takes precedence.
+- `not_applicable` cascades: a policy becomes `na` with the control's reason when every control it
+  maps to is `not_applicable`. A policy mapped to two controls keeps running while one of them is
+  in scope. The planner resolves this before policy exceptions, so it takes precedence.
 - `reason` says why a control is excluded; `justification` says why an included one is needed
   (ISO/IEC 27001:2022 6.1.3 d)). Setting both is a config error. `sigcomply report --view soa`
   prints `justification`, or derives one marked `(derived)`.

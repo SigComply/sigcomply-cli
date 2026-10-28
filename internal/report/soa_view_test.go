@@ -491,3 +491,29 @@ func TestFormatCSVSoA_AppendsRisksLast(t *testing.T) {
 		t.Errorf("no CSV row for %s", ctrlA51)
 	}
 }
+
+// A policy filed under two Annex A controls is listed, and its result
+// counted, under both rows.
+func TestBuildSoA_MultiControlPolicyBacksBothRows(t *testing.T) {
+	const id = "iso27001.8.3.storage_no_public_access"
+	v, _ := makeVault(t, []runSeed{{
+		framework: frameworkISO27001, periodID: testPeriodQ2, runID: testRunID,
+		timestamp:   time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
+		completedAt: time.Date(2026, 4, 1, 0, 5, 0, 0, time.UTC),
+		policies:    []core.PolicyResult{{PolicyID: id, Status: core.StatusPass, EvidenceMode: core.EvidenceModeAutomated}},
+	}})
+	snap, err := report.Build(context.Background(), &report.Input{
+		Vault: v, Framework: frameworkISO27001, PeriodID: testPeriodQ2, View: report.ViewSoA,
+		Controls: []core.Control{{ID: "A.8.12", Name: "Data leakage prevention"}, {ID: "A.8.3", Name: "Information access restriction"}},
+		Policies: []core.Policy{{ID: id, EvidenceMode: core.EvidenceModeAutomated,
+			Controls: []core.ControlRef{{ControlID: "A.8.3"}, {ControlID: "A.8.12"}}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range snap.SoA.Rows {
+		if r.Status != statusImplemented || r.Assurance != string(core.AssuranceAutomated) || !reflect.DeepEqual(r.Policies, []string{id}) {
+			t.Errorf("%s = status %q, assurance %q, policies %v; want implemented, automated, [%s]", r.ControlID, r.Status, r.Assurance, r.Policies, id)
+		}
+	}
+}

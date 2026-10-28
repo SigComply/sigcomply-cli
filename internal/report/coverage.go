@@ -195,8 +195,9 @@ func effectiveModes(policies []core.Policy, results map[string]core.PolicyResult
 func groupPoliciesByControl(policies []core.Policy) map[string][]core.Policy {
 	out := map[string][]core.Policy{}
 	for i := range policies {
-		id := core.PrimaryControlID(policies[i].Controls)
-		out[id] = append(out[id], policies[i])
+		for _, id := range core.PolicyControlIDs(policies[i].Controls) {
+			out[id] = append(out[id], policies[i])
+		}
 	}
 	return out
 }

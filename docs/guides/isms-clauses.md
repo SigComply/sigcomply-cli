@@ -103,7 +103,7 @@ controls:
 
 - `justification` is optional and only valid on an included control.
 - `applicability: not_applicable` needs a `reason`, and applies `na` to every policy under the
-  control.
+  control, except a policy that also backs a control still in scope.
 - `approved_by` is recommended for both and appears in the SoA.
 - A control you don't list is applicable, with a justification the CLI derives from its checks.
 

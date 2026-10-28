@@ -249,3 +249,28 @@ func TestAutoBind_SecondInstanceAffectsCardinality(t *testing.T) {
 		}
 	})
 }
+
+// A policy filed under two controls still backs the one in scope when the
+// other is declared not applicable: excluding Confidentiality (C1.1) must
+// not stop the public-bucket check that CC6.7 also relies on. Only when
+// every mapped control is excluded does the policy become na.
+func TestResolveControlException_MultiControlNeedsEveryControlExcluded(t *testing.T) {
+	const cc67, c11 = "CC6.7", "C1.1"
+	policy := &core.Policy{
+		ID:       "soc2.cc6.7.storage_public_access_blocked",
+		Controls: []core.ControlRef{{ControlID: cc67}, {ControlID: c11}},
+	}
+	oneOut := map[string]spec.ControlConfig{
+		c11: {Applicability: applicabilityNotApplicable, Reason: "no confidentiality commitments"},
+	}
+	if e := resolveControlException(policy, oneOut); e != nil {
+		t.Errorf("one of two controls excluded: got %+v; want nil (CC6.7 still needs the check)", e)
+	}
+	bothOut := map[string]spec.ControlConfig{
+		c11:  {Applicability: applicabilityNotApplicable, Reason: "no confidentiality commitments"},
+		cc67: {Applicability: applicabilityNotApplicable, Reason: "no data at rest"},
+	}
+	if e := resolveControlException(policy, bothOut); e == nil || e.State != core.StatusNA {
+		t.Errorf("every control excluded: got %+v; want na", e)
+	}
+}

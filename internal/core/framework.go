@@ -115,3 +115,20 @@ func PrimaryControlID(refs []ControlRef) string {
 	}
 	return refs[0].ControlID
 }
+
+// PolicyControlIDs returns the distinct control IDs of refs, in order.
+// Used by the surfaces that attribute a policy to every control it backs
+// (coverage, the Statement of Applicability).
+func PolicyControlIDs(refs []ControlRef) []string {
+	out := make([]string, 0, len(refs))
+	seen := make(map[string]struct{}, len(refs))
+	for i := range refs {
+		id := refs[i].ControlID
+		if _, dup := seen[id]; dup || id == "" {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
+}

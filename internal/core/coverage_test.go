@@ -91,3 +91,20 @@ func TestCoverageTotals(t *testing.T) {
 		t.Errorf("CoverageTotals = %+v; want {Controls:4 Automated:1 Manual:2 Uncovered:1}", tot)
 	}
 }
+
+// A policy mapped to two controls of the framework backs both: one
+// public-bucket check filed under CC6.7 and C1.1 is a check for each,
+// not a check for CC6.7 and nothing for C1.1. A ref repeated within one
+// policy counts once.
+func TestClassifyControls_MultiControlPolicyBacksEveryControl(t *testing.T) {
+	const cc67, c11 = "CC6.7", "C1.1"
+	p := core.Policy{ID: "a1", EvidenceMode: core.EvidenceModeAutomated, Controls: []core.ControlRef{
+		{ControlID: cc67}, {ControlID: c11}, {ControlID: c11},
+	}}
+	got := core.ClassifyControls([]core.Control{{ID: c11}, {ID: cc67}}, []core.Policy{p})
+	for _, c := range got {
+		if c.Assurance != core.AssuranceAutomated || c.AutomatedPolicies != 1 {
+			t.Errorf("%s = %+v; want automated with exactly one policy", c.ControlID, c)
+		}
+	}
+}
