@@ -175,6 +175,9 @@ func NewFromConfig(_ context.Context, orgURL, apiToken string) (*Plugin, error) 
 	if apiToken == "" {
 		return nil, fmt.Errorf("okta: api token is required")
 	}
+	if err := validateOrgURL(orgURL); err != nil {
+		return nil, err
+	}
 	base := strings.TrimRight(orgURL, "/")
 	return New(Options{
 		API: &httpAPI{
@@ -184,6 +187,22 @@ func NewFromConfig(_ context.Context, orgURL, apiToken string) (*Plugin, error) 
 		},
 		Org: orgURL,
 	}), nil
+}
+
+// validateOrgURL rejects an org_url that is not https://<host>. Without a
+// scheme every request fails mid-collection rather than at config load,
+// and over http:// the SSWS token would cross the network in clear text.
+// A path, query or user info would be glued onto every API path.
+func validateOrgURL(orgURL string) error {
+	u, err := url.Parse(orgURL)
+	if err != nil {
+		return fmt.Errorf("okta: \"org_url\" %q: %w", orgURL, err)
+	}
+	if u.Scheme != "https" || u.Host == "" || u.User != nil ||
+		strings.Trim(u.Path, "/") != "" || u.RawQuery != "" || u.Fragment != "" {
+		return fmt.Errorf("okta: \"org_url\" %q must be https://<your-org>.okta.com with no path", orgURL)
+	}
+	return nil
 }
 
 // ID returns the registered plugin ID.

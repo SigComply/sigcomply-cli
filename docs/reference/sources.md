@@ -370,7 +370,7 @@ Source ID: `okta`. Emits `directory_user`, `roster_entry`, `password_policy.v2`,
 
 | Key | Required | Default | Effect |
 |---|---|---|---|
-| `org_url` | yes | none | Tenant URL, for example `https://acme.okta.com`. |
+| `org_url` | yes | none | Tenant URL, for example `https://acme.okta.com`. It must use `https` and have no path; any other value stops the run with exit `3`. |
 | `api_token` | no | none | API token, sent with the `SSWS` scheme. Prefer `token_env` or `OKTA_API_TOKEN`. |
 | `token_env` | no | none | Name of an environment variable holding the token. An empty or unset variable is an error. |
 

@@ -277,6 +277,24 @@ func TestCollect_KISSNoDRY_EachCallReFetches(t *testing.T) {
 	}
 }
 
+// org_url must be an https URL naming only a host: without a scheme every
+// request fails at collection (exit 2) instead of at config load, and an
+// http:// URL would send the SSWS token in clear text.
+func TestNewFromConfig_RejectsBadOrgURL(t *testing.T) {
+	for _, bad := range []string{
+		"acme.okta.com",
+		"http://acme.okta.com",
+		"https://",
+		"https://acme.okta.com/some/path",
+		"https://acme.okta.com?x=1",
+		"https://user@acme.okta.com",
+	} {
+		if _, err := NewFromConfig(context.Background(), bad, testToken); err == nil {
+			t.Errorf("NewFromConfig(%q) = nil error; want rejection", bad)
+		}
+	}
+}
+
 func TestNewFromConfig_ValidatesArgs(t *testing.T) {
 	if _, err := NewFromConfig(context.Background(), "", testToken); err == nil {
 		t.Error("want error for empty orgURL")
