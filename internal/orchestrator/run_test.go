@@ -481,7 +481,8 @@ func TestEmitPlanWarnings_NoFirstRunLineWithoutState(t *testing.T) {
 // must name the second case, which is the one an operator can fix.
 func TestEmitPlanWarnings_NoStateAtAllNamesTheVault(t *testing.T) {
 	var buf bytes.Buffer
-	emitPlanWarnings(log.New(&buf, false), firstRunPlan(), time.Now().UTC(), map[string]*core.PolicyState{})
+	// BulkReadPolicyStates keys every policy, with nil for a missing shard.
+	emitPlanWarnings(log.New(&buf, false), firstRunPlan(), time.Now().UTC(), map[string]*core.PolicyState{"p1": nil})
 	out := buf.String()
 	if !strings.Contains(out, "first-run") || !strings.Contains(out, "vault") {
 		t.Errorf("want a first-run line naming the vault:\n%s", out)

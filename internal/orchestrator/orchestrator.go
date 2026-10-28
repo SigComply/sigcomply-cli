@@ -478,7 +478,7 @@ func emitPlanWarnings(logger *log.Logger, plan *planner.RunPlan, now time.Time, 
 func emitFirstRun(logger *log.Logger, firstRun []string, states map[string]*core.PolicyState) {
 	switch {
 	case states == nil || len(firstRun) == 0:
-	case len(states) == 0:
+	case !anyPersistedState(states):
 		// Nothing persisted at all: the project's first scheduled run, or
 		// a vault that does not outlive the job, in which case every run
 		// re-evaluates everything and nothing ever carries forward.
@@ -489,6 +489,18 @@ func emitFirstRun(logger *log.Logger, firstRun []string, states map[string]*core
 		logger.Infof("first-run: %d policies will evaluate for the first time this run", len(firstRun))
 		logger.Debugf("first-run policies: %s", strings.Join(firstRun, ", "))
 	}
+}
+
+// anyPersistedState reports whether the vault held a state shard for any
+// policy. BulkReadPolicyStates keys every policy ID, with nil for a
+// missing shard, so the map's length says nothing.
+func anyPersistedState(states map[string]*core.PolicyState) bool {
+	for _, ps := range states {
+		if !ps.IsFirstRun() {
+			return true
+		}
+	}
+	return false
 }
 
 // advancePolicyStates writes one state shard per policy that actually
