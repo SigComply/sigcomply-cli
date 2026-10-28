@@ -1615,10 +1615,13 @@
       ]
     },
     "sparse": {
-      "status": "skip",
+      "status": "fail",
       "resources_evaluated": 0,
-      "resources_failed": 0,
-      "reason": "required slot has no records"
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ],
+      "reason": "no audit_log_trail records: audit logging not enabled or not found"
     }
   },
   "iso27001.8.15.log_retention_min_365d": {
@@ -1703,10 +1706,13 @@
       ]
     },
     "sparse": {
-      "status": "skip",
+      "status": "fail",
       "resources_evaluated": 0,
-      "resources_failed": 0,
-      "reason": "required slot has no records"
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ],
+      "reason": "no threat_detection_service records: threat detection not enabled or not found"
     }
   },
   "iso27001.8.17.clock_synchronization": {
@@ -2770,10 +2776,13 @@
       ]
     },
     "sparse": {
-      "status": "skip",
+      "status": "fail",
       "resources_evaluated": 0,
-      "resources_failed": 0,
-      "reason": "required slot has no records"
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ],
+      "reason": "no threat_detection_service records: threat detection not enabled or not found"
     }
   },
   "iso27001.8.8.container_scan_on_push": {
@@ -2854,10 +2863,13 @@
       ]
     },
     "sparse": {
-      "status": "skip",
+      "status": "fail",
       "resources_evaluated": 0,
-      "resources_failed": 0,
-      "reason": "required slot has no records"
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ],
+      "reason": "no config_change_tracking records: configuration recording not enabled or not found"
     }
   },
   "iso27001.clause.10.2.corrective_action": {

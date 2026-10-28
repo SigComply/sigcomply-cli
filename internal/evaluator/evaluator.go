@@ -9,6 +9,8 @@ package evaluator
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
@@ -129,6 +131,12 @@ func evaluateOne(ctx context.Context, pp *planner.PlannedPolicy, in *Input) core
 			result.Diag = map[string]any{diagReason: "no source bound to any slot"}
 			return result
 		}
+		// A presence slot whose bound source returned nothing answers its
+		// question ("does the service exist?") with no: fail, not skip.
+		if res, ok := emptyPresenceSlot(pp, slots); ok {
+			ruleOut = res
+			break
+		}
 		if pp.Spec.PassWhen != nil {
 			// Path B: pass_when: declarative DSL.
 			if !requiredSlotsPopulated(pp, slots) {
@@ -186,6 +194,36 @@ func anySlotBound(pp *planner.PlannedPolicy, slots map[string][]core.EvidenceRec
 		}
 	}
 	return false
+}
+
+// emptyPresenceSlot returns a fail result when a FailWhenEmpty slot has
+// a bound source but no records. A slot with no binding is left to the
+// skip checks: nothing was asked, so nothing was answered. The failure is
+// one policy-level violation (no resource ID), which countResources
+// counts as one failed resource.
+func emptyPresenceSlot(pp *planner.PlannedPolicy, slots map[string][]core.EvidenceRecord) (core.RuleResult, bool) {
+	names := make([]string, 0, len(pp.Spec.Slots))
+	for name := range pp.Spec.Slots {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		slot := pp.Spec.Slots[name]
+		if !slot.FailWhenEmpty || len(pp.Bindings[name]) == 0 || len(slots[name]) > 0 {
+			continue
+		}
+		service := slot.Description
+		if service == "" {
+			service = "the service"
+		}
+		reason := fmt.Sprintf("no %s records: %s not enabled or not found", strings.Join(slot.Accepts, " or "), service)
+		return core.RuleResult{
+			Status:     core.StatusFail,
+			Violations: []core.Violation{{Reason: reason}},
+			Diag:       map[string]any{diagReason: reason},
+		}, true
+	}
+	return core.RuleResult{}, false
 }
 
 func requiredSlotsPopulated(pp *planner.PlannedPolicy, slots map[string][]core.EvidenceRecord) bool {

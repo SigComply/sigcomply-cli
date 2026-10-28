@@ -29,10 +29,11 @@ func availabilityPolicies() []core.Policy {
 		}.policy(),
 		autoPolicy{
 			id: "soc2.a1.1.backup_plan_exists", control: ctrlA11, severity: core.SeverityMedium, category: catAvailability, cadence: cadenceDaily,
-			accepts: []string{"backup_plan"},
-			desc:    "At least one active backup plan with a retention rule exists.",
-			rem:     "Create an active backup plan with a retention rule.",
-			clause:  anyRec(allOf(leaf("payload.is_active", "eq", true), leaf("payload.has_retention_rule", "eq", true)), "no active backup plan with a retention rule exists"),
+			presence: "backup plans",
+			accepts:  []string{"backup_plan"},
+			desc:     "At least one active backup plan with a retention rule exists.",
+			rem:      "Create an active backup plan with a retention rule.",
+			clause:   anyRec(allOf(leaf("payload.is_active", "eq", true), leaf("payload.has_retention_rule", "eq", true)), "no active backup plan with a retention rule exists"),
 		}.policy(),
 		autoPolicy{
 			id: "soc2.a1.2.dynamodb_pitr_enabled", control: ctrlA12, severity: core.SeverityMedium, category: catAvailability, cadence: cadenceDaily,

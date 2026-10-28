@@ -80,6 +80,14 @@ type Slot struct {
 	// common case) means an ordinary slot bound by type intersection.
 	// See SlotRole.
 	Role SlotRole
+	// FailWhenEmpty marks a presence slot: the policy asks whether a
+	// service or control exists at all (an audit trail, a threat
+	// detector, a backup plan), so a bound source that returns no
+	// records is the answer "it does not exist" and the policy fails.
+	// Without it an empty required slot skips, which is right for a
+	// for-all question ("every bucket is encrypted") over an estate with
+	// nothing in it. A slot with no bound source still skips either way.
+	FailWhenEmpty bool
 }
 
 // SlotRole is the part a slot plays in roster matching.

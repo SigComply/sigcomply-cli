@@ -118,8 +118,13 @@ immutable blob storage. A local vault has none of this. The full threat model is
 The compliance score is (passed + waived + carried forward) / (total - skipped - not
 applicable). Two things can make it look better than the estate is.
 
-Skipped policies leave the denominator. A policy skips when no configured source emits the
-evidence it needs. So forgetting to configure a source raises the score instead of lowering it.
+Skipped policies leave the denominator. A policy skips in two cases: no configured source emits
+the evidence it needs, or a configured source returned no records for a policy about every
+resource of a kind ("every bucket is encrypted" says nothing about an account with no buckets).
+So forgetting to configure a source raises the score instead of lowering it. A policy that asks
+whether a service exists at all (audit logging, threat detection, configuration recording, a
+backup plan, security alerting, a SIEM, a password policy) does not skip on an empty source: it
+fails with `no <type> records: <service> not enabled or not found`.
 `check` lists every skipped policy and the evidence it needs, and `sigcomply report --view scope`
 shows what a run did not evaluate. To make a missing source fail the run, declare the sources
 you expect under `experimental.scope`; see [Configuration](configuration.md).

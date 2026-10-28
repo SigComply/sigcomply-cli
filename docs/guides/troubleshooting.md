@@ -123,6 +123,17 @@ A record lacks a field the policy reads. The CLI reports `error` (exit `2`) inst
 If you wrote the policy, guard optional fields with `is_set`. For a built-in policy, report it
 with the error text.
 
+### A policy fails with `no <type> records`
+
+```text
+[fail] soc2.cc7.1.audit_logging_enabled — CC7.1
+    ↳ no audit_log_trail records: audit logging not enabled or not found
+```
+
+The policy asks whether a service exists, and the source you configured found none in the
+account, project or tenant it read. Turn the service on (here, a multi-region CloudTrail trail),
+or check that the source reads the right account and region.
+
 ### Policies are skipped and the score went up
 
 The run ends with:
@@ -133,7 +144,8 @@ The run ends with:
     [password_policy.v2 password_policy] (slot "evidence")
 ```
 
-No listed source emits the evidence type those policies need. A skipped policy leaves the score's
+No listed source emits the evidence type those policies need, or a listed source returned no
+records for a policy about every resource of a kind. A skipped policy leaves the score's
 denominator, so the score rises while those controls go unchecked. The run still exits `0`.
 
 Fix it one of two ways:

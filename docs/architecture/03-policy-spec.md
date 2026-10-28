@@ -92,11 +92,23 @@ type, add a version or coin a new type: [04a](04a-evidence-type-registry.md).
 | `optional` | 0 or more |
 
 A `required: true` slot with no records makes the policy `skip` ("required slot has no
-records"). A `required: false` slot with no records reaches the DSL as an empty set (see
+records"), unless the slot sets `FailWhenEmpty` (below). A `required: false` slot with no records reaches the DSL as an empty set (see
 §Empty-set semantics) or the rule as an empty array. When no slot has a bound source at all, the
 policy skips ("no source bound to any slot") even if every slot is optional: it examined nothing,
 so it cannot pass. One bound slot, even one whose source returned no records, is enough to
 evaluate.
+
+### Presence slots (`FailWhenEmpty`)
+
+`core.Slot.FailWhenEmpty` marks a slot whose policy asks whether a service exists at all: an
+audit trail, a threat detector, a configuration recorder, a backup plan, a security alert, a SIEM
+or scanner, a password policy. When the slot has a bound source and that source returned no
+records, the evaluator fails the policy before the DSL or rule runs. The failure is one
+policy-level violation with the reason `no <accepts> records: <slot description> not enabled or
+not found`, so `resources_failed` is 1 and `resources_evaluated` is 0. A slot with no bound
+source still skips. Shipped policies set it through the `presence` field of `autoPolicy` in each
+framework's `builders.go`; for-all policies leave it unset and keep skipping on zero records. It
+is part of the policy content hash. Project-local YAML policies cannot set it.
 
 ### Multiple bound sources
 

@@ -19,10 +19,11 @@ func cc7LoggingPolicies() []core.Policy {
 	return []core.Policy{
 		autoPolicy{
 			id: "soc2.cc7.1.audit_logging_enabled", control: ctrlCC71, severity: core.SeverityHigh, category: catLogging, cadence: cadenceDaily,
-			accepts: []string{etAuditLogTrail},
-			desc:    "Audit logging is enabled and covers all regions.",
-			rem:     "Enable a multi-region audit log trail.",
-			clause:  all(allOf(leaf("payload.is_enabled", "eq", true), leaf("payload.is_multi_region", "eq", true)), "audit trail {{.payload.name}} is not enabled across all regions"),
+			presence: "audit logging",
+			accepts:  []string{etAuditLogTrail},
+			desc:     "Audit logging is enabled and covers all regions.",
+			rem:      "Enable a multi-region audit log trail.",
+			clause:   all(allOf(leaf("payload.is_enabled", "eq", true), leaf("payload.is_multi_region", "eq", true)), "audit trail {{.payload.name}} is not enabled across all regions"),
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc7.1.audit_log_integrity_enabled", control: ctrlCC71, severity: core.SeverityMedium, category: catLogging, cadence: cadenceDaily,
@@ -51,10 +52,11 @@ func cc7LoggingPolicies() []core.Policy {
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc7.1.config_recording_enabled", control: ctrlCC71, severity: core.SeverityHigh, category: catMonitoring, cadence: cadenceDaily,
-			accepts: []string{"config_change_tracking"},
-			desc:    "Configuration change recording is enabled.",
-			rem:     "Enable a configuration recorder (AWS Config or equivalent).",
-			clause:  all(leaf("payload.is_recording", "eq", true), "configuration recorder {{.payload.name}} is not recording"),
+			presence: "configuration recording",
+			accepts:  []string{"config_change_tracking"},
+			desc:     "Configuration change recording is enabled.",
+			rem:      "Enable a configuration recorder (AWS Config or equivalent).",
+			clause:   all(leaf("payload.is_recording", "eq", true), "configuration recorder {{.payload.name}} is not recording"),
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc7.1.config_all_resource_types", control: ctrlCC71, severity: core.SeverityMedium, category: catMonitoring, cadence: cadenceDaily,
@@ -65,17 +67,19 @@ func cc7LoggingPolicies() []core.Policy {
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc7.1.securityhub_enabled", control: ctrlCC71, severity: core.SeverityMedium, category: catMonitoring, cadence: cadenceDaily,
-			accepts: []string{etSecurityService},
-			desc:    "A SIEM / security aggregation service is enabled.",
-			rem:     "Enable SecurityHub (or an equivalent SIEM) on the account.",
-			clause:  anyWhere(leaf("payload.service_type", "eq", "siem"), leaf("payload.is_enabled", "eq", true), "no SIEM service is enabled"),
+			presence: "a SIEM service",
+			accepts:  []string{etSecurityService},
+			desc:     "A SIEM / security aggregation service is enabled.",
+			rem:      "Enable SecurityHub (or an equivalent SIEM) on the account.",
+			clause:   anyWhere(leaf("payload.service_type", "eq", "siem"), leaf("payload.is_enabled", "eq", true), "no SIEM service is enabled"),
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc7.1.inspector_enabled", control: ctrlCC71, severity: core.SeverityMedium, category: catMonitoring, cadence: cadenceDaily,
-			accepts: []string{etSecurityService},
-			desc:    "A vulnerability scanning service is enabled.",
-			rem:     "Enable Inspector (or an equivalent scanner) on the account.",
-			clause:  anyWhere(leaf("payload.service_type", "eq", "vulnerability_scanner"), leaf("payload.is_enabled", "eq", true), "no vulnerability scanner is enabled"),
+			presence: "a vulnerability scanning service",
+			accepts:  []string{etSecurityService},
+			desc:     "A vulnerability scanning service is enabled.",
+			rem:      "Enable Inspector (or an equivalent scanner) on the account.",
+			clause:   anyWhere(leaf("payload.service_type", "eq", "vulnerability_scanner"), leaf("payload.is_enabled", "eq", true), "no vulnerability scanner is enabled"),
 		}.policy(),
 	}
 }
@@ -85,10 +89,11 @@ func cc7OperationsPolicies() []core.Policy {
 	return []core.Policy{
 		autoPolicy{
 			id: "soc2.cc7.2.threat_detection_all_regions", control: "CC7.2", severity: core.SeverityHigh, category: catMonitoring, cadence: cadenceDaily,
-			accepts: []string{"threat_detection_service"},
-			desc:    "Threat detection is active in every region.",
-			rem:     "Enable the threat detection service in all regions.",
-			clause:  all(leaf("payload.is_enabled", "eq", true), "threat detection service {{.payload.name}} is not enabled"),
+			presence: "threat detection",
+			accepts:  []string{"threat_detection_service"},
+			desc:     "Threat detection is active in every region.",
+			rem:      "Enable the threat detection service in all regions.",
+			clause:   all(leaf("payload.is_enabled", "eq", true), "threat detection service {{.payload.name}} is not enabled"),
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc7.3.compute_monitoring_enabled", control: ctrlCC73, severity: core.SeverityMedium, category: catMonitoring, cadence: cadenceDaily,
@@ -137,10 +142,11 @@ func cc7AlarmPolicies() []core.Policy {
 	mk := func(id, desc, eventClass string) core.Policy {
 		return autoPolicy{
 			id: id, control: "CC7.2", severity: core.SeverityMedium, category: catMonitoring, cadence: cadenceDaily,
-			accepts: []string{"security_alert"},
-			desc:    desc,
-			rem:     "Create a monitoring alert (metric filter + alarm with a notification target) covering this event class.",
-			clause:  anyWhere(leaf("payload.event_class", "eq", eventClass), leaf("payload.is_enabled", "eq", true), "no enabled alert covers "+eventClass),
+			presence: "security alerting (log metric filters with alarms)",
+			accepts:  []string{"security_alert"},
+			desc:     desc,
+			rem:      "Create a monitoring alert (metric filter + alarm with a notification target) covering this event class.",
+			clause:   anyWhere(leaf("payload.event_class", "eq", eventClass), leaf("payload.is_enabled", "eq", true), "no enabled alert covers "+eventClass),
 		}.policy()
 	}
 	return []core.Policy{

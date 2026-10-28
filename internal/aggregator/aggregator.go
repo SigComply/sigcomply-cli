@@ -208,6 +208,11 @@ func generateMessage(r *core.PolicyResult) string {
 		}
 		return fmt.Sprintf("All %d resources passed.", r.ResourcesEvaluated)
 	case core.StatusFail:
+		if r.ResourcesEvaluated == 0 {
+			// A presence policy (FailWhenEmpty) whose bound source found
+			// nothing: "1 of 0 resources failed" would read as a bug.
+			return "Failed: no resource found where at least one is required."
+		}
 		return fmt.Sprintf("%d of %d resources failed.", r.ResourcesFailed, r.ResourcesEvaluated)
 	case core.StatusSkip:
 		return "No matching resources to evaluate."

@@ -93,6 +93,12 @@ type autoPolicy struct {
 	desc     string
 	rem      string
 	clause   core.PassWhenClause
+	// presence names the service or control the policy asks exists at
+	// all ("audit logging"). Setting it makes the slot FailWhenEmpty: a
+	// bound source that returns no records fails the policy with "no
+	// <type> records: <presence> not enabled or not found" instead of
+	// skipping. Leave it empty for for-all questions over a population.
+	presence string
 }
 
 //nolint:gocritic // hugeParam: one-time startup builder; value literals keep the policy tables legible.
@@ -110,10 +116,19 @@ func (a autoPolicy) policy() core.Policy {
 		OnPush:       true,
 		EvidenceMode: core.EvidenceModeAutomated,
 		Slots: map[string]core.Slot{
-			slotName: {Accepts: a.accepts, Cardinality: core.SlotOneOrMore, Required: true, Description: "evidence records"},
+			slotName: a.slot(),
 		},
 		PassWhen: &core.PassWhenSpec{Clauses: []core.PassWhenClause{clause}},
 	}
+}
+
+//nolint:gocritic // hugeParam: one-time startup builder.
+func (a autoPolicy) slot() core.Slot {
+	s := core.Slot{Accepts: a.accepts, Cardinality: core.SlotOneOrMore, Required: true, Description: "evidence records"}
+	if a.presence != "" {
+		s.Description, s.FailWhenEmpty = a.presence, true
+	}
+	return s
 }
 
 // rosterSubjectTypes are the identity shapes a roster can vouch for: an

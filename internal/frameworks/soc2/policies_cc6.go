@@ -96,10 +96,11 @@ func cc6AccessPolicies() []core.Policy {
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc6.1.password_min_length_14", control: ctrlCC61, severity: core.SeverityMedium, category: catAccess, cadence: cadenceDaily,
-			accepts: passwordPolicyTypes,
-			desc:    "The account password policy requires at least 14 characters.",
-			rem:     "Set the minimum password length to 14 or greater.",
-			clause:  passwordLengthClause(14),
+			presence: "an account password policy",
+			accepts:  passwordPolicyTypes,
+			desc:     "The account password policy requires at least 14 characters.",
+			rem:      "Set the minimum password length to 14 or greater.",
+			clause:   passwordLengthClause(14),
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc6.1.password_expiry_90d", control: ctrlCC61, severity: core.SeverityMedium, category: catAccess, cadence: cadenceDaily,
@@ -315,10 +316,11 @@ func cc6ThreatPolicies() []core.Policy {
 	return []core.Policy{
 		autoPolicy{
 			id: "soc2.cc6.8.threat_detection_enabled", control: ctrlCC68, severity: core.SeverityHigh, category: catMonitoring, cadence: cadenceDaily,
-			accepts: []string{"threat_detection_service"},
-			desc:    "Threat detection is enabled across the account.",
-			rem:     "Enable the threat detection service (GuardDuty, SCC, Defender).",
-			clause:  all(leaf("payload.is_enabled", "eq", true), "threat detection service {{.payload.name}} is not enabled"),
+			presence: "threat detection",
+			accepts:  []string{"threat_detection_service"},
+			desc:     "Threat detection is enabled across the account.",
+			rem:      "Enable the threat detection service (GuardDuty, SCC, Defender).",
+			clause:   all(leaf("payload.is_enabled", "eq", true), "threat detection service {{.payload.name}} is not enabled"),
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc6.8.no_critical_findings_active", control: ctrlCC68, severity: core.SeverityCritical, category: catMonitoring, cadence: cadenceDaily,
@@ -350,10 +352,11 @@ func cc6ThreatPolicies() []core.Policy {
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc6.8.macie_enabled", control: ctrlCC68, severity: core.SeverityMedium, category: catMonitoring, cadence: cadenceDaily,
-			accepts: []string{etSecurityService},
-			desc:    "A data loss prevention / classification service is enabled.",
-			rem:     "Enable Macie (or an equivalent DLP service) on the account.",
-			clause:  anyWhere(leaf("payload.service_type", "eq", "dlp"), leaf("payload.is_enabled", "eq", true), "no DLP service is enabled"),
+			presence: "a data loss prevention service",
+			accepts:  []string{etSecurityService},
+			desc:     "A data loss prevention / classification service is enabled.",
+			rem:      "Enable Macie (or an equivalent DLP service) on the account.",
+			clause:   anyWhere(leaf("payload.service_type", "eq", "dlp"), leaf("payload.is_enabled", "eq", true), "no DLP service is enabled"),
 		}.policy(),
 	}
 }

@@ -362,6 +362,11 @@ func TestPolicyContentHash_NonPassWhenChangesRotateHash(t *testing.T) {
 			s.Required = false
 			p.Slots[testSlotRoster] = s
 		}},
+		{"slot fail_when_empty", func(p *Policy) {
+			s := p.Slots[testSlotRoster]
+			s.FailWhenEmpty = true
+			p.Slots[testSlotRoster] = s
+		}},
 		{"slot added", func(p *Policy) {
 			p.Slots["extra"] = Slot{Accepts: []string{testTypeDirectoryUserV2}, Cardinality: SlotOneOrMore}
 		}},

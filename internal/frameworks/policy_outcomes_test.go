@@ -443,7 +443,9 @@ func outcomeOf(r *core.PolicyResult) policyOutcome {
 		o.Violated = append(o.Violated, v.ResourceID)
 	}
 	sort.Strings(o.Violated)
-	if r.Status == core.StatusError || r.Status == core.StatusSkip {
+	// A fail carries a reason only when it is policy-level, such as a
+	// presence policy whose source found nothing; pin it there too.
+	if r.Status == core.StatusError || r.Status == core.StatusSkip || r.Status == core.StatusFail {
 		for _, k := range []string{"reason", "rule_error", "collect_error"} {
 			if s, ok := r.Diag[k].(string); ok && s != "" {
 				o.Reason = s

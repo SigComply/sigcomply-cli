@@ -163,6 +163,11 @@ func canonicalizePolicy(p *Policy, schemaDigests map[string]string) any {
 			// Only when set, so existing policies keep their hash.
 			slot["role"] = string(s.Role)
 		}
+		if s.FailWhenEmpty {
+			// Only when set, for the same reason as role. It changes the
+			// verdict on an empty source, so a cadence must re-evaluate.
+			slot["fail_when_empty"] = true
+		}
 		sortedSlots = append(sortedSlots, kv{K: name, V: slot})
 	}
 	sort.Slice(sortedSlots, func(i, j int) bool { return sortedSlots[i].K < sortedSlots[j].K })

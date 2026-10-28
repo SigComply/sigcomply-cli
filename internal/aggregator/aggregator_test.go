@@ -127,6 +127,8 @@ func TestBuild_MessagePerStatus(t *testing.T) {
 	}{
 		{core.StatusPass, "passed", 0, 5},
 		{core.StatusFail, "failed", 3, 5},
+		// A presence policy whose service does not exist examined nothing.
+		{core.StatusFail, "Failed: no resource found where at least one is required.", 1, 0},
 		{core.StatusSkip, "No matching", 0, 0},
 		{core.StatusError, "Evaluation error", 0, 0},
 		{core.StatusNA, "Not applicable", 0, 0},

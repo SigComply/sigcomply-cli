@@ -14,10 +14,13 @@
       ]
     },
     "sparse": {
-      "status": "skip",
+      "status": "fail",
       "resources_evaluated": 0,
-      "resources_failed": 0,
-      "reason": "required slot has no records"
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ],
+      "reason": "no backup_plan records: backup plans not enabled or not found"
     }
   },
   "soc2.a1.1.database_backup_enabled": {
@@ -1823,10 +1826,13 @@
       ]
     },
     "sparse": {
-      "status": "skip",
+      "status": "fail",
       "resources_evaluated": 0,
-      "resources_failed": 0,
-      "reason": "required slot has no records"
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ],
+      "reason": "no threat_detection_service records: threat detection not enabled or not found"
     }
   },
   "soc2.cc7.1.audit_log_integrity_enabled": {
@@ -1886,10 +1892,13 @@
       ]
     },
     "sparse": {
-      "status": "skip",
+      "status": "fail",
       "resources_evaluated": 0,
-      "resources_failed": 0,
-      "reason": "required slot has no records"
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ],
+      "reason": "no audit_log_trail records: audit logging not enabled or not found"
     }
   },
   "soc2.cc7.1.config_all_resource_types": {
@@ -1928,10 +1937,13 @@
       ]
     },
     "sparse": {
-      "status": "skip",
+      "status": "fail",
       "resources_evaluated": 0,
-      "resources_failed": 0,
-      "reason": "required slot has no records"
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ],
+      "reason": "no config_change_tracking records: configuration recording not enabled or not found"
     }
   },
   "soc2.cc7.1.inspector_enabled": {
@@ -2038,10 +2050,13 @@
       ]
     },
     "sparse": {
-      "status": "skip",
+      "status": "fail",
       "resources_evaluated": 0,
-      "resources_failed": 0,
-      "reason": "required slot has no records"
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ],
+      "reason": "no security_alert records: security alerting (log metric filters with alarms) not enabled or not found"
     }
   },
   "soc2.cc7.2.alarm_console_login_no_mfa": {
@@ -2059,10 +2074,13 @@
       ]
     },
     "sparse": {
-      "status": "skip",
+      "status": "fail",
       "resources_evaluated": 0,
-      "resources_failed": 0,
-      "reason": "required slot has no records"
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ],
+      "reason": "no security_alert records: security alerting (log metric filters with alarms) not enabled or not found"
     }
   },
   "soc2.cc7.2.alarm_iam_policy_changes": {
@@ -2080,10 +2098,13 @@
       ]
     },
     "sparse": {
-      "status": "skip",
+      "status": "fail",
       "resources_evaluated": 0,
-      "resources_failed": 0,
-      "reason": "required slot has no records"
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ],
+      "reason": "no security_alert records: security alerting (log metric filters with alarms) not enabled or not found"
     }
   },
   "soc2.cc7.2.alarm_kms_key_deletion": {
@@ -2101,10 +2122,13 @@
       ]
     },
     "sparse": {
-      "status": "skip",
+      "status": "fail",
       "resources_evaluated": 0,
-      "resources_failed": 0,
-      "reason": "required slot has no records"
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ],
+      "reason": "no security_alert records: security alerting (log metric filters with alarms) not enabled or not found"
     }
   },
   "soc2.cc7.2.alarm_root_account_usage": {
@@ -2122,10 +2146,13 @@
       ]
     },
     "sparse": {
-      "status": "skip",
+      "status": "fail",
       "resources_evaluated": 0,
-      "resources_failed": 0,
-      "reason": "required slot has no records"
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ],
+      "reason": "no security_alert records: security alerting (log metric filters with alarms) not enabled or not found"
     }
   },
   "soc2.cc7.2.alarm_security_group_changes": {
@@ -2143,10 +2170,13 @@
       ]
     },
     "sparse": {
-      "status": "skip",
+      "status": "fail",
       "resources_evaluated": 0,
-      "resources_failed": 0,
-      "reason": "required slot has no records"
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ],
+      "reason": "no security_alert records: security alerting (log metric filters with alarms) not enabled or not found"
     }
   },
   "soc2.cc7.2.alarm_unauthorized_api_calls": {
@@ -2164,10 +2194,13 @@
       ]
     },
     "sparse": {
-      "status": "skip",
+      "status": "fail",
       "resources_evaluated": 0,
-      "resources_failed": 0,
-      "reason": "required slot has no records"
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ],
+      "reason": "no security_alert records: security alerting (log metric filters with alarms) not enabled or not found"
     }
   },
   "soc2.cc7.2.alarm_vpc_changes": {
@@ -2185,10 +2218,13 @@
       ]
     },
     "sparse": {
-      "status": "skip",
+      "status": "fail",
       "resources_evaluated": 0,
-      "resources_failed": 0,
-      "reason": "required slot has no records"
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ],
+      "reason": "no security_alert records: security alerting (log metric filters with alarms) not enabled or not found"
     }
   },
   "soc2.cc7.2.threat_detection_all_regions": {
@@ -2206,10 +2242,13 @@
       ]
     },
     "sparse": {
-      "status": "skip",
+      "status": "fail",
       "resources_evaluated": 0,
-      "resources_failed": 0,
-      "reason": "required slot has no records"
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ],
+      "reason": "no threat_detection_service records: threat detection not enabled or not found"
     }
   },
   "soc2.cc7.3.compute_monitoring_enabled": {
