@@ -123,10 +123,12 @@ Rules for the files:
   restricts printing or editing, as many vendor and penetration-test reports do. The merged copy
   in the vault is stored without that restriction; the record hashes the file as uploaded.
 - Upload during the period the document covers. The upload time is the object's last-modified
-  time (a local file's modification time), so uploading a file again resets it. It must fall
-  between the start of
-  the period and its end plus the entry's grace period. A file uploaded before the period starts
-  fails as outside the window, so you can't stage next year's evidence early.
+  time (a local file's modification time), so uploading a file again resets it. The check
+  accepts upload times from the start of the period to its end plus the entry's grace period,
+  but the grace days only absorb clock differences: once a period ends, runs read the next
+  period's folder, so a file added to the old folder afterwards is never evaluated. A file
+  uploaded before the period starts fails as outside the window, so you can't stage next
+  year's evidence early.
 - Period boundaries are in UTC. A file uploaded at 21:00 on 31 March in New York (UTC-4) is
   01:00 on 1 April UTC, so it falls in the second quarter, not the first.
 - The CLI takes the run's period from the current UTC time (unless `period.time_basis: commit`

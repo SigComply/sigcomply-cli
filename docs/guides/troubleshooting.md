@@ -93,7 +93,7 @@ The message gives the newest file's upload time and the folder's period. The upl
 fall between the start of that period and its end plus the entry's grace period (15 days for a
 quarterly entry, 30 days for the others; `sigcomply evidence catalog -o json` lists each
 entry's `grace_period`). Period dates are in UTC. Upload the file again during the period it
-covers.
+covers; after that period ends, runs read the next period's folder instead.
 
 ### `merge_failed`
 
