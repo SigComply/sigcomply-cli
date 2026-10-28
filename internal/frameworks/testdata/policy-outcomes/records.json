@@ -1,0 +1,933 @@
+{
+  "scenarios": ["compliant", "noncompliant", "sparse"],
+  "roster": {"source": "okta", "aliases": {"github": {"gina-gh": "gina@example.com"}}, "non_human": {"github": ["deploy-bot"]}},
+  "manual": {
+    "compliant": {"evidence_id": "any", "file_present": true, "in_temporal_window": true, "file_valid": true, "file_hash": "0000000000000000000000000000000000000000000000000000000000000000", "expected_uri": "manual/any/2026-Q3/"},
+    "noncompliant": {"evidence_id": "any", "file_present": false, "expected_uri": "manual/any/2026-Q3/"}
+  },
+  "records": [
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "roster_entry",
+      "id": "alice",
+      "source_id": "okta",
+      "payload": {"id": "alice", "status": "active", "email": "alice@example.com"}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "roster_entry",
+      "id": "bob",
+      "source_id": "okta",
+      "why": "matched after lower-trim normalisation",
+      "payload": {"id": "bob", "status": "active", "email": " BOB@example.com "}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "roster_entry",
+      "id": "frank",
+      "source_id": "okta",
+      "payload": {"id": "frank", "status": "active", "email": "frank@example.com"}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "roster_entry",
+      "id": "erin",
+      "source_id": "okta",
+      "why": "a leaver whose accounts are still active",
+      "payload": {"id": "erin", "status": "inactive", "email": "erin@example.com"}
+    },
+    {
+      "scenarios": ["sparse"],
+      "type": "roster_entry",
+      "id": "gina",
+      "source_id": "okta",
+      "payload": {"id": "gina", "status": "active", "email": "gina@example.com"}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "directory_user",
+      "id": "alice",
+      "source_id": "github",
+      "payload": {"id": "alice", "username": "alice", "email": "alice@example.com", "mfa_enabled": true, "is_admin": true, "is_active": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "directory_user",
+      "id": "dave",
+      "source_id": "github",
+      "why": "admin without MFA, not on the roster",
+      "payload": {"id": "dave", "username": "dave", "email": "dave@example.com", "mfa_enabled": false, "is_admin": true, "is_active": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "directory_user",
+      "id": "erin",
+      "source_id": "github",
+      "why": "non-admin without MFA whose roster entry is inactive",
+      "payload": {"id": "erin", "username": "erin", "email": "erin@example.com", "mfa_enabled": false, "is_admin": false, "is_active": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "directory_user",
+      "id": "harry",
+      "source_id": "github",
+      "why": "deactivated: out of every roster filter, still counted by the MFA policies",
+      "payload": {"id": "harry", "username": "harry", "email": "harry@example.com", "mfa_enabled": false, "is_admin": false, "is_active": false}
+    },
+    {
+      "scenarios": ["sparse"],
+      "type": "directory_user",
+      "id": "gina-gh",
+      "source_id": "github",
+      "why": "no email and no is_admin: linked by alias; mfa_enforced_admins cannot decide",
+      "payload": {"id": "gina-gh", "username": "gina-gh", "mfa_enabled": true}
+    },
+    {
+      "scenarios": ["sparse"],
+      "type": "directory_user",
+      "id": "deploy-bot",
+      "source_id": "github",
+      "why": "declared non-human in the roster block",
+      "payload": {"id": "deploy-bot", "username": "deploy-bot", "mfa_enabled": true}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "directory_user.v2",
+      "id": "root",
+      "source_id": "aws.iam",
+      "payload": {"id": "root", "display_name": "root", "mfa_enabled": true, "is_admin": true, "is_root": true, "has_console_access": true, "has_programmatic_access": false, "direct_policy_count": 0, "is_active": true, "unused_days": 0}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "directory_user.v2",
+      "id": "bob",
+      "source_id": "aws.iam",
+      "why": "unused_days on the 90-day threshold",
+      "payload": {"id": "bob", "username": "bob", "display_name": "bob", "email": "bob@example.com", "mfa_enabled": true, "is_admin": false, "is_root": false, "has_console_access": true, "has_programmatic_access": true, "direct_policy_count": 0, "is_active": true, "unused_days": 90}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "directory_user.v2",
+      "id": "frank",
+      "source_id": "aws.iam",
+      "why": "one day past the inactivity threshold; a directly attached policy",
+      "payload": {"id": "frank", "username": "frank", "display_name": "frank", "email": "frank@example.com", "mfa_enabled": true, "is_admin": false, "is_root": false, "has_console_access": true, "has_programmatic_access": false, "direct_policy_count": 1, "is_active": true, "unused_days": 91}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "directory_user.v2",
+      "id": "root-2",
+      "source_id": "aws.iam",
+      "why": "a second account's root: no MFA and access keys",
+      "payload": {"id": "root-2", "display_name": "root", "mfa_enabled": false, "is_admin": true, "is_root": true, "has_console_access": true, "has_programmatic_access": true, "direct_policy_count": 0, "is_active": true, "unused_days": 0}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "directory_user.v2",
+      "id": "erin",
+      "source_id": "aws.iam",
+      "why": "inactive account of a leaver: out of the inactive-personnel scope",
+      "payload": {"id": "erin", "username": "erin", "display_name": "erin", "email": "erin@example.com", "mfa_enabled": true, "is_admin": false, "is_root": false, "has_console_access": true, "has_programmatic_access": false, "direct_policy_count": 0, "is_active": false, "unused_days": 200}
+    },
+    {
+      "scenarios": ["sparse"],
+      "type": "directory_user.v2",
+      "id": "ci-user",
+      "source_id": "aws.iam",
+      "why": "no direct_policy_count, unused_days or is_active",
+      "payload": {"id": "ci-user", "username": "ci-user", "mfa_enabled": false, "is_root": false, "has_console_access": false, "has_programmatic_access": true}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "iam_binding",
+      "id": "roles/viewer|user:alice@example.com",
+      "source_id": "gcp.iam",
+      "payload": {"id": "roles/viewer|user:alice@example.com", "role": "roles/viewer", "principal_id": "alice@example.com", "principal_type": "user", "is_broad_admin_role": false, "has_condition": false}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "iam_binding",
+      "id": "roles/owner|user:bob@example.com",
+      "source_id": "gcp.iam",
+      "why": "broad role but conditional",
+      "payload": {"id": "roles/owner|user:bob@example.com", "role": "roles/owner", "principal_id": "bob@example.com", "principal_type": "user", "is_broad_admin_role": true, "has_condition": true}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "iam_binding",
+      "id": "roles/owner|serviceAccount:ci-bot@example.com",
+      "source_id": "gcp.iam",
+      "why": "service account: outside the user-only admin filter and non-human for the roster",
+      "payload": {"id": "roles/owner|serviceAccount:ci-bot@example.com", "role": "roles/owner", "principal_id": "ci-bot@example.com", "principal_type": "service_account", "is_broad_admin_role": true, "has_condition": false}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "iam_binding",
+      "id": "roles/owner|user:mallory@example.com",
+      "source_id": "gcp.iam",
+      "why": "unconditional owner, not on the roster",
+      "payload": {"id": "roles/owner|user:mallory@example.com", "role": "roles/owner", "principal_id": "mallory@example.com", "principal_type": "user", "is_broad_admin_role": true, "has_condition": false}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "iam_binding",
+      "id": "roles/viewer|allUsers",
+      "source_id": "gcp.iam",
+      "why": "public grant: treated as human, can never match the roster",
+      "payload": {"id": "roles/viewer|allUsers", "role": "roles/viewer", "principal_id": "allUsers", "principal_type": "", "is_broad_admin_role": false}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "iam_access_key",
+      "id": "AKIAEXAMPLE0000000001",
+      "source_id": "aws.iam",
+      "why": "age and last use on the 90-day threshold",
+      "payload": {"id": "AKIAEXAMPLE0000000001", "user_id": "bob", "is_active": true, "age_days": 90, "last_used_days": 90, "never_used": false}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "iam_access_key",
+      "id": "AKIAEXAMPLE0000000002",
+      "source_id": "aws.iam",
+      "why": "inactive: out of every key policy's scope",
+      "payload": {"id": "AKIAEXAMPLE0000000002", "user_id": "bob", "is_active": false, "age_days": 400, "never_used": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "iam_access_key",
+      "id": "AKIAEXAMPLE0000000003",
+      "source_id": "aws.iam",
+      "payload": {"id": "AKIAEXAMPLE0000000003", "user_id": "frank", "is_active": true, "age_days": 91, "last_used_days": 91, "never_used": false}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "iam_access_key",
+      "id": "AKIAEXAMPLE0000000004",
+      "source_id": "aws.iam",
+      "payload": {"id": "AKIAEXAMPLE0000000004", "user_id": "frank", "is_active": true, "age_days": 10, "never_used": true}
+    },
+    {
+      "scenarios": ["sparse"],
+      "type": "iam_access_key",
+      "id": "AKIAEXAMPLE0000000005",
+      "source_id": "aws.iam",
+      "why": "used key without last_used_days: the unused-key policy cannot decide",
+      "payload": {"id": "AKIAEXAMPLE0000000005", "user_id": "ci-user", "is_active": true, "age_days": 5, "never_used": false}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "password_policy.v2",
+      "id": "aws-account",
+      "source_id": "aws.iam",
+      "why": "every value on its SOC 2 threshold",
+      "payload": {"id": "aws-account", "provider": "aws", "scope": "account", "min_length": 14, "max_age_days": 90, "reuse_prevented": true, "reuse_prevention_count": 24, "complexity_model": "per_class", "requires_uppercase": true, "requires_lowercase": true, "requires_numbers": true, "requires_symbols": true}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "password_policy.v2",
+      "id": "okta-default",
+      "source_id": "okta",
+      "why": "max_age_days 0 means no expiry; fixed complexity",
+      "payload": {"id": "okta-default", "provider": "okta", "scope": "group", "precedence": 1, "min_length": 15, "max_age_days": 0, "reuse_prevented": true, "reuse_prevention_count": 24, "complexity_model": "fixed", "complexity_description": "vendor-fixed rules"}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "password_policy.v2",
+      "id": "okta-contractors",
+      "source_id": "okta",
+      "why": "on the ISO 27001 length threshold, one under SOC 2's; every other value one past its threshold",
+      "payload": {"id": "okta-contractors", "provider": "okta", "scope": "group", "precedence": 2, "min_length": 12, "max_age_days": 91, "reuse_prevented": true, "reuse_prevention_count": 23, "complexity_model": "per_class", "requires_uppercase": true, "requires_lowercase": true, "requires_numbers": true, "requires_symbols": false}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "password_policy.v2",
+      "id": "entra-tenant",
+      "source_id": "entra",
+      "why": "no reuse prevention and weak strength; no max_age or count disclosed",
+      "payload": {"id": "entra-tenant", "provider": "entra", "scope": "domain", "min_length": 8, "reuse_prevented": false, "complexity_model": "strength_enum", "password_strength": "weak"}
+    },
+    {
+      "scenarios": ["sparse"],
+      "type": "password_policy",
+      "id": "legacy-plugin",
+      "source_id": "legacy",
+      "why": "v1 record from a project plugin: still evaluated",
+      "payload": {"id": "legacy-plugin", "min_length": 11, "max_age_days": 365, "reuse_prevention_count": 0, "requires_uppercase": true, "requires_lowercase": true, "requires_numbers": true, "requires_symbols": true}
+    },
+    {
+      "scenarios": ["sparse"],
+      "type": "password_policy.v2",
+      "id": "gws",
+      "source_id": "gcp.directory",
+      "why": "discloses nothing but strength: out of most password filters",
+      "payload": {"id": "gws", "provider": "google", "scope": "org_unit", "complexity_model": "strength_enum", "password_strength": "strong", "not_configurable": ["max_age_days"]}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "firewall_rule",
+      "id": "sg-web-https",
+      "source_id": "aws.ec2",
+      "why": "open, but on 443 only",
+      "payload": {"provider": "aws", "is_unrestricted_ipv6": false, "id": "sg-web-https", "name": "https", "direction": "ingress", "protocol": "tcp", "from_port": 443, "to_port": 443, "source_cidr": "0.0.0.0/0", "is_unrestricted_ipv4": true}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "firewall_rule",
+      "id": "sg-admin-ssh",
+      "source_id": "aws.ec2",
+      "why": "SSH from a private range",
+      "payload": {"provider": "aws", "is_unrestricted_ipv6": false, "id": "sg-admin-ssh", "name": "ssh", "direction": "ingress", "protocol": "tcp", "from_port": 22, "to_port": 22, "source_cidr": "10.0.0.0/8", "is_unrestricted_ipv4": false}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "firewall_rule",
+      "id": "sg-egress-all",
+      "source_id": "aws.ec2",
+      "why": "egress is out of the ingress port checks",
+      "payload": {"provider": "aws", "is_unrestricted_ipv6": false, "id": "sg-egress-all", "name": "egress", "direction": "egress", "protocol": "tcp", "from_port": 0, "to_port": 65535, "dest_cidr": "0.0.0.0/0", "is_unrestricted_ipv4": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "firewall_rule",
+      "id": "sg-ssh-open",
+      "source_id": "aws.ec2",
+      "payload": {"provider": "aws", "is_unrestricted_ipv6": false, "id": "sg-ssh-open", "name": "ssh-open", "direction": "ingress", "protocol": "tcp", "from_port": 22, "to_port": 22, "source_cidr": "0.0.0.0/0", "is_unrestricted_ipv4": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "firewall_rule",
+      "id": "sg-db-range",
+      "source_id": "aws.ec2",
+      "why": "range covers MySQL and PostgreSQL, not SSH or RDP",
+      "payload": {"provider": "aws", "is_unrestricted_ipv6": false, "id": "sg-db-range", "name": "db-range", "direction": "ingress", "protocol": "tcp", "from_port": 3000, "to_port": 6000, "source_cidr": "0.0.0.0/0", "is_unrestricted_ipv4": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "firewall_rule",
+      "id": "sg-mssql",
+      "source_id": "aws.ec2",
+      "why": "only ISO 27001 checks port 1433",
+      "payload": {"provider": "aws", "is_unrestricted_ipv6": false, "id": "sg-mssql", "name": "mssql", "direction": "ingress", "protocol": "tcp", "from_port": 1433, "to_port": 1433, "source_cidr": "0.0.0.0/0", "is_unrestricted_ipv4": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "firewall_rule",
+      "id": "sg-all-open",
+      "source_id": "aws.ec2",
+      "why": "every port and protocol",
+      "payload": {"provider": "aws", "is_unrestricted_ipv6": false, "id": "sg-all-open", "name": "all-open", "direction": "ingress", "protocol": "all", "from_port": -1, "to_port": -1, "source_cidr": "0.0.0.0/0", "is_unrestricted_ipv4": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "firewall_rule",
+      "id": "sg-default-egress",
+      "source_id": "aws.ec2",
+      "why": "the default security group's egress rule: the all-traffic policy has no direction filter, so it flags this",
+      "payload": {"provider": "aws", "is_unrestricted_ipv6": false, "id": "sg-default-egress", "name": "default egress", "direction": "egress", "protocol": "all", "from_port": -1, "to_port": -1, "dest_cidr": "0.0.0.0/0", "is_unrestricted_ipv4": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "firewall_rule",
+      "id": "sg-rdp-v6",
+      "source_id": "aws.ec2",
+      "why": "open over IPv6 only: the port policies read IPv4 only",
+      "payload": {"provider": "aws", "is_unrestricted_ipv6": true, "id": "sg-rdp-v6", "name": "rdp-v6", "direction": "ingress", "protocol": "tcp", "from_port": 3389, "to_port": 3389, "source_cidr": "::/0", "is_unrestricted_ipv4": false}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "firewall_rule",
+      "id": "sg-udp-dns",
+      "source_id": "aws.ec2",
+      "why": "UDP is out of the TCP port checks",
+      "payload": {"provider": "aws", "is_unrestricted_ipv6": false, "id": "sg-udp-dns", "name": "dns", "direction": "ingress", "protocol": "udp", "from_port": 53, "to_port": 53, "source_cidr": "0.0.0.0/0", "is_unrestricted_ipv4": true}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "network",
+      "id": "vpc-main",
+      "source_id": "aws.ec2",
+      "payload": {"id": "vpc-main", "name": "main", "flow_logs_enabled": true, "is_default": false}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "network",
+      "id": "vpc-default",
+      "source_id": "aws.ec2",
+      "payload": {"id": "vpc-default", "name": "default", "flow_logs_enabled": false, "is_default": true}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "object_storage_bucket",
+      "id": "acme-logs",
+      "source_id": "aws.s3",
+      "payload": {"name": "acme-logs", "encryption_at_rest_enabled": true, "public_access_blocked": true, "versioning_enabled": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "object_storage_bucket",
+      "id": "acme-public",
+      "source_id": "aws.s3",
+      "payload": {"name": "acme-public", "encryption_at_rest_enabled": false, "public_access_blocked": false, "versioning_enabled": false}
+    },
+    {
+      "scenarios": ["sparse"],
+      "type": "object_storage_bucket",
+      "id": "gcs-assets",
+      "source_id": "gcp.storage",
+      "why": "no versioning_enabled: the versioning policies cannot decide",
+      "payload": {"name": "gcs-assets", "encryption_at_rest_enabled": true, "public_access_blocked": true}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "managed_database_instance",
+      "id": "db-main",
+      "source_id": "aws.rds",
+      "payload": {"provider": "aws", "engine": "postgres", "storage_encrypted": true, "publicly_accessible": false, "backup_enabled": true, "ssl_required": true, "multi_az": true, "deletion_protection": true, "id": "db-main", "name": "main"}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "managed_database_instance",
+      "id": "db-legacy",
+      "source_id": "aws.rds",
+      "payload": {"id": "db-legacy", "name": "legacy", "provider": "aws", "engine": "mysql", "storage_encrypted": false, "publicly_accessible": true, "backup_enabled": false, "ssl_required": false, "multi_az": false, "deletion_protection": false}
+    },
+    {
+      "scenarios": ["sparse"],
+      "type": "managed_database_instance",
+      "id": "sql-reporting",
+      "source_id": "gcp.sql",
+      "why": "no ssl_required, multi_az or deletion_protection",
+      "payload": {"id": "sql-reporting", "name": "reporting", "provider": "gcp", "storage_encrypted": true, "publicly_accessible": false, "backup_enabled": true}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "kms_key",
+      "id": "key-cmk",
+      "source_id": "aws.kms",
+      "payload": {"key_id": "key-cmk", "key_manager": "CUSTOMER", "is_customer_managed": true, "enabled": true, "rotation_enabled": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "kms_key",
+      "id": "key-aws-managed",
+      "source_id": "aws.kms",
+      "why": "provider-managed: out of the rotation filter, fails the customer-managed policy",
+      "payload": {"key_id": "key-aws-managed", "key_manager": "AWS", "is_customer_managed": false, "enabled": true, "rotation_enabled": false}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "kms_key",
+      "id": "key-cmk-stale",
+      "source_id": "aws.kms",
+      "payload": {"key_id": "key-cmk-stale", "key_manager": "CUSTOMER", "is_customer_managed": true, "enabled": true, "rotation_enabled": false}
+    },
+    {
+      "scenarios": ["sparse"],
+      "type": "kms_key",
+      "id": "projects/p/keyRings/r/cryptoKeys/k",
+      "source_id": "gcp.kms",
+      "why": "is_customer_managed absent: guarded out of rotation, undecidable for the customer-managed policy",
+      "payload": {"key_id": "projects/p/keyRings/r/cryptoKeys/k", "rotation_enabled": true}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "secret",
+      "id": "app-db-password",
+      "source_id": "aws.secretsmanager",
+      "payload": {"id": "app-db-password", "name": "app-db-password", "rotation_enabled": true, "never_rotated": false, "last_rotated_days": 10, "kms_encrypted": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "secret",
+      "id": "legacy-api-key",
+      "source_id": "aws.secretsmanager",
+      "payload": {"id": "legacy-api-key", "name": "legacy-api-key", "rotation_enabled": false, "never_rotated": true, "kms_encrypted": false}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "compute_instance",
+      "id": "i-web",
+      "source_id": "aws.ec2",
+      "payload": {"id": "i-web", "name": "web", "is_running": true, "has_public_ip": false, "root_volume_encrypted": true, "monitoring_enabled": true}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "compute_instance",
+      "id": "i-batch-stopped",
+      "source_id": "aws.ec2",
+      "why": "stopped with a public IP: out of the public-instance filter; no monitoring_enabled",
+      "payload": {"id": "i-batch-stopped", "name": "batch", "is_running": false, "has_public_ip": true, "root_volume_encrypted": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "compute_instance",
+      "id": "i-bastion",
+      "source_id": "aws.ec2",
+      "payload": {"id": "i-bastion", "name": "bastion", "is_running": true, "has_public_ip": true, "root_volume_encrypted": false, "monitoring_enabled": false}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "kubernetes_cluster",
+      "id": "eks-prod",
+      "source_id": "aws.eks",
+      "payload": {"id": "eks-prod", "name": "prod", "secrets_encryption_enabled": true, "logging_enabled": true, "is_private_endpoint": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "kubernetes_cluster",
+      "id": "eks-dev",
+      "source_id": "aws.eks",
+      "payload": {"id": "eks-dev", "name": "dev", "secrets_encryption_enabled": false, "logging_enabled": false, "is_private_endpoint": false}
+    },
+    {
+      "scenarios": ["sparse"],
+      "type": "kubernetes_cluster",
+      "id": "gke-lab",
+      "source_id": "gcp.gke",
+      "why": "no is_private_endpoint: guarded out",
+      "payload": {"id": "gke-lab", "name": "lab", "secrets_encryption_enabled": true, "logging_enabled": true}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "tls_certificate",
+      "id": "cert-api",
+      "source_id": "aws.acm",
+      "why": "expiry on the 30-day threshold",
+      "payload": {"id": "cert-api", "domain": "api.example.com", "status": "ISSUED", "not_after": "2026-10-18T00:00:00Z", "days_until_expiry": 30, "is_managed": true, "auto_renew": true}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "tls_certificate",
+      "id": "cert-imported",
+      "source_id": "aws.acm",
+      "why": "imported: out of the auto-renew filter",
+      "payload": {"id": "cert-imported", "domain": "legacy.example.com", "status": "ISSUED", "not_after": "2027-04-01T00:00:00Z", "days_until_expiry": 195, "is_managed": false}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "tls_certificate",
+      "id": "cert-www",
+      "source_id": "aws.acm",
+      "payload": {"id": "cert-www", "domain": "www.example.com", "status": "ISSUED", "not_after": "2026-10-17T00:00:00Z", "days_until_expiry": 29, "is_managed": true, "auto_renew": false}
+    },
+    {
+      "scenarios": ["sparse"],
+      "type": "tls_certificate",
+      "id": "cert-mail",
+      "source_id": "aws.acm",
+      "why": "managed but auto_renew absent: undecidable",
+      "payload": {"id": "cert-mail", "domain": "mail.example.com", "status": "ISSUED", "not_after": "2027-01-01T00:00:00Z", "days_until_expiry": 105, "is_managed": true}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "threat_detection_service",
+      "id": "guardduty-us-east-1",
+      "source_id": "aws.guardduty",
+      "payload": {"id": "guardduty-us-east-1", "name": "GuardDuty", "region": "us-east-1", "is_enabled": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "threat_detection_service",
+      "id": "guardduty-eu-west-1",
+      "source_id": "aws.guardduty",
+      "payload": {"id": "guardduty-eu-west-1", "name": "GuardDuty", "region": "eu-west-1", "is_enabled": false}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "vulnerability_finding",
+      "id": "finding-crit-resolved",
+      "source_id": "aws.inspector",
+      "payload": {"id": "finding-crit-resolved", "resource_id": "i-web", "resource_type": "instance", "severity": "CRITICAL", "status": "RESOLVED"}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "vulnerability_finding",
+      "id": "finding-high-suppressed",
+      "source_id": "aws.inspector",
+      "payload": {"id": "finding-high-suppressed", "resource_id": "i-web", "resource_type": "instance", "severity": "HIGH", "status": "SUPPRESSED"}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "vulnerability_finding",
+      "id": "finding-medium-active",
+      "source_id": "aws.inspector",
+      "payload": {"id": "finding-medium-active", "resource_id": "i-web", "resource_type": "instance", "severity": "MEDIUM", "status": "ACTIVE"}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "vulnerability_finding",
+      "id": "finding-crit-active",
+      "source_id": "aws.inspector",
+      "payload": {"id": "finding-crit-active", "resource_id": "i-bastion", "resource_type": "instance", "severity": "CRITICAL", "status": "ACTIVE"}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "vulnerability_finding",
+      "id": "finding-high-active",
+      "source_id": "aws.inspector",
+      "payload": {"id": "finding-high-active", "resource_id": "i-bastion", "resource_type": "instance", "severity": "HIGH", "status": "ACTIVE"}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "container_registry",
+      "id": "ecr-api",
+      "source_id": "aws.ecr",
+      "payload": {"id": "ecr-api", "name": "api", "scan_on_push_enabled": true, "is_public": false, "encryption_enabled": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "container_registry",
+      "id": "ecr-public-tools",
+      "source_id": "aws.ecr",
+      "payload": {"id": "ecr-public-tools", "name": "tools", "scan_on_push_enabled": false, "is_public": true, "encryption_enabled": true}
+    },
+    {
+      "scenarios": ["compliant"],
+      "type": "security_service",
+      "id": "dlp-on",
+      "source_id": "aws.securityservices",
+      "payload": {"id": "dlp-on", "name": "Macie", "service_type": "dlp", "is_enabled": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "security_service",
+      "id": "dlp-off",
+      "source_id": "aws.securityservices",
+      "payload": {"id": "dlp-off", "name": "Macie", "service_type": "dlp", "is_enabled": false}
+    },
+    {
+      "scenarios": ["compliant"],
+      "type": "security_service",
+      "id": "siem-on",
+      "source_id": "aws.securityservices",
+      "payload": {"id": "siem-on", "name": "Security Hub", "service_type": "siem", "is_enabled": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "security_service",
+      "id": "siem-off",
+      "source_id": "aws.securityservices",
+      "payload": {"id": "siem-off", "name": "Security Hub", "service_type": "siem", "is_enabled": false}
+    },
+    {
+      "scenarios": ["compliant"],
+      "type": "security_service",
+      "id": "vulnerability_scanner-on",
+      "source_id": "aws.securityservices",
+      "payload": {"id": "vulnerability_scanner-on", "name": "Inspector", "service_type": "vulnerability_scanner", "is_enabled": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "security_service",
+      "id": "vulnerability_scanner-off",
+      "source_id": "aws.securityservices",
+      "payload": {"id": "vulnerability_scanner-off", "name": "Inspector", "service_type": "vulnerability_scanner", "is_enabled": false}
+    },
+    {
+      "scenarios": ["sparse"],
+      "type": "security_service",
+      "id": "cspm-on",
+      "source_id": "aws.securityservices",
+      "why": "a service of a type no policy asks for: every any-policy finds nothing",
+      "payload": {"id": "cspm-on", "name": "Config conformance", "service_type": "cspm", "is_enabled": true}
+    },
+    {
+      "scenarios": ["compliant"],
+      "type": "security_alert",
+      "id": "alarm-unauthorized_api_calls",
+      "source_id": "aws.cloudwatch",
+      "payload": {"id": "alarm-unauthorized_api_calls", "name": "unauthorized_api_calls", "event_class": "unauthorized_api_calls", "is_enabled": true, "has_notification_target": true}
+    },
+    {
+      "scenarios": ["compliant"],
+      "type": "security_alert",
+      "id": "alarm-root_account_usage",
+      "source_id": "aws.cloudwatch",
+      "payload": {"id": "alarm-root_account_usage", "name": "root_account_usage", "event_class": "root_account_usage", "is_enabled": true, "has_notification_target": true}
+    },
+    {
+      "scenarios": ["compliant"],
+      "type": "security_alert",
+      "id": "alarm-iam_policy_changes",
+      "source_id": "aws.cloudwatch",
+      "payload": {"id": "alarm-iam_policy_changes", "name": "iam_policy_changes", "event_class": "iam_policy_changes", "is_enabled": true, "has_notification_target": true}
+    },
+    {
+      "scenarios": ["compliant"],
+      "type": "security_alert",
+      "id": "alarm-cloudtrail_config_changes",
+      "source_id": "aws.cloudwatch",
+      "payload": {"id": "alarm-cloudtrail_config_changes", "name": "cloudtrail_config_changes", "event_class": "cloudtrail_config_changes", "is_enabled": true, "has_notification_target": true}
+    },
+    {
+      "scenarios": ["compliant"],
+      "type": "security_alert",
+      "id": "alarm-console_login_no_mfa",
+      "source_id": "aws.cloudwatch",
+      "payload": {"id": "alarm-console_login_no_mfa", "name": "console_login_no_mfa", "event_class": "console_login_no_mfa", "is_enabled": true, "has_notification_target": true}
+    },
+    {
+      "scenarios": ["compliant"],
+      "type": "security_alert",
+      "id": "alarm-security_group_changes",
+      "source_id": "aws.cloudwatch",
+      "payload": {"id": "alarm-security_group_changes", "name": "security_group_changes", "event_class": "security_group_changes", "is_enabled": true, "has_notification_target": true}
+    },
+    {
+      "scenarios": ["compliant"],
+      "type": "security_alert",
+      "id": "alarm-vpc_changes",
+      "source_id": "aws.cloudwatch",
+      "payload": {"id": "alarm-vpc_changes", "name": "vpc_changes", "event_class": "vpc_changes", "is_enabled": true, "has_notification_target": true}
+    },
+    {
+      "scenarios": ["compliant"],
+      "type": "security_alert",
+      "id": "alarm-kms_key_deletion",
+      "source_id": "aws.cloudwatch",
+      "payload": {"id": "alarm-kms_key_deletion", "name": "kms_key_deletion", "event_class": "kms_key_deletion", "is_enabled": true, "has_notification_target": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "security_alert",
+      "id": "alarm-unauthorized_api_calls-disabled",
+      "source_id": "aws.cloudwatch",
+      "why": "alarm exists but is disabled",
+      "payload": {"id": "alarm-unauthorized_api_calls-disabled", "name": "unauthorized_api_calls", "event_class": "unauthorized_api_calls", "is_enabled": false}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "security_alert",
+      "id": "alarm-root_account_usage-disabled",
+      "source_id": "aws.cloudwatch",
+      "why": "alarm exists but is disabled",
+      "payload": {"id": "alarm-root_account_usage-disabled", "name": "root_account_usage", "event_class": "root_account_usage", "is_enabled": false}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "security_alert",
+      "id": "alarm-iam_policy_changes-disabled",
+      "source_id": "aws.cloudwatch",
+      "why": "alarm exists but is disabled",
+      "payload": {"id": "alarm-iam_policy_changes-disabled", "name": "iam_policy_changes", "event_class": "iam_policy_changes", "is_enabled": false}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "security_alert",
+      "id": "alarm-cloudtrail_config_changes-disabled",
+      "source_id": "aws.cloudwatch",
+      "why": "alarm exists but is disabled",
+      "payload": {"id": "alarm-cloudtrail_config_changes-disabled", "name": "cloudtrail_config_changes", "event_class": "cloudtrail_config_changes", "is_enabled": false}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "security_alert",
+      "id": "alarm-other",
+      "source_id": "aws.cloudwatch",
+      "why": "the remaining classes have no alarm at all",
+      "payload": {"id": "alarm-other", "name": "other", "event_class": "other", "is_enabled": true}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "audit_log_trail",
+      "id": "trail-org",
+      "source_id": "aws.cloudtrail",
+      "payload": {"id": "trail-org", "name": "org", "is_enabled": true, "is_multi_region": true, "log_file_validation_enabled": true, "kms_encrypted": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "audit_log_trail",
+      "id": "trail-regional",
+      "source_id": "aws.cloudtrail",
+      "payload": {"id": "trail-regional", "name": "regional", "is_enabled": true, "is_multi_region": false, "log_file_validation_enabled": false, "kms_encrypted": false}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "log_group",
+      "id": "/app/api",
+      "source_id": "aws.logs",
+      "why": "on the ISO 27001 retention threshold",
+      "payload": {"id": "/app/api", "name": "/app/api", "retention_set": true, "retention_days": 365}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "log_group",
+      "id": "/app/worker",
+      "source_id": "aws.logs",
+      "why": "passes SOC 2's 90 days, one day under ISO 27001's 365",
+      "payload": {"id": "/app/worker", "name": "/app/worker", "retention_set": true, "retention_days": 364}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "log_group",
+      "id": "/app/debug",
+      "source_id": "aws.logs",
+      "payload": {"id": "/app/debug", "name": "/app/debug", "retention_set": true, "retention_days": 89}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "log_group",
+      "id": "/app/never",
+      "source_id": "aws.logs",
+      "why": "never expires: no retention set",
+      "payload": {"id": "/app/never", "name": "/app/never", "retention_set": false, "retention_days": 0}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "config_change_tracking",
+      "id": "config-us-east-1",
+      "source_id": "aws.config",
+      "payload": {"id": "config-us-east-1", "name": "default", "is_recording": true, "all_resource_types": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "config_change_tracking",
+      "id": "config-eu-west-1",
+      "source_id": "aws.config",
+      "payload": {"id": "config-eu-west-1", "name": "default", "is_recording": false, "all_resource_types": false}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "git_repository",
+      "id": "acme/api",
+      "source_id": "github",
+      "why": "one required reviewer: on the threshold",
+      "payload": {"default_branch": "main", "default_branch_protected": true, "required_reviewers_count": 1, "requires_signed_commits": true, "allows_force_push": false, "secret_scanning_enabled": true, "push_protection_enabled": true, "dependabot_alerts_enabled": true, "code_scanning_enabled": true, "dismiss_stale_reviews": true, "require_code_owner_reviews": true, "name": "acme/api"}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "git_repository",
+      "id": "acme/legacy",
+      "source_id": "github",
+      "payload": {"name": "acme/legacy", "default_branch": "master", "default_branch_protected": false, "required_reviewers_count": 0, "requires_signed_commits": false, "allows_force_push": true, "secret_scanning_enabled": false, "push_protection_enabled": false, "dependabot_alerts_enabled": false, "code_scanning_enabled": false, "dismiss_stale_reviews": false, "require_code_owner_reviews": false}
+    },
+    {
+      "scenarios": ["sparse"],
+      "type": "git_repository",
+      "id": "group/service",
+      "source_id": "gitlab",
+      "why": "only the required fields: most repository policies cannot decide",
+      "payload": {"name": "group/service", "default_branch": "main", "default_branch_protected": true}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "source_control_org_policy",
+      "id": "acme",
+      "source_id": "github",
+      "payload": {"id": "acme", "provider": "github", "two_factor_required": true, "default_member_repository_permission": "read", "advanced_security_enabled_new_repos": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "source_control_org_policy",
+      "id": "acme-labs",
+      "source_id": "github",
+      "payload": {"id": "acme-labs", "provider": "github", "two_factor_required": false, "default_member_repository_permission": "write", "advanced_security_enabled_new_repos": false}
+    },
+    {
+      "scenarios": ["sparse"],
+      "type": "source_control_org_policy",
+      "id": "group",
+      "source_id": "gitlab",
+      "why": "no advanced_security_enabled_new_repos: guarded out",
+      "payload": {"id": "group", "provider": "gitlab", "two_factor_required": true, "default_member_repository_permission": "none"}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "pull_request",
+      "id": "acme/api#1",
+      "source_id": "github",
+      "payload": {"repository": "acme/api", "author": "alice", "merged_by": "bob", "target_branch": "main", "merged_at": "2026-08-01T10:00:00Z", "approval_count": 1, "independent_approval_count": 1, "approved_before_merge": true, "checks_passed": true, "number": 1, "merge_commit_sha": "sha-1"}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "pull_request",
+      "id": "acme/api#2",
+      "source_id": "github",
+      "why": "self-merged without an independent approval or passing checks; out of the ordering scope",
+      "payload": {"repository": "acme/api", "author": "alice", "merged_by": "alice", "target_branch": "main", "merged_at": "2026-08-01T10:00:00Z", "approval_count": 1, "independent_approval_count": 0, "approved_before_merge": false, "checks_passed": false, "number": 2, "merge_commit_sha": "sha-2"}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "pull_request",
+      "id": "acme/api#3",
+      "source_id": "github",
+      "why": "approved only after the merge",
+      "payload": {"repository": "acme/api", "author": "alice", "merged_by": "bob", "target_branch": "main", "merged_at": "2026-08-01T10:00:00Z", "approval_count": 1, "independent_approval_count": 1, "approved_before_merge": false, "checks_passed": true, "number": 3, "merge_commit_sha": "sha-3"}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "deployment",
+      "id": "deploy-1",
+      "source_id": "github",
+      "payload": {"repository": "acme/api", "deployed_by": "bob", "deployed_at": "2026-08-02T10:00:00Z", "status": "success", "deployment_id": "deploy-1", "environment": "production", "is_production": true, "commit_sha": "sha-1"}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "deployment",
+      "id": "deploy-staging",
+      "source_id": "github",
+      "why": "not production: out of scope",
+      "payload": {"repository": "acme/api", "deployed_by": "bob", "deployed_at": "2026-08-02T10:00:00Z", "status": "success", "deployment_id": "deploy-staging", "environment": "staging", "is_production": false, "commit_sha": "sha-unreviewed"}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "deployment",
+      "id": "deploy-2",
+      "source_id": "github",
+      "why": "ships the unapproved change",
+      "payload": {"repository": "acme/api", "deployed_by": "bob", "deployed_at": "2026-08-02T10:00:00Z", "status": "success", "deployment_id": "deploy-2", "environment": "production", "is_production": true, "commit_sha": "sha-2"}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "deployment",
+      "id": "deploy-hotfix",
+      "source_id": "github",
+      "why": "ships a commit no merged change produced",
+      "payload": {"repository": "acme/api", "deployed_by": "bob", "deployed_at": "2026-08-02T10:00:00Z", "status": "success", "deployment_id": "deploy-hotfix", "environment": "production", "is_production": true, "commit_sha": "sha-hotfix"}
+    },
+    {
+      "scenarios": ["sparse"],
+      "type": "deployment",
+      "id": "deploy-s",
+      "source_id": "github",
+      "why": "no pull_request records: the join has nothing to match against",
+      "payload": {"repository": "acme/api", "deployed_by": "bob", "deployed_at": "2026-08-02T10:00:00Z", "status": "success", "deployment_id": "deploy-s", "environment": "production", "is_production": true, "commit_sha": "sha-1"}
+    },
+    {
+      "scenarios": ["compliant"],
+      "type": "backup_plan",
+      "id": "plan-daily",
+      "source_id": "aws.backup",
+      "payload": {"id": "plan-daily", "name": "daily", "is_active": true, "has_retention_rule": true, "retention_days": 35}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "backup_plan",
+      "id": "plan-draft",
+      "source_id": "aws.backup",
+      "why": "no retention rule",
+      "payload": {"id": "plan-draft", "name": "draft", "is_active": true, "has_retention_rule": false}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "backup_plan",
+      "id": "plan-old",
+      "source_id": "aws.backup",
+      "payload": {"id": "plan-old", "name": "old", "is_active": false, "has_retention_rule": true}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "nosql_table",
+      "id": "orders",
+      "source_id": "aws.dynamodb",
+      "payload": {"id": "orders", "name": "orders", "encryption_enabled": true, "point_in_time_recovery_enabled": true, "deletion_protection": true}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "nosql_table",
+      "id": "sessions",
+      "source_id": "aws.dynamodb",
+      "payload": {"id": "sessions", "name": "sessions", "encryption_enabled": false, "point_in_time_recovery_enabled": false, "deletion_protection": false}
+    }
+  ]
+}

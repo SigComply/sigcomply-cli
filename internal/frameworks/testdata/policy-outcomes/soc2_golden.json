@@ -1,0 +1,2952 @@
+{
+  "soc2.a1.1.backup_plan_exists": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.a1.1.database_backup_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "db-legacy"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "soc2.a1.1.database_multi_az": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "db-legacy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.multi_az\" which is not present on record \"sql-reporting\" (type \"managed_database_instance\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "soc2.a1.1.storage_versioning_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme-public"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.versioning_enabled\" which is not present on record \"gcs-assets\" (type \"object_storage_bucket\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "soc2.a1.2.business_continuity_plan": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/business_continuity_plan"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.a1.2.dynamodb_deletion_protection": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "sessions"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.a1.2.dynamodb_pitr_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "sessions"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.a1.3.recovery_procedures_tested": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/recovery_procedures_tested"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.c1.1.database_no_public_access": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "db-legacy"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "soc2.c1.1.dynamodb_encryption_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "sessions"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.c1.1.no_public_container_repos": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "ecr-public-tools"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.c1.1.storage_no_public_access": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme-public"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "soc2.c1.2.data_retention_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/data_retention_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.c1.3.nda_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/nda_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc1.1.code_of_conduct_acknowledgment": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/code_of_conduct_acknowledgment"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc1.1.security_awareness_training": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/security_awareness_training"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc1.2.board_security_oversight": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/board_security_oversight"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc1.3.org_chart_security_roles": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/org_chart_security_roles"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc1.4.background_check_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/background_check_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc1.5.accountability_for_controls": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/accountability_for_controls"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc2.1.information_security_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/information_security_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc2.2.internal_security_communication": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/internal_security_communication"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc2.3.external_security_communication": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/external_security_communication"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc3.1.risk_assessment": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/risk_assessment"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc3.2.fraud_risk_assessment": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/fraud_risk_assessment"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc3.3.fraud_risk_considered": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/fraud_risk_considered"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc3.4.change_risk_assessment": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/change_risk_assessment"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc4.1.control_monitoring": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/control_monitoring"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc4.2.control_deficiency_communication": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/control_deficiency_communication"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc5.1.control_selection_rationale": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/control_selection_rationale"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc5.2.technology_control_activities": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/technology_control_activities"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc5.3.technology_controls_deployment": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/technology_controls_deployment"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc6.1.access_keys_rotated_90d": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 4,
+      "resources_failed": 1,
+      "violated": [
+        "AKIAEXAMPLE0000000003"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "soc2.cc6.1.mfa_enforced_admins": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 9,
+      "resources_failed": 2,
+      "violated": [
+        "dave",
+        "root-2"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 3,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.is_admin\" which is not present on record \"gina-gh\" (type \"directory_user\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "soc2.cc6.1.mfa_enforced_all_users": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 9,
+      "resources_failed": 4,
+      "violated": [
+        "dave",
+        "erin",
+        "harry",
+        "root-2"
+      ]
+    },
+    "sparse": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        "ci-user"
+      ]
+    }
+  },
+  "soc2.cc6.1.no_direct_iam_policies": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 5,
+      "resources_failed": 1,
+      "violated": [
+        "frank"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.direct_policy_count\" which is not present on record \"ci-user\" (type \"directory_user.v2\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "soc2.cc6.1.no_never_used_active_keys": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 4,
+      "resources_failed": 1,
+      "violated": [
+        "AKIAEXAMPLE0000000004"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "soc2.cc6.1.no_root_access_keys": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 5,
+      "resources_failed": 1,
+      "violated": [
+        "root-2"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "vacuous_slots": [
+        "evidence"
+      ]
+    }
+  },
+  "soc2.cc6.1.no_unused_active_keys_90d": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 4,
+      "resources_failed": 1,
+      "violated": [
+        "AKIAEXAMPLE0000000003"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.last_used_days\" which is not present on record \"AKIAEXAMPLE0000000005\" (type \"iam_access_key\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "soc2.cc6.1.org_2fa_required": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme-labs"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "soc2.cc6.1.password_complexity": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 4,
+      "resources_failed": 2,
+      "violated": [
+        "entra-tenant",
+        "okta-contractors"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    }
+  },
+  "soc2.cc6.1.password_expiry_90d": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 4,
+      "resources_failed": 1,
+      "violated": [
+        "okta-contractors"
+      ]
+    },
+    "sparse": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "legacy-plugin"
+      ]
+    }
+  },
+  "soc2.cc6.1.password_min_length_14": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 4,
+      "resources_failed": 2,
+      "violated": [
+        "entra-tenant",
+        "okta-contractors"
+      ]
+    },
+    "sparse": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "legacy-plugin"
+      ]
+    }
+  },
+  "soc2.cc6.1.password_reuse_depth_24": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 4,
+      "resources_failed": 1,
+      "violated": [
+        "okta-contractors"
+      ]
+    },
+    "sparse": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "legacy-plugin"
+      ]
+    }
+  },
+  "soc2.cc6.1.password_reuse_prevention": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 4,
+      "resources_failed": 1,
+      "violated": [
+        "entra-tenant"
+      ]
+    },
+    "sparse": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "legacy-plugin"
+      ]
+    }
+  },
+  "soc2.cc6.1.privileged_access_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/privileged_access_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc6.1.root_mfa_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 5,
+      "resources_failed": 1,
+      "violated": [
+        "root-2"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "vacuous_slots": [
+        "evidence"
+      ]
+    }
+  },
+  "soc2.cc6.2.accounts_linked_to_roster": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 6,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 14,
+      "resources_failed": 3,
+      "violated": [
+        "gcp.iam/roles/owner|user:mallory@example.com",
+        "gcp.iam/roles/viewer|allUsers",
+        "github/dave"
+      ]
+    },
+    "sparse": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        "aws.iam/ci-user"
+      ]
+    }
+  },
+  "soc2.cc6.2.no_active_accounts_for_inactive_personnel": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 6,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 14,
+      "resources_failed": 1,
+      "violated": [
+        "github/erin"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    }
+  },
+  "soc2.cc6.2.user_provisioning_process": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/user_provisioning_process"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc6.3.access_review_quarterly": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/access_review_quarterly"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc6.3.repo_default_permission_least_privilege": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme-labs"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "soc2.cc6.4.subservice_org_reports": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/subservice_org_reports"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc6.5.push_protection_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme/legacy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.push_protection_enabled\" which is not present on record \"group/service\" (type \"git_repository\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "soc2.cc6.5.secret_scanning_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme/legacy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.secret_scanning_enabled\" which is not present on record \"group/service\" (type \"git_repository\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "soc2.cc6.5.termination_access_removal_process": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/termination_process_documented"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc6.6.firewall_review_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/firewall_review_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc6.6.network_segmentation_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/network_segmentation_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc6.6.no_default_vpc_in_use": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "vpc-default"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc6.6.no_unrestricted_all_traffic": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0,
+      "vacuous_slots": [
+        "evidence"
+      ]
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 10,
+      "resources_failed": 2,
+      "violated": [
+        "sg-all-open",
+        "sg-default-egress"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc6.6.no_unrestricted_mysql": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 10,
+      "resources_failed": 2,
+      "violated": [
+        "sg-all-open",
+        "sg-db-range"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc6.6.no_unrestricted_postgres": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 10,
+      "resources_failed": 2,
+      "violated": [
+        "sg-all-open",
+        "sg-db-range"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc6.6.no_unrestricted_rdp": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 10,
+      "resources_failed": 2,
+      "violated": [
+        "sg-all-open",
+        "sg-db-range"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc6.6.no_unrestricted_ssh": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 10,
+      "resources_failed": 2,
+      "violated": [
+        "sg-all-open",
+        "sg-ssh-open"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc6.6.vpc_flow_logs_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "vpc-default"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc6.7.compute_root_volume_encrypted": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        "i-bastion"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc6.7.data_classification_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/data_classification_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc6.7.database_encryption_at_rest": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "db-legacy"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "soc2.cc6.7.database_no_public_access": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "db-legacy"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "soc2.cc6.7.database_ssl_required": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "db-legacy"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "vacuous_slots": [
+        "evidence"
+      ]
+    }
+  },
+  "soc2.cc6.7.kms_customer_managed_keys": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        "key-aws-managed"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.is_customer_managed\" which is not present on record \"projects/p/keyRings/r/cryptoKeys/k\" (type \"kms_key\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "soc2.cc6.7.kms_key_rotation_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        "key-cmk-stale"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "vacuous_slots": [
+        "evidence"
+      ]
+    }
+  },
+  "soc2.cc6.7.kubernetes_secrets_encrypted": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "eks-dev"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "soc2.cc6.7.secrets_kms_encrypted": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "legacy-api-key"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc6.7.secrets_rotation_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "legacy-api-key"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc6.7.storage_encryption_at_rest": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme-public"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "soc2.cc6.7.storage_public_access_blocked": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme-public"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "soc2.cc6.7.storage_versioning_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme-public"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.versioning_enabled\" which is not present on record \"gcs-assets\" (type \"object_storage_bucket\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "soc2.cc6.7.tls_auto_renew_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        "cert-www"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.auto_renew\" which is not present on record \"cert-mail\" (type \"tls_certificate\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "soc2.cc6.7.tls_certificates_not_expiring": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        "cert-www"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "soc2.cc6.8.container_scan_on_push": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "ecr-public-tools"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc6.8.macie_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ]
+    },
+    "sparse": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ]
+    }
+  },
+  "soc2.cc6.8.no_critical_findings_active": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 5,
+      "resources_failed": 1,
+      "violated": [
+        "finding-crit-active"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc6.8.no_high_findings_unaddressed": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 5,
+      "resources_failed": 1,
+      "violated": [
+        "finding-high-active"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc6.8.no_public_container_repos": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "ecr-public-tools"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc6.8.threat_detection_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "guardduty-eu-west-1"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc7.1.audit_log_integrity_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "trail-regional"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc7.1.audit_log_kms_encrypted": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "trail-regional"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc7.1.audit_logging_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "trail-regional"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc7.1.config_all_resource_types": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "config-eu-west-1"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc7.1.config_recording_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "config-eu-west-1"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc7.1.inspector_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ]
+    },
+    "sparse": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ]
+    }
+  },
+  "soc2.cc7.1.log_retention_min_90d": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 4,
+      "resources_failed": 2,
+      "violated": [
+        "/app/debug",
+        "/app/never"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc7.1.log_review_process": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/log_review_process"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc7.1.securityhub_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ]
+    },
+    "sparse": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ]
+    }
+  },
+  "soc2.cc7.2.alarm_cloudtrail_config_changes": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 8,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 5,
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc7.2.alarm_console_login_no_mfa": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 8,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 5,
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc7.2.alarm_iam_policy_changes": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 8,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 5,
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc7.2.alarm_kms_key_deletion": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 8,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 5,
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc7.2.alarm_root_account_usage": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 8,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 5,
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc7.2.alarm_security_group_changes": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 8,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 5,
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc7.2.alarm_unauthorized_api_calls": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 8,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 5,
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc7.2.alarm_vpc_changes": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 8,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 5,
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc7.2.threat_detection_all_regions": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "guardduty-eu-west-1"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc7.3.compute_monitoring_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        "i-bastion"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc7.3.incident_response_plan": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/incident_response_plan"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc7.3.incident_response_tested": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/incident_response_tested"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc7.3.security_monitoring_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/security_monitoring_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc7.4.no_critical_vulns_active": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0,
+      "vacuous_slots": [
+        "evidence"
+      ]
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 5,
+      "resources_failed": 1,
+      "violated": [
+        "finding-crit-active"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc7.4.vulnerability_disclosure_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/vulnerability_disclosure_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc7.5.database_deletion_protection": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "db-legacy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.deletion_protection\" which is not present on record \"sql-reporting\" (type \"managed_database_instance\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "soc2.cc7.5.database_multi_az": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "db-legacy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.multi_az\" which is not present on record \"sql-reporting\" (type \"managed_database_instance\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "soc2.cc8.1.approval_precedes_merge": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        "acme/api#3"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc8.1.change_management_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/change_management_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc8.1.changes_independently_approved": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        "acme/api#2"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc8.1.changes_passed_checks": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        "acme/api#2"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "soc2.cc8.1.code_review_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/code_review_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc8.1.code_scanning_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme/legacy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.code_scanning_enabled\" which is not present on record \"group/service\" (type \"git_repository\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "soc2.cc8.1.default_branch_protected": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme/legacy"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "soc2.cc8.1.dependabot_alerts_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme/legacy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.dependabot_alerts_enabled\" which is not present on record \"group/service\" (type \"git_repository\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "soc2.cc8.1.dismiss_stale_reviews": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme/legacy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.dismiss_stale_reviews\" which is not present on record \"group/service\" (type \"git_repository\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "soc2.cc8.1.no_force_push_to_main": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme/legacy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.allows_force_push\" which is not present on record \"group/service\" (type \"git_repository\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "soc2.cc8.1.penetration_test_annual": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/penetration_test_annual"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc8.1.production_deploys_from_approved_changes": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 4,
+      "resources_failed": 2,
+      "violated": [
+        "deploy-2",
+        "deploy-hotfix"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "required slot has no records"
+    }
+  },
+  "soc2.cc8.1.require_code_owner_reviews": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme/legacy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.require_code_owner_reviews\" which is not present on record \"group/service\" (type \"git_repository\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "soc2.cc8.1.required_code_reviews": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme/legacy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.required_reviewers_count\" which is not present on record \"group/service\" (type \"git_repository\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "soc2.cc8.1.security_sdlc_process": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/security_sdlc_process"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc8.1.signed_commits_required": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme/legacy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.requires_signed_commits\" which is not present on record \"group/service\" (type \"git_repository\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "soc2.cc8.1.vulnerability_management_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/vulnerability_management_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc9.1.due_diligence_process": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/due_diligence_process"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc9.1.vendor_risk_assessment": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/vendor_risk_assessment"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc9.2.cuec_mapping": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/cuec_mapping"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc9.2.vendor_assurance": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/vendor_assurance"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc9.2.vendor_contracts_reviewed": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/vendor_contracts_reviewed"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc9.2.vendor_lifecycle_process": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/vendor_lifecycle_process"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.p1.1.privacy_notice": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/privacy_notice"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.p3.1.data_collection_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/data_collection_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.p6.1.data_retention_disposal": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/data_retention_disposal"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.pi1.1.processing_integrity_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/processing_integrity_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  }
+}

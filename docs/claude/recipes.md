@@ -223,6 +223,15 @@ reach for the `rule:` escape hatch only for logic the DSL can't express.
    (`pass_when_validation_test.go` — declared slots, `matches_in` shape,
    slot roles). Run `make test`.
 
+6. **Pin its outcome.** `TestPolicyOutcomesGolden`
+   (`internal/frameworks/policy_outcomes_test.go`) fails for a policy with
+   no golden entry. Add records to
+   `internal/frameworks/testdata/policy-outcomes/records.json` so the new
+   policy passes in the `compliant` scenario and fails in `noncompliant`
+   (values on and one past any threshold), then run
+   `go test ./internal/frameworks/ -run TestPolicyOutcomesGolden -update`
+   and check the new entries say what the control means.
+
 ### Two-slot roster policy (identities checked against the roster)
 
 For an access-lifecycle check that compares identities in every other
@@ -310,7 +319,9 @@ see step 4 below.
    `manualSpecs()`. Adding the spec is enough — the framework test asserts
    every manual policy's `CatalogEntry` resolves, and the command test
    asserts the export satisfies the SPA contract. If you change the export
-   shape, update `sigcomply-evidence-spa/src/types/catalog.ts` too.
+   shape, update `sigcomply-evidence-spa/src/types/catalog.ts` too. The
+   policy-outcome golden needs an entry for the new policy: run
+   `go test ./internal/frameworks/ -run TestPolicyOutcomesGolden -update`.
 
 4. **Fan-out entries (one entry, N folders) — optional.** Set `fanOut` on
    the spec to make the entry collect one folder per member of a set the
@@ -379,6 +390,11 @@ factory. Models: `internal/frameworks/soc2/` and `iso27001/`.
    hardcodes the frameworks it measures); and decide whether `init-ci`
    supports the framework (`frameworkSupported` in
    `cmd/sigcomply/init_ci.go` accepts only `soc2`).
+
+5. **Generate its policy-outcome golden** with
+   `go test ./internal/frameworks/ -run TestPolicyOutcomesGolden -update`
+   (it writes `testdata/policy-outcomes/<fw>_golden.json`), extending
+   `records.json` until each automated policy has a pass and a fail.
 
 ---
 

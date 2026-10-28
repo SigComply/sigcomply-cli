@@ -1,0 +1,3198 @@
+{
+  "iso27001.5.1.information_security_policies": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/information_security_policies"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.10.acceptable_use_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/acceptable_use_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.11.return_of_assets": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/return_of_assets"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.12.data_classification_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/data_classification_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.13.information_labeling_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/information_labeling_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.14.information_transfer_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/information_transfer_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.15.repo_default_permission_least_privilege": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme-labs"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "iso27001.5.16.accounts_linked_to_roster": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 6,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 14,
+      "resources_failed": 3,
+      "violated": [
+        "gcp.iam/roles/owner|user:mallory@example.com",
+        "gcp.iam/roles/viewer|allUsers",
+        "github/dave"
+      ]
+    },
+    "sparse": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        "aws.iam/ci-user"
+      ]
+    }
+  },
+  "iso27001.5.16.inactive_user_accounts": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 5,
+      "resources_failed": 1,
+      "violated": [
+        "frank"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "vacuous_slots": [
+        "evidence"
+      ]
+    }
+  },
+  "iso27001.5.17.mfa_enforced": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 9,
+      "resources_failed": 4,
+      "violated": [
+        "dave",
+        "erin",
+        "harry",
+        "root-2"
+      ]
+    },
+    "sparse": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        "ci-user"
+      ]
+    }
+  },
+  "iso27001.5.18.access_rights_review": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/access_rights_review"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.18.no_active_accounts_for_inactive_personnel": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 6,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 14,
+      "resources_failed": 1,
+      "violated": [
+        "github/erin"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    }
+  },
+  "iso27001.5.19.supplier_assurance": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/supplier_assurance"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.19.supplier_lifecycle_process": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/supplier_lifecycle_process"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.19.supplier_security_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/supplier_security_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.2.roles_and_responsibilities": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/roles_and_responsibilities"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.20.supplier_security_agreements": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/supplier_security_agreements"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.21.ict_supply_chain_security": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/ict_supply_chain_security"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.22.supplier_service_monitoring": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/supplier_service_monitoring"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.23.cloud_services_security": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/cloud_services_security"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.24.incident_management_plan": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/incident_management_plan"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.25.security_event_assessment": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/security_event_assessment"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.26.incident_response_tested": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/incident_response_tested"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.27.lessons_learned_from_incidents": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/lessons_learned_from_incidents"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.28.evidence_collection_procedure": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/evidence_collection_procedure"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.29.information_security_in_bcp": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/information_security_in_bcp"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.3.no_broad_admin_bindings": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 5,
+      "resources_failed": 1,
+      "violated": [
+        "roles/owner|user:mallory@example.com"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.5.30.ict_continuity_tested": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/ict_continuity_tested"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.31.legal_requirements_inventory": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/legal_requirements_inventory"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.32.intellectual_property_rights": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/intellectual_property_rights"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.33.database_deletion_protection": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "db-legacy"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "vacuous_slots": [
+        "evidence"
+      ]
+    }
+  },
+  "iso27001.5.33.nosql_deletion_protection": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "sessions"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.5.34.privacy_and_pii_protection": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/privacy_and_pii_protection"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.35.independent_security_review": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/independent_security_review"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.36.compliance_with_policies": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/compliance_with_policies"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.37.documented_operating_procedures": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/documented_operating_procedures"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.4.management_direction": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/management_direction"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.5.contact_with_authorities": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/contact_with_authorities"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.6.special_interest_groups": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/special_interest_groups"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.7.threat_intelligence": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/threat_intelligence"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.8.information_security_in_projects": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/information_security_in_projects"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.5.9.asset_inventory": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/asset_inventory"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.6.1.personnel_screening": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/personnel_screening"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.6.2.terms_of_employment": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/terms_of_employment"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.6.3.security_awareness_training": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/security_awareness_training"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.6.4.disciplinary_process": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/disciplinary_process"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.6.5.responsibilities_on_termination": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/responsibilities_on_termination"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.6.6.nda_confidentiality_agreement": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/nda_confidentiality_agreement"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.6.7.remote_working_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/remote_working_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.6.8.security_event_reporting": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/security_event_reporting"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.7.1.physical_security_perimeters": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/physical_security_perimeters"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.7.10.storage_media_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/storage_media_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.7.11.supporting_utilities": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/supporting_utilities"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.7.12.cabling_security": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/cabling_security"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.7.13.equipment_maintenance": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/equipment_maintenance"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.7.14.secure_disposal_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/secure_disposal_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.7.2.physical_entry_controls": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/physical_entry_controls"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.7.3.securing_offices_and_facilities": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/securing_offices_and_facilities"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.7.4.physical_security_monitoring": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/physical_security_monitoring"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.7.5.physical_and_environmental_threats": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/physical_and_environmental_threats"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.7.6.working_in_secure_areas": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/working_in_secure_areas"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.7.7.clear_desk_clear_screen_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/clear_desk_clear_screen_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.7.8.equipment_siting_protection": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/equipment_siting_protection"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.7.9.assets_off_premises": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/assets_off_premises"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.8.1.endpoint_device_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/endpoint_device_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.8.10.information_deletion_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/information_deletion_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.8.11.data_masking_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/data_masking_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.8.12.database_no_public_access": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "db-legacy"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "iso27001.8.12.no_public_container_repos": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "ecr-public-tools"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.8.12.storage_no_public_access": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme-public"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "iso27001.8.13.database_backup_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "db-legacy"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "iso27001.8.13.database_multi_az": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "db-legacy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.multi_az\" which is not present on record \"sql-reporting\" (type \"managed_database_instance\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "iso27001.8.13.storage_versioning_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme-public"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.versioning_enabled\" which is not present on record \"gcs-assets\" (type \"object_storage_bucket\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "iso27001.8.14.nosql_table_pitr_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "sessions"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.8.15.audit_log_encrypted": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "trail-regional"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.8.15.audit_log_integrity": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "trail-regional"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.8.15.audit_logging_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "trail-regional"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.8.15.log_retention_min_365d": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 4,
+      "resources_failed": 3,
+      "violated": [
+        "/app/debug",
+        "/app/never",
+        "/app/worker"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.8.16.compute_monitoring_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        "i-bastion"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.8.16.security_aggregation_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ]
+    },
+    "sparse": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        ""
+      ]
+    }
+  },
+  "iso27001.8.16.threat_detection_active": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "guardduty-eu-west-1"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.8.17.clock_synchronization": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/clock_synchronization"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.8.18.privileged_utility_programs": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/privileged_utility_programs"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.8.19.software_installation_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/software_installation_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.8.2.privileged_mfa_enforced": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 9,
+      "resources_failed": 2,
+      "violated": [
+        "dave",
+        "root-2"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 3,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.is_admin\" which is not present on record \"gina-gh\" (type \"directory_user\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "iso27001.8.20.no_unrestricted_database_ports": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 10,
+      "resources_failed": 3,
+      "violated": [
+        "sg-all-open",
+        "sg-db-range",
+        "sg-mssql"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.8.20.no_unrestricted_rdp": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 10,
+      "resources_failed": 2,
+      "violated": [
+        "sg-all-open",
+        "sg-db-range"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.8.20.no_unrestricted_ssh": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 10,
+      "resources_failed": 2,
+      "violated": [
+        "sg-all-open",
+        "sg-ssh-open"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.8.20.vpc_flow_logs_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "vpc-default"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.8.21.tls_auto_renew_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        "cert-www"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.auto_renew\" which is not present on record \"cert-mail\" (type \"tls_certificate\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "iso27001.8.21.tls_certificates_valid": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        "cert-www"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "iso27001.8.22.no_public_compute_instances": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        "i-bastion"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.8.22.private_kubernetes_endpoint": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "eks-dev"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "vacuous_slots": [
+        "evidence"
+      ]
+    }
+  },
+  "iso27001.8.23.web_filtering_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/web_filtering_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.8.24.compute_disk_encrypted": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        "i-bastion"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.8.24.database_encryption_at_rest": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "db-legacy"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "iso27001.8.24.kms_key_rotation": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        "key-cmk-stale"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "vacuous_slots": [
+        "evidence"
+      ]
+    }
+  },
+  "iso27001.8.24.secrets_rotation_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "legacy-api-key"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.8.24.storage_encryption_at_rest": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme-public"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "iso27001.8.25.branch_protection": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme/legacy"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "iso27001.8.25.no_force_push_to_main": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme/legacy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.allows_force_push\" which is not present on record \"group/service\" (type \"git_repository\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "iso27001.8.25.secret_scanning_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme/legacy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.secret_scanning_enabled\" which is not present on record \"group/service\" (type \"git_repository\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "iso27001.8.26.application_security_requirements": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/application_security_requirements"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.8.27.secure_architecture_principles": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/secure_architecture_principles"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.8.28.code_scanning_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme/legacy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.code_scanning_enabled\" which is not present on record \"group/service\" (type \"git_repository\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "iso27001.8.28.dependabot_alerts_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme/legacy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.dependabot_alerts_enabled\" which is not present on record \"group/service\" (type \"git_repository\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "iso27001.8.29.org_security_testing_default": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme-labs"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "vacuous_slots": [
+        "evidence"
+      ]
+    }
+  },
+  "iso27001.8.29.secret_push_protection_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme/legacy"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "vacuous_slots": [
+        "evidence"
+      ]
+    }
+  },
+  "iso27001.8.3.database_no_public_access": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "db-legacy"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "iso27001.8.3.no_broad_admin_iam_bindings": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 5,
+      "resources_failed": 1,
+      "violated": [
+        "roles/owner|user:mallory@example.com"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.8.3.storage_no_public_access": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme-public"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "iso27001.8.30.outsourced_development_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/outsourced_development_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.8.31.environment_separation": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/environment_separation"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.8.32.approval_precedes_merge": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        "acme/api#3"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.8.32.change_management_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/change_management_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.8.32.changes_independently_approved": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        "acme/api#2"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.8.32.changes_passed_checks": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        "acme/api#2"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.8.32.no_force_push": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme/legacy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.allows_force_push\" which is not present on record \"group/service\" (type \"git_repository\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "iso27001.8.32.production_deploys_from_approved_changes": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 4,
+      "resources_failed": 2,
+      "violated": [
+        "deploy-2",
+        "deploy-hotfix"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "required slot has no records"
+    }
+  },
+  "iso27001.8.32.required_code_reviews": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme/legacy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.required_reviewers_count\" which is not present on record \"group/service\" (type \"git_repository\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "iso27001.8.33.test_information_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/test_information_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.8.34.audit_testing_protection_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/audit_testing_protection_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.8.4.branch_protection_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme/legacy"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "iso27001.8.4.required_code_reviews": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme/legacy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "reason": "policy references field \"payload.required_reviewers_count\" which is not present on record \"group/service\" (type \"git_repository\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "iso27001.8.5.mfa_enforced_all_users": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 9,
+      "resources_failed": 4,
+      "violated": [
+        "dave",
+        "erin",
+        "harry",
+        "root-2"
+      ]
+    },
+    "sparse": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        "ci-user"
+      ]
+    }
+  },
+  "iso27001.8.5.org_2fa_required": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme-labs"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    }
+  },
+  "iso27001.8.5.password_complexity": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 4,
+      "resources_failed": 2,
+      "violated": [
+        "entra-tenant",
+        "okta-contractors"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    }
+  },
+  "iso27001.8.5.password_minimum_length": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 4,
+      "resources_failed": 1,
+      "violated": [
+        "entra-tenant"
+      ]
+    },
+    "sparse": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "legacy-plugin"
+      ]
+    }
+  },
+  "iso27001.8.6.capacity_management_process": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/capacity_management_process"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.8.7.no_critical_malware_findings": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 5,
+      "resources_failed": 1,
+      "violated": [
+        "finding-crit-active"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.8.7.threat_detection_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "guardduty-eu-west-1"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.8.8.container_scan_on_push": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "ecr-public-tools"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.8.8.no_critical_vulnerabilities": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 5,
+      "resources_failed": 1,
+      "violated": [
+        "finding-crit-active"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.8.9.config_all_resources": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "config-eu-west-1"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.8.9.config_recording_enabled": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "config-eu-west-1"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "no source bound to any slot"
+    }
+  },
+  "iso27001.clause.10.2.corrective_action": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/corrective_action"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.clause.4.1.isms_context": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/isms_context"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.clause.4.3.isms_scope": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/isms_scope"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.clause.5.2.isms_policy": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/isms_policy"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.clause.5.3.isms_roles": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/isms_roles"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.clause.6.1.2.risk_assessment_process": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/risk_assessment_process"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.clause.6.1.3.risk_treatment_process": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/risk_treatment_process"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.clause.6.2.isms_objectives": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/isms_objectives"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.clause.7.2.competence_records": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/competence_records"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.clause.7.5.documented_information": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/documented_information"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.clause.8.1.operational_planning": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/operational_planning"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.clause.8.2.risk_assessment_results": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/risk_assessment_results"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.clause.8.3.risk_treatment_results": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/risk_treatment_results"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.clause.9.1.isms_monitoring": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/isms_monitoring"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.clause.9.2.internal_audit": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/internal_audit"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "iso27001.clause.9.3.management_review": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "manual/management_review"
+      ]
+    },
+    "sparse": {
+      "status": "error",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  }
+}

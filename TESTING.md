@@ -16,6 +16,9 @@
 
   After regenerating the SPA goldens, run `npm run check:goldens -- --copy` in the SPA checkout
   to copy all three; `npm run check:goldens` alone reports drift.
+- Policy outcomes: every policy's verdict on a committed evidence fixture is pinned in
+  `internal/frameworks/testdata/policy-outcomes/`; regenerate with
+  `go test ./internal/frameworks/ -run TestPolicyOutcomesGolden -update` and review the diff.
 - Cloud credentials: a developer machine may hold ambient AWS, GCP or Azure credentials. Unit,
   contract and binary E2E tests are hermetic; `make test-live` and a manual `sigcomply check`
   with a cloud source use what they find. Run them inside the `env -i` wrapper in

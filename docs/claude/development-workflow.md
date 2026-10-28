@@ -185,6 +185,12 @@ Which tests to add:
   (`internal/sign/testdata/spa-golden/`, `internal/planner/testdata/spa-golden/`,
   `internal/manualcatalog/testdata/`) names its SPA destination. A golden that changes without a
   matching SPA change is a contract break.
+- Policy, evidence-type schema or evaluator change: `TestPolicyOutcomesGolden`
+  (`internal/frameworks/policy_outcomes_test.go`) pins every policy's status, counts and flagged
+  resource IDs against the evidence in `internal/frameworks/testdata/policy-outcomes/records.json`.
+  Regenerate with `go test ./internal/frameworks/ -run TestPolicyOutcomesGolden -update` and
+  read the diff: each changed entry is a verdict that changed. A new policy has no entry and
+  fails until you regenerate; add records so it gets a non-pass outcome too.
 - New command, flag, exit code or output: a test in `cmd/sigcomply/` that runs the command and
   checks output and exact exit code, and a case in `e2e_test.go` when the behaviour depends on
   the process (exit code mapping, environment, files written).
