@@ -311,3 +311,47 @@ func TestRun_PRModeDoesNotAdvanceState(t *testing.T) {
 		t.Errorf("--pr wrote a state shard: %+v", st)
 	}
 }
+
+// A pull-request or merge-request pipeline evaluates the branch, whatever
+// flags it passes. A plain `check` or `--scheduled` run in one must not
+// advance cadence state either; a push pipeline still does.
+func TestRun_PRPipelineDoesNotAdvanceStateWithoutPRFlag(t *testing.T) {
+	tests := []struct {
+		name      string
+		env       map[string]string
+		wantState bool
+	}{
+		{"github pull_request", map[string]string{envGitHubEventName: "pull_request"}, false},
+		{"github pull_request_target", map[string]string{envGitHubEventName: "pull_request_target"}, false},
+		{"gitlab merge request", map[string]string{envMergeRequestIID: "7"}, false},
+		{"github push", map[string]string{envGitHubEventName: "push"}, true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, k := range []string{envGitHubEventName, envMergeRequestIID} {
+				t.Setenv(k, tc.env[k])
+			}
+			p := schedPolicy()
+			v := newListVault()
+			_, err := Run(context.Background(), &Options{
+				Config:        schedConfig(),
+				Registries:    schedRegistriesWith(t, &schedSource{}, &p),
+				Vault:         v,
+				Stdout:        &bytes.Buffer{},
+				Logger:        log.New(&bytes.Buffer{}, false),
+				Now:           func() time.Time { return time.Date(2026, 5, 24, 9, 0, 0, 0, time.UTC) },
+				SubmitterOpts: submitter.Options{Disable: true},
+			})
+			if err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+			st, err := ReadPolicyState(context.Background(), v, testFramework, testPolicyID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if (st != nil) != tc.wantState {
+				t.Errorf("state shard written = %v; want %v", st != nil, tc.wantState)
+			}
+		})
+	}
+}

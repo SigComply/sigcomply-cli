@@ -204,8 +204,10 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 
 	// A --pr run evaluates the pull request's branch and config; advancing
 	// state from it would let a later --scheduled run on the default
-	// branch carry forward a pass the branch earned.
-	if opts.Mode != ModePR {
+	// branch carry forward a pass the branch earned. The same holds for
+	// any run in a pull-request or merge-request pipeline, whatever flags
+	// the job passes.
+	if opts.Mode != ModePR && !inPullRequestPipeline() {
 		advancePolicyStates(ctx, opts, plan, results, runID, runRoot, startedAt)
 	}
 
@@ -1138,3 +1140,21 @@ func Bootstrap(configPath string) (*spec.ProjectConfig, *registry.Set, error) {
 
 // ErrBootstrapAlreadyInitialized is reserved for future use.
 var ErrBootstrapAlreadyInitialized = errors.New("orchestrator: already initialized")
+
+// inPullRequestPipeline reports whether CI says this job runs for a pull
+// request (GitHub Actions pull_request or pull_request_target) or a merge
+// request (GitLab sets CI_MERGE_REQUEST_IID only in merge request
+// pipelines).
+func inPullRequestPipeline() bool {
+	switch os.Getenv(envGitHubEventName) {
+	case "pull_request", "pull_request_target":
+		return true
+	}
+	return os.Getenv(envMergeRequestIID) != ""
+}
+
+// The CI variables inPullRequestPipeline reads.
+const (
+	envGitHubEventName = "GITHUB_EVENT_NAME"
+	envMergeRequestIID = "CI_MERGE_REQUEST_IID"
+)
