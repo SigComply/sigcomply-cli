@@ -221,7 +221,10 @@ reach for the `rule:` escape hatch only for logic the DSL can't express.
    non-empty `evidence_mode`, every `accepts:` type is registered, every
    rule reference resolves, and every policy passes `spec.ValidatePassWhen`
    (`pass_when_validation_test.go` — declared slots, `matches_in` shape,
-   slot roles). Run `make test`.
+   slot roles), and every field a clause reads is declared by each evidence
+   type its slot accepts (`TestClauseFieldsExistInAcceptedSchemas` in
+   `internal/frameworks/`; a field only one version declares must be read
+   behind `is_set`). Run `make test`.
 
 6. **Pin its outcome.** `TestPolicyOutcomesGolden`
    (`internal/frameworks/policy_outcomes_test.go`) fails for a policy with
