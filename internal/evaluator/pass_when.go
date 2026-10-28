@@ -422,9 +422,25 @@ func resolveValue(v any, params map[string]any) any {
 	}
 	key := strings.TrimPrefix(s, "$params.")
 	if pv, ok := params[key]; ok {
+		// The planner resolves list_of_string and list_of_int to typed
+		// slices; in and not_in take the []any a YAML literal decodes to.
+		switch list := pv.(type) {
+		case []string:
+			return toAnySlice(list)
+		case []int:
+			return toAnySlice(list)
+		}
 		return pv
 	}
 	return v
+}
+
+func toAnySlice[T any](xs []T) []any {
+	out := make([]any, len(xs))
+	for i, x := range xs {
+		out[i] = x
+	}
+	return out
 }
 
 // deepEqual compares two values with type coercion for JSON numeric types.

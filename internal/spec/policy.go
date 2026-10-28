@@ -514,8 +514,35 @@ func ValidatePassWhen(p core.Policy) error {
 		if err := validateClause(clause, p.Slots); err != nil {
 			return fmt.Errorf("policy spec %q: pass_when clause %d: %w", p.ID, i, err)
 		}
+		for _, cond := range []*core.PassWhenCondition{clause.Filter, clause.Condition} {
+			if err := validateParamRefs(cond, p.Parameters); err != nil {
+				return fmt.Errorf("policy spec %q: pass_when clause %d: %w", p.ID, i, err)
+			}
+		}
 	}
 	return nil
+}
+
+// validateParamRefs rejects a $params reference to a duration or date
+// parameter. pass_when compares a record field with a number, string or
+// list; a duration has no unit and a date no format that a record field
+// shares, so the comparison would error the policy on every run.
+func validateParamRefs(cond *core.PassWhenCondition, params map[string]core.ParameterSpec) error {
+	if cond == nil {
+		return nil
+	}
+	if s, ok := cond.Value.(string); ok && strings.HasPrefix(s, "$params.") {
+		name := strings.TrimPrefix(s, "$params.")
+		if ps, ok := params[name]; ok && (ps.Type == "duration" || ps.Type == "date") {
+			return fmt.Errorf("parameter %q has type %s, which pass_when cannot compare with a record field; declare it as int (for example a number of days) or use a rule", name, ps.Type)
+		}
+	}
+	for _, sub := range cond.Conditions {
+		if err := validateParamRefs(sub, params); err != nil {
+			return err
+		}
+	}
+	return validateParamRefs(cond.Where, params)
 }
 
 var validPassWhenQuantifiers = map[core.PassWhenQuantifier]struct{}{

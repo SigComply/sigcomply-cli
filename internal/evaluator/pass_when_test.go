@@ -731,3 +731,30 @@ func TestEvaluate_OptionalSlotsNothingBound_Skips(t *testing.T) {
 		t.Errorf("one slot bound: status = %q; want pass (evaluated on the bound source)", r.Status)
 	}
 }
+
+// A list_of_string or list_of_int parameter resolves to a typed Go slice
+// in the planner; in and not_in must accept it.
+func TestPassWhen_ListParamsWorkWithIn(t *testing.T) {
+	records := map[string][]core.EvidenceRecord{slotBuckets: {
+		makeRecord("b1", map[string]any{keyRegion: regionUSEast1, "port": float64(443)}),
+		makeRecord("b2", map[string]any{keyRegion: "eu-west-1", "port": float64(22)}),
+	}}
+	for name, tc := range map[string]struct {
+		field string
+		param any
+	}{
+		"list_of_string": {"payload." + keyRegion, []string{regionUSEast1}},
+		"list_of_int":    {"payload.port", []int{443}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
+				Slot: slotBuckets, Quantifier: core.QuantifierAll,
+				Condition: &core.PassWhenCondition{Op: "in", Field: tc.field, Value: "$params.allowed"},
+			}}}
+			got := evaluatePassWhen(spec, newEvalCtx(records, map[string]any{"allowed": tc.param}, nil))
+			if got.Status != core.StatusFail || len(got.Violations) != 1 || got.Violations[0].ResourceID != "b2" {
+				t.Fatalf("got %q %+v; want fail on b2 only", got.Status, got.Violations)
+			}
+		})
+	}
+}

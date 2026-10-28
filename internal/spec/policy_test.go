@@ -364,3 +364,47 @@ pass_when:
 		t.Errorf("error = %q; want it to mention the filter", err.Error())
 	}
 }
+
+// pass_when compares a record field with a scalar or a list. A duration
+// or date parameter has no unit or format a record field shares, so a
+// reference to one is rejected at load with a clear error instead of
+// erroring the policy on every run.
+func TestLoadPolicy_RejectsDurationAndDateParamsInPassWhen(t *testing.T) {
+	for _, typ := range []string{"duration", "date"} {
+		t.Run(typ, func(t *testing.T) {
+			def := `"30d"`
+			if typ == "date" {
+				def = `"2026-01-15"`
+			}
+			data := []byte(`
+schema_version: policy.v1
+id: custom.keys.age
+control: CC6.1
+severity: high
+cadence: daily
+evidence_mode: automated
+description: "Keys are young."
+parameters:
+  limit:
+    type: ` + typ + `
+    default: ` + def + `
+slots:
+  keys:
+    accepts: [iam_access_key]
+    cardinality: one-or-more
+    required: true
+pass_when:
+  - slot: keys
+    quantifier: all
+    condition:
+      op: lte
+      field: payload.age_days
+      value: $params.limit
+`)
+			_, err := LoadPolicy(data)
+			if err == nil || !strings.Contains(err.Error(), `parameter "limit" has type `+typ) {
+				t.Fatalf("err = %v; want a rejection naming the %s parameter", err, typ)
+			}
+		})
+	}
+}

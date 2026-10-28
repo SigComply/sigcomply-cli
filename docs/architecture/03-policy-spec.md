@@ -163,6 +163,10 @@ parameters:
 | `list_of_string` | list | `item_pattern` is parsed but not enforced |
 | `list_of_int` | list | |
 
+A `pass_when` condition reads a parameter as `value: $params.<name>`. List parameters work with
+`in` and `not_in`. A `duration` or `date` parameter cannot be compared with a record field, so a
+`pass_when` reference to one fails the policy load; use it from a `rule:`.
+
 Effective value = the policy default, overridden by `policies.<id>.parameters.<name>` in
 `.sigcomply.yaml`. An out-of-range value is a plan error (exit 3). Effective values are written
 to `result.json`, not to `manifest.json`.
