@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -22,6 +23,7 @@ type fakeAPI struct {
 
 	descCount int
 	volCount  int
+	volBatch  [][]string
 }
 
 func (f *fakeAPI) DescribeInstances(_ context.Context, _ *awsec2.DescribeInstancesInput, _ ...func(*awsec2.Options)) (*awsec2.DescribeInstancesOutput, error) {
@@ -32,8 +34,9 @@ func (f *fakeAPI) DescribeInstances(_ context.Context, _ *awsec2.DescribeInstanc
 	return &awsec2.DescribeInstancesOutput{Reservations: f.reservations}, nil
 }
 
-func (f *fakeAPI) DescribeVolumes(_ context.Context, _ *awsec2.DescribeVolumesInput, _ ...func(*awsec2.Options)) (*awsec2.DescribeVolumesOutput, error) {
+func (f *fakeAPI) DescribeVolumes(_ context.Context, in *awsec2.DescribeVolumesInput, _ ...func(*awsec2.Options)) (*awsec2.DescribeVolumesOutput, error) {
 	f.volCount++
+	f.volBatch = append(f.volBatch, in.VolumeIds)
 	if f.volErr != nil {
 		return nil, f.volErr
 	}
@@ -243,4 +246,45 @@ func TestNewFromAWS_SmokeTest(t *testing.T) {
 	if p.ID() != SourceID {
 		t.Errorf("ID = %q", p.ID())
 	}
+}
+
+// A failed DescribeVolumes (missing permission, throttle) must fail the
+// collection, not report every instance's root volume as unencrypted.
+func TestCollect_DescribeVolumesErrorPropagates(t *testing.T) {
+	fake := &fakeAPI{reservations: rootVolumeReservations(1), volErr: errors.New("UnauthorizedOperation")}
+	if _, err := New(Options{API: fake}).Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}}); err == nil {
+		t.Fatal("Collect = nil error; want the DescribeVolumes failure returned")
+	}
+}
+
+func TestCollect_DescribeVolumesIsBatched(t *testing.T) {
+	fake := &fakeAPI{reservations: rootVolumeReservations(450)}
+	if _, err := New(Options{API: fake}).Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}}); err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if len(fake.volBatch) != 3 {
+		t.Fatalf("DescribeVolumes calls = %d; want 3 for 450 volumes", len(fake.volBatch))
+	}
+	for _, b := range fake.volBatch {
+		if len(b) > describeVolumesBatch {
+			t.Errorf("batch of %d volume IDs; want <= %d", len(b), describeVolumesBatch)
+		}
+	}
+}
+
+// rootVolumeReservations builds n instances, each with an EBS root volume.
+func rootVolumeReservations(n int) []ec2types.Reservation {
+	insts := make([]ec2types.Instance, 0, n)
+	for i := range n {
+		id := fmt.Sprintf("i-%04d", i)
+		insts = append(insts, ec2types.Instance{
+			InstanceId:     ptr(id),
+			RootDeviceName: ptr("/dev/xvda"),
+			BlockDeviceMappings: []ec2types.InstanceBlockDeviceMapping{{
+				DeviceName: ptr("/dev/xvda"),
+				Ebs:        &ec2types.EbsInstanceBlockDevice{VolumeId: ptr("vol-" + id)},
+			}},
+		})
+	}
+	return []ec2types.Reservation{{Instances: insts}}
 }

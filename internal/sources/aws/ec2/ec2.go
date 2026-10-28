@@ -115,9 +115,12 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	if err != nil {
 		return nil, fmt.Errorf("aws.ec2: describe instances: %w", err)
 	}
-	// Best-effort root-volume encryption lookup; a DescribeVolumes
-	// failure leaves the flag false rather than aborting collection.
-	volumeEncrypted := p.rootVolumeEncryptionMap(ctx, instances)
+	// A DescribeVolumes failure is returned: reading it as "unencrypted"
+	// would fail every instance with a remediation that cannot help.
+	volumeEncrypted, err := p.rootVolumeEncryptionMap(ctx, instances)
+	if err != nil {
+		return nil, fmt.Errorf("aws.ec2: describe volumes: %w", err)
+	}
 	now := p.now()
 	records := make([]core.EvidenceRecord, 0, len(instances))
 	for i := range instances {
@@ -155,10 +158,14 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	return records, nil
 }
 
+// describeVolumesBatch caps the VolumeIds sent in one DescribeVolumes
+// call; a request naming every root volume of a large fleet is too big.
+const describeVolumesBatch = 200
+
 // rootVolumeEncryptionMap returns a map of instanceID → encrypted for each
-// instance's root EBS volume. Best-effort: unknown or on API error →
-// absent (treated as false by the caller).
-func (p *Plugin) rootVolumeEncryptionMap(ctx context.Context, instances []ec2types.Instance) map[string]bool {
+// instance's root EBS volume. An instance without an EBS root volume is
+// absent (read as false by the caller).
+func (p *Plugin) rootVolumeEncryptionMap(ctx context.Context, instances []ec2types.Instance) (map[string]bool, error) {
 	result := make(map[string]bool, len(instances))
 	// Build map of volumeID → instanceID for root volumes.
 	volToInstance := make(map[string]string)
@@ -177,28 +184,32 @@ func (p *Plugin) rootVolumeEncryptionMap(ctx context.Context, instances []ec2typ
 		}
 	}
 	if len(volToInstance) == 0 {
-		return result
+		return result, nil
 	}
 	volIDs := make([]string, 0, len(volToInstance))
 	for vid := range volToInstance {
 		volIDs = append(volIDs, vid)
 	}
-	out, err := p.api.DescribeVolumes(ctx, &awsec2.DescribeVolumesInput{VolumeIds: volIDs})
-	if err != nil {
-		return result // best-effort: leave flags false on error
-	}
-	for i := range out.Volumes {
-		v := &out.Volumes[i]
-		if v.VolumeId == nil {
-			continue
+	sort.Strings(volIDs) // stable request bodies
+	for start := 0; start < len(volIDs); start += describeVolumesBatch {
+		batch := volIDs[start:min(start+describeVolumesBatch, len(volIDs))]
+		out, err := p.api.DescribeVolumes(ctx, &awsec2.DescribeVolumesInput{VolumeIds: batch})
+		if err != nil {
+			return nil, err
 		}
-		instID, ok := volToInstance[*v.VolumeId]
-		if !ok {
-			continue
+		for i := range out.Volumes {
+			v := &out.Volumes[i]
+			if v.VolumeId == nil {
+				continue
+			}
+			instID, ok := volToInstance[*v.VolumeId]
+			if !ok {
+				continue
+			}
+			result[instID] = v.Encrypted != nil && *v.Encrypted
 		}
-		result[instID] = v.Encrypted != nil && *v.Encrypted
 	}
-	return result
+	return result, nil
 }
 
 func (p *Plugin) listAllInstances(ctx context.Context) ([]ec2types.Instance, error) {
