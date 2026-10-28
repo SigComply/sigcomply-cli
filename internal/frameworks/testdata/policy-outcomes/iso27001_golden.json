@@ -2503,12 +2503,9 @@
       ]
     },
     "sparse": {
-      "status": "fail",
+      "status": "pass",
       "resources_evaluated": 3,
-      "resources_failed": 1,
-      "violated": [
-        "ci-user"
-      ]
+      "resources_failed": 0
     }
   },
   "iso27001.8.5.org_2fa_required": {

@@ -343,3 +343,18 @@ func minRetentionClause(days int) core.PassWhenClause {
 	return all(anyOf(leaf("payload.retention_set", "eq", false), leaf("payload.retention_days", "gte", days)),
 		fmt.Sprintf("log group {{.payload.name}} retains logs for fewer than %d days", days))
 }
+
+// notOf negates one condition. Paired with isSet it says "absent or
+// true", which the DSL cannot otherwise express.
+func notOf(cond *core.PassWhenCondition) *core.PassWhenCondition {
+	return &core.PassWhenCondition{Op: "not", Conditions: []*core.PassWhenCondition{cond}}
+}
+
+// interactiveUser scopes a directory_user policy to people who can sign
+// in interactively. directory_user.v2 says so in has_console_access; a
+// v1 record carries no such field and stays in scope. A programmatic-only
+// IAM user (a CI deploy user) has no console password to protect with
+// MFA, and CIS AWS 1.10 scopes the MFA check the same way.
+func interactiveUser() *core.PassWhenCondition {
+	return notOf(allOf(isSet("payload.has_console_access"), leaf("payload.has_console_access", "eq", false)))
+}

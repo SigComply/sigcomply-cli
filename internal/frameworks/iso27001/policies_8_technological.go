@@ -73,9 +73,9 @@ func techAccessPolicies() []core.Policy {
 		autoPolicy{
 			id: "iso27001.8.5.mfa_enforced_all_users", control: ctrlSecureAuthentication, also: []string{"A.5.17"}, severity: core.SeverityCritical, category: catAccess, cadence: cadenceDaily,
 			accepts: directoryUserTypes,
-			desc:    "All users have MFA enabled (secure authentication).",
-			rem:     "Enable MFA for every user.",
-			clause:  all(leaf("payload.mfa_enabled", "eq", true), "user {{.payload.display_name}} does not have MFA enabled"),
+			desc:    "All users who can sign in interactively have MFA enabled (secure authentication). Users without console access (programmatic-only) are out of scope.",
+			rem:     "Enable MFA for every user who can sign in interactively.",
+			clause:  allWhere(interactiveUser(), leaf("payload.mfa_enabled", "eq", true), "user {{.payload.display_name}} does not have MFA enabled"),
 		}.policy(),
 		autoPolicy{
 			id: "iso27001.8.5.password_minimum_length", control: ctrlSecureAuthentication, severity: core.SeverityMedium, category: catAccess, cadence: cadenceDaily,

@@ -30,9 +30,9 @@ func cc6AccessPolicies() []core.Policy {
 		autoPolicy{
 			id: "soc2.cc6.1.mfa_enforced_all_users", control: ctrlCC61, severity: core.SeverityCritical, category: catAccess, cadence: cadenceDaily,
 			accepts: directoryUserTypes,
-			desc:    "All directory users have multi-factor authentication enabled.",
-			rem:     "Enable MFA for every user in each bound identity source.",
-			clause:  all(leaf("payload.mfa_enabled", "eq", true), "user {{.payload.display_name}} does not have MFA enabled"),
+			desc:    "All directory users who can sign in interactively have multi-factor authentication enabled. Users without console access (programmatic-only) are out of scope.",
+			rem:     "Enable MFA for every user who can sign in interactively in each bound identity source.",
+			clause:  allWhere(interactiveUser(), leaf("payload.mfa_enabled", "eq", true), "user {{.payload.display_name}} does not have MFA enabled"),
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc6.1.mfa_enforced_admins", control: ctrlCC61, severity: core.SeverityCritical, category: catAccess, cadence: cadenceDaily,
