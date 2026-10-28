@@ -203,7 +203,9 @@ func (in *Input) scanOne(ctx context.Context, entry *manual.CatalogEntry, folder
 		return nil, fmt.Errorf("manualdue: list %s: %w", prefix, err)
 	}
 	rep.Checked++
-	if len(items) > 0 {
+	// Count only what collection would read as evidence (no folder
+	// placeholders, OS metadata files or subfolder contents).
+	if len(manual.EvidenceFiles(prefix, items)) > 0 {
 		return nil, nil
 	}
 	daysLeft := int(period.End.Sub(in.Reference).Hours() / 24)

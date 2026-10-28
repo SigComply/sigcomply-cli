@@ -116,6 +116,9 @@ Rules for the files:
 - Supported formats: PDF, JPEG, PNG, GIF, TIFF, WebP and BMP. The CLI converts images to PDF and
   merges all files in the folder into one PDF. Any other file in the folder fails the policy
   with `unsupported_file_type`.
+- The CLI ignores hidden files (names starting with `.`, such as `.DS_Store`), `Thumbs.db`,
+  `desktop.ini`, the empty folder object that the S3 or GCS console's "Create folder" makes, and
+  everything in subfolders. Put the evidence files directly in the period folder.
 - Upload during the period the document covers. The upload time is the object's last-modified
   time (a local file's modification time), so uploading a file again resets it. It must fall
   between the start of

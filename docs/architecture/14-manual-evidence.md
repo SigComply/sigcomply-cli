@@ -50,8 +50,12 @@ in `src/lib/storage-path.ts`; change both together.
 
 `Plugin.scanFolder` in `internal/sources/manual/manual.go`, in order:
 
-1. List the folder. No files: `file_present=false`. The evaluator fails the policy with
-   "manual evidence not found; expected files in: <folder URI>".
+1. List the folder and keep only its own files (`manual.EvidenceFiles`): drop the zero-byte
+   folder object a bucket console creates (a key ending in `/`), anything in a subfolder,
+   dotfiles such as `.DS_Store`, `Thumbs.db` and `desktop.ini`. The cloud readers list
+   recursively and the local one does not; this rule makes every backend read the same files.
+   `evidence due` applies it too. No files left: `file_present=false`. The evaluator fails the
+   policy with "manual evidence not found; expected files in: <folder URI>".
 2. Classify each file by extension (`fileconv.SupportedExt`: PDF, JPEG, PNG, GIF, TIFF, WebP,
    BMP). An unsupported file adds `unsupported_file_type` to `validation_failures` and is skipped.
 3. Fetch each supported file, SHA-256 its original bytes, and convert images to PDF

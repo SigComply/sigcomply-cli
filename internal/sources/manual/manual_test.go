@@ -93,6 +93,9 @@ func minimalPNG() []byte {
 	}
 }
 
+// testQ1Folder is the test catalog entry's 2026-Q1 folder.
+const testQ1Folder = "manual/access_review_quarterly/2026-Q1/"
+
 func newTestPlugin(files map[string]InMemoryFile) *Plugin {
 	return New(Options{
 		Reader: &InMemoryReader{Files: files},
@@ -1189,4 +1192,51 @@ func (r *selectiveGetReader) List(_ context.Context, prefix string) ([]FileInfo,
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].Key < items[j].Key })
 	return items, nil
+}
+
+// Object stores and operating systems add entries that are not evidence:
+// the zero-byte "folder" object the S3 and GCS consoles create, macOS
+// .DS_Store and other dotfiles, Windows Thumbs.db and desktop.ini. They are
+// ignored, as are files in subfolders: every backend reads only the
+// folder's own files, as the local backend always did.
+func TestCollect_IgnoresPlaceholdersOSFilesAndSubfolders(t *testing.T) {
+	uploadedAt := mustTime("2026-02-15T10:00:00Z")
+	dir := testQ1Folder
+	p := newTestPlugin(map[string]InMemoryFile{
+		dir:                       {UploadedAt: uploadedAt},
+		dir + "review.pdf":        {Data: realPDF(t), UploadedAt: uploadedAt},
+		dir + ".DS_Store":         {Data: []byte("junk"), UploadedAt: uploadedAt},
+		dir + "Thumbs.db":         {Data: []byte("junk"), UploadedAt: uploadedAt},
+		dir + "desktop.ini":       {Data: []byte("junk"), UploadedAt: uploadedAt},
+		dir + "old/":              {UploadedAt: uploadedAt},
+		dir + "old/notes.txt":     {Data: []byte("junk"), UploadedAt: uploadedAt},
+		dir + "old/.hidden/x.pdf": {Data: realPDF(t), UploadedAt: uploadedAt},
+	})
+	records, err := p.Collect(context.Background(), baseReq(testPeriodID, nil))
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	m := unmarshalManifest(t, records)
+	if !m.FilePresent || !m.FileValid {
+		t.Errorf("present=%v valid=%v failures=%v; want the folder's one PDF to pass", m.FilePresent, m.FileValid, m.ValidationFailures)
+	}
+	if len(m.SourceFiles) != 1 || m.SourceFiles[0].Filename != "review.pdf" {
+		t.Errorf("source files = %+v; want only review.pdf", m.SourceFiles)
+	}
+}
+
+// A folder holding only a placeholder and OS files has no evidence.
+func TestCollect_PlaceholderOnlyFolderIsMissing(t *testing.T) {
+	dir := testQ1Folder
+	p := newTestPlugin(map[string]InMemoryFile{
+		dir:               {UploadedAt: mustTime("2026-02-15T10:00:00Z")},
+		dir + ".DS_Store": {Data: []byte("junk"), UploadedAt: mustTime("2026-02-15T10:00:00Z")},
+	})
+	records, err := p.Collect(context.Background(), baseReq(testPeriodID, nil))
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if m := unmarshalManifest(t, records); m.FilePresent {
+		t.Errorf("FilePresent = true; want false (no evidence file in the folder)")
+	}
 }

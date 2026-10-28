@@ -99,6 +99,23 @@ func TestScan_PopulatedFolderIsNotMissing(t *testing.T) {
 	}
 }
 
+// A console-created folder placeholder or a .DS_Store is not evidence:
+// check would report the folder as missing, so evidence due must too.
+func TestScan_PlaceholderAndOSFilesDoNotCount(t *testing.T) {
+	files := map[string]manual.InMemoryFile{
+		"manual/access_review_quarterly/2026-Q1/":          {UploadedAt: mustTime(t, "2026-02-01T00:00:00Z")},
+		"manual/access_review_quarterly/2026-Q1/.DS_Store": {Data: []byte("x"), UploadedAt: mustTime(t, "2026-02-01T00:00:00Z")},
+	}
+	in := baseInput(t, files, mustTime(t, "2026-03-17T00:00:00Z"))
+	rep, err := manualdue.Scan(context.Background(), &in)
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	if len(rep.Missing) != 2 {
+		t.Fatalf("Missing = %d; want 2 (the placeholder folder is still empty)", len(rep.Missing))
+	}
+}
+
 // A file in some other period's folder must not suppress the warning —
 // the collector only ever reads the current period's folder.
 func TestScan_FileInAnotherPeriodDoesNotCount(t *testing.T) {

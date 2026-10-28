@@ -267,6 +267,7 @@ func (p *Plugin) scanFolder(ctx context.Context, folderID, periodID, priorID str
 		out.err = fmt.Errorf("manual.pdf: list %s: %w", folderPrefix, err)
 		return out
 	}
+	items = EvidenceFiles(folderPrefix, items)
 	if len(items) == 0 {
 		return out
 	}
@@ -391,6 +392,31 @@ func (p *Plugin) parseCollectParams(req core.SlotRequest) (CatalogEntry, string,
 	return entry, periodID, now, nil
 }
 
+// ignoredFileNames are operating-system metadata files that land in an
+// evidence folder without anyone uploading them (Finder, Explorer, and
+// sync tools that copy a whole folder).
+var ignoredFileNames = map[string]bool{"thumbs.db": true, "desktop.ini": true}
+
+// EvidenceFiles keeps the items that are evidence files directly in the
+// folder. It drops the zero-byte "folder" object the S3 and GCS consoles
+// create (a key ending in "/"), anything in a subfolder, dotfiles such as
+// .DS_Store, and ignoredFileNames. Every backend lists recursively except
+// local, so the subfolder rule makes all backends read the same files.
+func EvidenceFiles(folderPrefix string, items []FileInfo) []FileInfo {
+	out := items[:0:0]
+	for _, it := range items {
+		rel := strings.TrimPrefix(it.Key, folderPrefix)
+		if rel == "" || strings.Contains(rel, "/") {
+			continue
+		}
+		if strings.HasPrefix(rel, ".") || ignoredFileNames[strings.ToLower(rel)] {
+			continue
+		}
+		out = append(out, it)
+	}
+	return out
+}
+
 // mergeAndValidate merges pdfParts into one PDF and validates the result.
 // It returns the merged bytes, their "sha256:"-prefixed hex hash, and any
 // validation failures (merge errors or structural PDF failures). A failed
@@ -451,7 +477,11 @@ func (p *Plugin) fetchAndConvert(ctx context.Context, items []FileInfo) (pdfPart
 // (including when the prior folder is missing or empty).
 func (p *Plugin) checkPriorPeriod(ctx context.Context, currentFiles []sourceFile, priorFolder, priorID string) string {
 	priorItems, listErr := p.reader.List(ctx, priorFolder)
-	if listErr != nil || len(priorItems) == 0 {
+	if listErr != nil {
+		return ""
+	}
+	priorItems = EvidenceFiles(priorFolder, priorItems)
+	if len(priorItems) == 0 {
 		return ""
 	}
 	priorFiles := make([]sourceFile, 0, len(priorItems))
