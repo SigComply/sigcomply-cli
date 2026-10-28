@@ -1,7 +1,11 @@
 package planner
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -266,8 +270,9 @@ func planOne(policy *core.Policy, in *Input, roster *spec.RosterConfig, catalogC
 	cadence := resolveCadence(policy.ID, policy.Cadence, in.Config)
 
 	contentHash := core.PolicyContentHash(policy, in.SchemaDigests)
+	stateHash := policyStateHash(contentHash, policy, cadence, params, bindings, exceptions)
 	priorState := lookupState(in.PolicyStates, policy.ID)
-	shouldEvaluate, skipReason := decideEvaluation(&in.Filter, cadence, contentHash, priorState, in.Now)
+	shouldEvaluate, skipReason := decideEvaluation(&in.Filter, cadence, stateHash, priorState, in.Now)
 
 	return PlannedPolicy{
 		Spec:                   *policy,
@@ -284,7 +289,56 @@ func planOne(policy *core.Policy, in *Input, roster *spec.RosterConfig, catalogC
 		Roster:                 rosterLink,
 		PriorState:             priorState,
 		ContentHash:            contentHash,
+		StateHash:              stateHash,
 	}, nil
+}
+
+// policyStateHash folds the policy's effective project configuration into
+// its content hash. The cadence gate compares it with the prior shard's
+// hash, so tightening a parameter, binding another source, adding or
+// expiring a waiver, overriding the cadence or switching the evidence
+// mode re-evaluates instead of carrying an old pass forward for up to a
+// year. Returns "" when the content hash is "" or the inputs cannot be
+// encoded, which the gate treats as "evaluate".
+//
+// The result is a digest; it is written only to the vault's state shard,
+// never to the cloud payload, so the source IDs and exception scopes it
+// covers stay in the customer's storage (Sacred Invariant 1).
+func policyStateHash(contentHash string, policy *core.Policy, cadence string, params map[string]any, bindings map[string][]Binding, exceptions []*Exception) string {
+	if contentHash == "" {
+		return ""
+	}
+	slots := make(map[string][]string, len(bindings))
+	for slot, bs := range bindings {
+		ids := make([]string, 0, len(bs))
+		for i := range bs {
+			ids = append(ids, bs[i].SourceID+"|"+bs[i].CatalogID)
+		}
+		sort.Strings(ids)
+		slots[slot] = ids
+	}
+	type exc struct {
+		State, ResourceID, ResourcePattern, ExpiresAt string
+	}
+	excs := make([]exc, 0, len(exceptions))
+	for _, e := range exceptions {
+		excs = append(excs, exc{string(e.State), e.ResourceID, e.ResourcePattern, e.ExpiresAt})
+	}
+	// encoding/json sorts map keys, so the encoding is deterministic.
+	body, err := json.Marshal(map[string]any{
+		"content":       contentHash,
+		"cadence":       cadence,
+		"evidence_mode": string(policy.EvidenceMode),
+		"catalog_entry": policy.CatalogEntry,
+		"parameters":    params,
+		"bindings":      slots,
+		"exceptions":    excs,
+	})
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(body)
+	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
 // decideEvaluation is the per-policy gate. Returns (ShouldEvaluate,
@@ -293,29 +347,32 @@ func planOne(policy *core.Policy, in *Input, roster *spec.RosterConfig, catalogC
 //  1. Explicit operator filter (--policies, --cadences, --on-push)
 //     → forced evaluation; cadence gating is bypassed entirely.
 //  2. PolicyStates absent (nil map) → no gating; evaluate.
-//  3. Current content hash unavailable (empty) → the gate cannot prove
+//  3. Current state hash unavailable (empty) → the gate cannot prove
 //     the policy is unchanged, so it must not carry forward; evaluate.
-//  4. Content-hash mismatch → bundle update or schema bump invalidated
-//     prior evaluation; evaluate.
+//  4. State-hash mismatch, or no prior hash → a bundle update, schema
+//     bump or project-config edit invalidated the prior evaluation;
+//     evaluate.
 //  5. Cadence elapsed via planner.IsDue (which also handles
 //     on_fail_retry and first-run) → evaluate.
 //  6. Otherwise → carry forward; SkipReason explains why.
-func decideEvaluation(filter *Filter, cadence, contentHash string, prior *core.PolicyState, now time.Time) (shouldEvaluate bool, skipReason string) {
+func decideEvaluation(filter *Filter, cadence, stateHash string, prior *core.PolicyState, now time.Time) (shouldEvaluate bool, skipReason string) {
 	if filter.IsExplicit() {
 		return true, ""
 	}
 	if prior == nil {
 		return true, ""
 	}
-	if contentHash == "" {
-		// core.PolicyContentHash could not canonicalize this policy.
+	if stateHash == "" {
+		// core.PolicyContentHash could not canonicalize this policy, or its
+		// configuration could not be encoded.
 		// Fail closed: an unknown hash cannot establish that the
 		// policy is unchanged, and carrying forward on it would
 		// re-certify old evidence under a spec we cannot identify.
 		return true, "policy content hash unavailable; evaluating rather than carrying forward on an unverifiable spec"
 	}
-	if prior.LastPolicyHash != "" && contentHash != prior.LastPolicyHash {
-		return true, "policy bundle or referenced schema changed since last evaluation; content_hash mismatch"
+	if stateHash != prior.LastPolicyHash {
+		// An empty prior hash cannot prove the policy is unchanged either.
+		return true, "policy, referenced schema or its project configuration changed since last evaluation; state hash mismatch"
 	}
 	if IsDue(cadence, prior, now) {
 		return true, ""

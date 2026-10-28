@@ -98,7 +98,7 @@ func TestPlan_CadenceGate_CarriesForwardWhenNotDue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("bootstrap Plan: %v", err)
 	}
-	hash := bootstrap.Policies[0].ContentHash
+	hash := bootstrap.Policies[0].StateHash
 	pid := bootstrap.Policies[0].Spec.ID
 
 	// The policy cadence is daily; pretend it passed 1h before "now" with
@@ -183,7 +183,7 @@ func TestPlan_ExplicitFilterBypassesCadenceGate(t *testing.T) {
 			LastRunAt:      now.Add(-1 * time.Minute),
 			LastPassAt:     now.Add(-1 * time.Minute),
 			LastRunStatus:  core.StatusPass,
-			LastPolicyHash: bootstrap.Policies[0].ContentHash,
+			LastPolicyHash: bootstrap.Policies[0].StateHash,
 		},
 	}
 	plan, err := planner.Plan(&planner.Input{
@@ -215,7 +215,7 @@ func TestPlan_CadenceGate_PriorFailForcesEvaluate(t *testing.T) {
 			Framework: fwSOC2, PolicyID: pid,
 			LastRunAt:      now.Add(-1 * time.Minute),
 			LastRunStatus:  core.StatusFail,
-			LastPolicyHash: bootstrap.Policies[0].ContentHash,
+			LastPolicyHash: bootstrap.Policies[0].StateHash,
 		},
 	}
 	plan, err := planner.Plan(&planner.Input{
@@ -258,4 +258,89 @@ func substr(s, sub string) bool {
 		}
 	}
 	return false
+}
+
+// paramExemptServiceAccounts is the setUp policy's one parameter.
+const paramExemptServiceAccounts = "exempt_service_accounts"
+
+// passedAnHourAgo is a prior pass recorded under hash, inside the daily
+// cadence: without a hash change the policy carries forward.
+func passedAnHourAgo(pid, hash string, now time.Time) map[string]*core.PolicyState {
+	return map[string]*core.PolicyState{pid: {
+		Framework: fwSOC2, PolicyID: pid,
+		LastRunAt:      now.Add(-time.Hour),
+		LastPassAt:     now.Add(-time.Hour),
+		LastRunStatus:  core.StatusPass,
+		LastPolicyHash: hash,
+	}}
+}
+
+// A --scheduled run must not carry forward a pass earned under different
+// project configuration: tightening a parameter, binding another source,
+// adding a waiver, overriding the cadence. The state hash covers the
+// policy's effective configuration, not only its spec.
+func TestPlan_CadenceGate_ProjectConfigChangeForcesEvaluate(t *testing.T) {
+	set := setUp(t)
+	commit := commitFixture(t)
+	base := minimalPlanConfig()
+	bootstrap := mustPlan(t, &planner.Input{Config: base, Registries: set, CommitTime: commit, Now: commit})
+	pid := bootstrap.Policies[0].Spec.ID
+	prior := bootstrap.Policies[0].StateHash
+	if prior == "" {
+		t.Fatal("StateHash is empty")
+	}
+
+	// Unchanged config: carried forward.
+	same := mustPlan(t, &planner.Input{Config: minimalPlanConfig(), Registries: set, CommitTime: commit, Now: commit,
+		PolicyStates: passedAnHourAgo(pid, prior, commit)})
+	if same.Policies[0].ShouldEvaluate {
+		t.Fatal("unchanged config: ShouldEvaluate = true; want a carry-forward")
+	}
+
+	edits := map[string]func(pc *spec.PolicyConfig){
+		"parameter": func(pc *spec.PolicyConfig) {
+			pc.Parameters = map[string]any{paramExemptServiceAccounts: false}
+		},
+		"binding": func(pc *spec.PolicyConfig) {
+			pc.Bindings[slotUserDirectory] = append(pc.Bindings[slotUserDirectory], spec.BindingEntry{Source: srcOktaID})
+		},
+		"exception": func(pc *spec.PolicyConfig) {
+			pc.Exceptions = []spec.PolicyException{{State: string(core.StatusWaived), Reason: "r", ApprovedBy: "a", ApprovedAt: "2026-01-01",
+				Scope: spec.ExceptionScope{ResourceID: "u1"}}}
+		},
+		"cadence override": func(pc *spec.PolicyConfig) { pc.Cadence = cadenceWeekly },
+	}
+	for name, edit := range edits {
+		t.Run(name, func(t *testing.T) {
+			cfg := minimalPlanConfig()
+			pc := cfg.Policies[ordinaryPolicyID]
+			edit(&pc)
+			cfg.Policies[ordinaryPolicyID] = pc
+			plan := mustPlan(t, &planner.Input{Config: cfg, Registries: set, CommitTime: commit, Now: commit,
+				PolicyStates: passedAnHourAgo(pid, prior, commit)})
+			pp := plan.Policies[0]
+			if pp.StateHash == prior {
+				t.Errorf("StateHash unchanged by a %s edit", name)
+			}
+			if !pp.ShouldEvaluate {
+				t.Errorf("ShouldEvaluate = false; a %s edit must invalidate the carried pass", name)
+			}
+			if pp.ContentHash != bootstrap.Policies[0].ContentHash {
+				t.Errorf("ContentHash changed; it goes on the wire and must cover the policy spec only")
+			}
+		})
+	}
+}
+
+// A shard written without a hash cannot prove the policy is unchanged.
+func TestPlan_CadenceGate_EmptyPriorHashForcesEvaluate(t *testing.T) {
+	set := setUp(t)
+	commit := commitFixture(t)
+	cfg := minimalPlanConfig()
+	pid := mustPlan(t, &planner.Input{Config: cfg, Registries: set, CommitTime: commit, Now: commit}).Policies[0].Spec.ID
+	plan := mustPlan(t, &planner.Input{Config: cfg, Registries: set, CommitTime: commit, Now: commit,
+		PolicyStates: passedAnHourAgo(pid, "", commit)})
+	if !plan.Policies[0].ShouldEvaluate {
+		t.Error("ShouldEvaluate = false; an empty prior hash must not carry forward")
+	}
 }

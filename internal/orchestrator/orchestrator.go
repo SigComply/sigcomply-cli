@@ -491,7 +491,7 @@ func advancePolicyStates(
 	for i := range plan.Policies {
 		pp := &plan.Policies[i]
 		cadenceByPolicy[pp.Spec.ID] = pp.Cadence
-		hashByPolicy[pp.Spec.ID] = pp.ContentHash
+		hashByPolicy[pp.Spec.ID] = pp.StateHash
 	}
 	for i := range results {
 		r := &results[i]

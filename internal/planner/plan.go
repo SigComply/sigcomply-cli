@@ -109,6 +109,15 @@ type PlannedPolicy struct {
 
 	PriorState  *core.PolicyState
 	ContentHash string
+
+	// StateHash is ContentHash plus the policy's effective project
+	// configuration: resolved parameters, cadence, evidence mode and
+	// catalog entry, bound source IDs per slot, and live exceptions. It is
+	// what the cadence gate compares with PriorState.LastPolicyHash and
+	// what advancePolicyStates records, so a config edit invalidates a
+	// carried pass. It stays in the vault's state shard; ContentHash, which
+	// covers the policy spec only, is the one that goes on the wire.
+	StateHash string
 }
 
 // RosterLink is the project's experimental.roster block as the evaluator

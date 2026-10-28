@@ -102,11 +102,11 @@ logged as a warning; the policy stays due and re-evaluates next time.
 cadence question to `planner.IsDue` (`internal/planner/cadence.go`):
 
 ```
-decideEvaluation(filter, cadence, contentHash, prior, now):
+decideEvaluation(filter, cadence, stateHash, prior, now):
   1. filter.IsExplicit() (--cadence, --cadences, --on-push)  -> evaluate
   2. prior == nil (state not loaded, or no shard yet)          -> evaluate
-  3. contentHash == ""                                         -> evaluate (fail closed)
-  4. prior.LastPolicyHash != contentHash                       -> evaluate
+  3. stateHash == ""                                           -> evaluate (fail closed)
+  4. prior.LastPolicyHash != stateHash (an empty prior too)    -> evaluate
   5. IsDue(cadence, prior, now)                                -> evaluate
   6. else -> carry forward; Status = carried_forward,
              SkipReason = DueReason(cadence, prior, now)
@@ -142,7 +142,17 @@ parameters (type + default), and the digests of referenced evidence-type schemas
 - A hash change makes the policy due regardless of cadence. The carried-forward skip reason names
   the mismatch; no run-level notice is printed.
 - An empty hash (nil policy, or a `value:` JSON cannot represent) means "evaluate", never "no
-  change" (branch 3).
+  change" (branch 3). So does a prior shard with no hash (branch 4).
+
+The gate compares `PlannedPolicy.StateHash`, not the content hash. `planner.policyStateHash`
+folds the policy's effective project configuration into `PolicyContentHash`: resolved
+parameters, the resolved cadence, evidence mode and catalog entry, the source IDs bound to each
+slot, and the live exceptions (state, resource scope, expiry). Tightening a parameter, adding an
+account, adding or expiring a waiver, or switching a policy to manual therefore re-evaluates it on
+the next `--scheduled` run instead of carrying an old pass forward. `advancePolicyStates` writes
+the state hash to `LastPolicyHash`. It stays in the vault; the wire's `policy_content_hash` is
+still the spec-only content hash, so no source ID or exception scope reaches the payload, even
+hashed. The first run after this was introduced re-evaluates every policy once.
 
 ## Carry-forward results
 
