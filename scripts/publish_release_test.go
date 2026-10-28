@@ -41,7 +41,7 @@ func newPublishFixture(t *testing.T) *publishFixture {
 		t.Fatal(err)
 	}
 	f.gh = filepath.Join(dir, "assets.txt")
-	f.env = append(os.Environ(),
+	f.env = append(envWithoutGitRepoVars(),
 		"PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"),
 		"GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_NOSYSTEM=1",
 		"GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@example.invalid",
@@ -59,6 +59,25 @@ func newPublishFixture(t *testing.T) *publishFixture {
 	f.head = f.git(f.work, "rev-parse", "HEAD")
 	f.git(f.work, "push", "-q", "origin", "HEAD:refs/heads/main")
 	return f
+}
+
+// envWithoutGitRepoVars drops the variables git exports to hooks
+// (GIT_DIR, GIT_INDEX_FILE, GIT_WORK_TREE, ...). Under a pre-commit hook in
+// a linked worktree they name the outer repository's absolute paths, so
+// the fixture's git commands would act on that repository, not on the
+// temporary clone.
+func envWithoutGitRepoVars() []string {
+	env := os.Environ()
+	out := make([]string, 0, len(env))
+	for _, kv := range env {
+		switch strings.SplitN(kv, "=", 2)[0] {
+		case "GIT_DIR", "GIT_INDEX_FILE", "GIT_WORK_TREE", "GIT_COMMON_DIR",
+			"GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_PREFIX":
+			continue
+		}
+		out = append(out, kv)
+	}
+	return out
 }
 
 func (f *publishFixture) git(dir string, args ...string) string {
