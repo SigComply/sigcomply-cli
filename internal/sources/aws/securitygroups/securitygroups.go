@@ -226,13 +226,22 @@ func (p *Plugin) listAllGroups(ctx context.Context) ([]ec2types.SecurityGroup, e
 }
 
 // normalizeProtocol maps the AWS "-1" all-protocols marker to the
-// cross-vendor "all"; tcp/udp/icmp pass through unchanged.
+// cross-vendor "all" and a well-known protocol number to its name; names
+// and other numbers pass through unchanged.
 func normalizeProtocol(p string) string {
 	if p == "-1" {
 		return "all"
 	}
+	if name, ok := protocolNames[p]; ok {
+		return name
+	}
 	return p
 }
+
+// protocolNames maps the IANA numbers EC2 accepts in place of a protocol
+// name to that name. The port policies match on "tcp", so a rule written
+// as "6" would otherwise never be checked. Other numbers pass through.
+var protocolNames = map[string]string{"1": "icmp", "6": "tcp", "17": "udp", "58": "icmpv6"}
 
 func hasUnrestrictedIPv4(perm *ec2types.IpPermission) bool {
 	for i := range perm.IpRanges {

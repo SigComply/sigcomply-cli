@@ -20,6 +20,7 @@ import (
 const (
 	testDirectionIngress = "INGRESS"
 	testProtocolTCP      = "tcp"
+	testProtocolICMP     = "icmp"
 	cidrAllV4            = "0.0.0.0/0"
 	cidrAllV6            = "::/0"
 )
@@ -109,7 +110,7 @@ func TestCollect_FlattensAndSorts(t *testing.T) {
 			SourceRanges: []string{cidrAllV4},
 			Allowed: []*gce.FirewallAllowed{
 				{IPProtocol: testProtocolTCP, Ports: []string{"80", "443"}},
-				{IPProtocol: "icmp"},
+				{IPProtocol: testProtocolICMP},
 			},
 		},
 	}}
@@ -146,7 +147,7 @@ func TestCollect_FlattensAndSorts(t *testing.T) {
 	}
 	// icmp entry has no ports → all-ports sentinel.
 	got2 := decodePayload(t, &records[2])
-	if got2.Protocol != "icmp" || got2.FromPort != allPortsSentinel || got2.ToPort != allPortsSentinel {
+	if got2.Protocol != testProtocolICMP || got2.FromPort != allPortsSentinel || got2.ToPort != allPortsSentinel {
 		t.Errorf("records[2] = %+v; want icmp -1/-1", got2)
 	}
 }
@@ -249,6 +250,36 @@ func TestCollect_Disabled(t *testing.T) {
 	}
 	if raw["disabled"] != true || raw["action"] != "allow" {
 		t.Errorf("payload disabled=%v action=%v; want true, allow", raw["disabled"], raw["action"])
+	}
+}
+
+// TestCollect_NumericProtocol verifies a protocol given as an IANA number
+// (which GCP accepts in place of the name) is reported by name, so the port
+// policies, which match on "tcp", see a TCP rule written as "6". An unknown
+// number passes through unchanged.
+func TestCollect_NumericProtocol(t *testing.T) {
+	fake := &fakeAPI{firewalls: []*gce.Firewall{{
+		Name: "num", Direction: testDirectionIngress, SourceRanges: []string{cidrAllV4},
+		Allowed: []*gce.FirewallAllowed{
+			{IPProtocol: "6", Ports: []string{"22"}},
+			{IPProtocol: "17", Ports: []string{"53"}},
+			{IPProtocol: "1"},
+			{IPProtocol: "132"},
+			{IPProtocol: "47"},
+		},
+	}}}
+	records, err := New(Options{API: fake}).Collect(context.Background(), fwReq())
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	want := []string{testProtocolTCP, "udp", testProtocolICMP, "sctp", "47"}
+	if len(records) != len(want) {
+		t.Fatalf("len = %d; want %d", len(records), len(want))
+	}
+	for i, w := range want {
+		if got := decodePayload(t, &records[i]).Protocol; got != w {
+			t.Errorf("records[%d].protocol = %q; want %q", i, got, w)
+		}
 	}
 }
 

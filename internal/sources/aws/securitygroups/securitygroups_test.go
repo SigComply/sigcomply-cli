@@ -22,6 +22,7 @@ const (
 )
 
 const (
+	protoTCP    = "tcp"
 	cidrAllIPv4 = "0.0.0.0/0"
 	protoAll    = "all"
 )
@@ -89,13 +90,13 @@ func TestCollect_FlattensRulesDirectionPortsAndUnrestricted(t *testing.T) {
 				GroupName: ptr("web"),
 				IpPermissions: []ec2types.IpPermission{
 					{ // 0: open SSH to the world
-						IpProtocol: ptr("tcp"),
+						IpProtocol: ptr(protoTCP),
 						FromPort:   ptr(int32(22)),
 						ToPort:     ptr(int32(22)),
 						IpRanges:   []ec2types.IpRange{{CidrIp: ptr(cidrAllIPv4)}},
 					},
 					{ // 1: restricted HTTPS
-						IpProtocol: ptr("tcp"),
+						IpProtocol: ptr(protoTCP),
 						FromPort:   ptr(int32(443)),
 						ToPort:     ptr(int32(443)),
 						IpRanges:   []ec2types.IpRange{{CidrIp: ptr("10.0.0.0/8")}},
@@ -175,7 +176,7 @@ func assertRuleSSH(t *testing.T, ssh *rulePayload) {
 		got, want any
 	}{
 		{"Direction", ssh.Direction, "ingress"},
-		{fieldProtocol, ssh.Protocol, "tcp"},
+		{fieldProtocol, ssh.Protocol, protoTCP},
 		{fieldFromPort, ssh.FromPort, 22},
 		{fieldToPort, ssh.ToPort, 22},
 		{fieldIsUnrestrictedIPv4, ssh.IsUnrestrictedIPv4, true},
@@ -292,8 +293,8 @@ func TestCollect_DescribeError(t *testing.T) {
 
 func TestCollect_SkipsGroupWithEmptyID(t *testing.T) {
 	fake := &fakeAPI{groups: []ec2types.SecurityGroup{
-		{IpPermissions: []ec2types.IpPermission{{IpProtocol: ptr("tcp")}}}, // no GroupId
-		{GroupId: ptr("sg-ok"), IpPermissions: []ec2types.IpPermission{{IpProtocol: ptr("tcp")}}},
+		{IpPermissions: []ec2types.IpPermission{{IpProtocol: ptr(protoTCP)}}}, // no GroupId
+		{GroupId: ptr("sg-ok"), IpPermissions: []ec2types.IpPermission{{IpProtocol: ptr(protoTCP)}}},
 	}}
 	p := New(Options{API: fake})
 	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
@@ -306,7 +307,7 @@ func TestCollect_SkipsGroupWithEmptyID(t *testing.T) {
 }
 
 func TestCollect_DefaultNowIsUsed(t *testing.T) {
-	fake := &fakeAPI{groups: []ec2types.SecurityGroup{{GroupId: ptr("sg-1"), IpPermissions: []ec2types.IpPermission{{IpProtocol: ptr("tcp")}}}}}
+	fake := &fakeAPI{groups: []ec2types.SecurityGroup{{GroupId: ptr("sg-1"), IpPermissions: []ec2types.IpPermission{{IpProtocol: ptr(protoTCP)}}}}}
 	p := New(Options{API: fake})
 	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
@@ -318,7 +319,7 @@ func TestCollect_DefaultNowIsUsed(t *testing.T) {
 }
 
 func TestCollect_KISSNoDRY_EachCallReFetches(t *testing.T) {
-	fake := &fakeAPI{groups: []ec2types.SecurityGroup{{GroupId: ptr("sg-1"), IpPermissions: []ec2types.IpPermission{{IpProtocol: ptr("tcp")}}}}}
+	fake := &fakeAPI{groups: []ec2types.SecurityGroup{{GroupId: ptr("sg-1"), IpPermissions: []ec2types.IpPermission{{IpProtocol: ptr(protoTCP)}}}}}
 	p := New(Options{API: fake})
 	for range 3 {
 		if _, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}}); err != nil {
@@ -334,10 +335,38 @@ func TestNormalizeProtocol(t *testing.T) {
 	if got := normalizeProtocol("-1"); got != "all" {
 		t.Errorf("normalizeProtocol(-1) = %q; want all", got)
 	}
-	for _, p := range []string{"tcp", "udp", "icmp"} {
+	for _, p := range []string{protoTCP, "udp", "icmp", "icmpv6", "47"} {
 		if got := normalizeProtocol(p); got != p {
 			t.Errorf("normalizeProtocol(%q) = %q; want unchanged", p, got)
 		}
+	}
+	// EC2 accepts an IANA protocol number in place of the name. The port
+	// policies match on protoTCP, so a rule written as "6" must read as tcp.
+	for num, name := range map[string]string{"6": protoTCP, "17": "udp", "1": "icmp", "58": "icmpv6"} {
+		if got := normalizeProtocol(num); got != name {
+			t.Errorf("normalizeProtocol(%q) = %q; want %q", num, got, name)
+		}
+	}
+}
+
+// A numeric-protocol rule flows through Collect as the protocol name.
+func TestCollect_NumericProtocol(t *testing.T) {
+	fake := &fakeAPI{groups: []ec2types.SecurityGroup{{
+		GroupId: ptr("sg-n"), GroupName: ptr("numeric"),
+		IpPermissions: []ec2types.IpPermission{{
+			IpProtocol: ptr("6"), FromPort: ptr(int32(22)), ToPort: ptr(int32(22)),
+			IpRanges: []ec2types.IpRange{{CidrIp: ptr(cidrAllIPv4)}},
+		}},
+	}}}
+	records, err := New(Options{API: fake}).Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if len(records) != 1 {
+		t.Fatalf("len = %d; want 1", len(records))
+	}
+	if got := unmarshal(t, &records[0]).Protocol; got != protoTCP {
+		t.Errorf("protocol = %q; want tcp", got)
 	}
 }
 

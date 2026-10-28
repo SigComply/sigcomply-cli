@@ -229,7 +229,7 @@ func flattenFirewall(fw *gce.Firewall) []rulePayload {
 	out := make([]rulePayload, 0, len(entries))
 	index := 0
 	for _, pp := range entries {
-		protocol := strings.ToLower(pp.protocol)
+		protocol := normalizeProtocol(pp.protocol)
 		portStrings := pp.ports
 		if len(portStrings) == 0 {
 			// No ports listed → all ports for this protocol.
@@ -287,6 +287,24 @@ func actionAndEntries(fw *gce.Firewall) (string, []protoPort) {
 		entries = append(entries, protoPort{protocol: a.IPProtocol, ports: a.Ports})
 	}
 	return "allow", entries
+}
+
+// normalizeProtocol lowercases the protocol and maps an IANA protocol
+// number, which GCP accepts in place of a name, to the name. The port
+// policies match on "tcp", so a rule written as "6" would otherwise never be
+// checked. Unknown numbers pass through unchanged.
+func normalizeProtocol(p string) string {
+	p = strings.ToLower(p)
+	if name, ok := protocolNames[p]; ok {
+		return name
+	}
+	return p
+}
+
+// protocolNames covers the names GCP lists for IPProtocol, plus icmpv6.
+var protocolNames = map[string]string{
+	"1": "icmp", "4": "ipip", "6": "tcp", "17": "udp",
+	"50": "esp", "51": "ah", "58": "icmpv6", "132": "sctp",
 }
 
 // normalizeDirection maps GCP's INGRESS/EGRESS to the cross-vendor

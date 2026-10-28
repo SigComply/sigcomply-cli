@@ -34,6 +34,9 @@ this file lists the changes a user notices.
   A project-local plugin that emits `firewall_rule` and already sends either field in another
   shape now fails schema validation, which makes the policies `error`: send `action` as lowercase
   `allow` or `deny` (not `ALLOW` or `accept`), and `disabled` as a boolean (not a string).
+- GCP firewall rules and AWS security group rules whose protocol is given as a number (`6` for
+  TCP, `17` for UDP, `1` for ICMP) are reported by protocol name. Before, the open-port checks
+  never examined a TCP rule written as `6`, so you may see new failures for such rules.
 - The install script checks the downloaded archive against the release's `checksums.txt` and stops
   on a mismatch. `SIGCOMPLY_VERSION` accepts a version without the leading `v`.
 - `init-ci` scaffolds pin the CLI release that generated them (or `latest` for a development
