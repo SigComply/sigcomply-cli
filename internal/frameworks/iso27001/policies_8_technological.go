@@ -192,9 +192,9 @@ func techLoggingPolicies() []core.Policy {
 		autoPolicy{
 			id: "iso27001.8.15.log_retention_min_365d", control: ctrlLoggingControl, severity: core.SeverityMedium, category: catLogging, cadence: cadenceDaily,
 			accepts: []string{"log_group"},
-			desc:    "Log groups retain logs for at least 365 days (ISO 27001 baseline).",
-			rem:     "Set retention to 365 days or more on each log group.",
-			clause:  all(allOf(leaf("payload.retention_set", "eq", true), leaf("payload.retention_days", "gte", 365)), "log group {{.payload.name}} retains logs for fewer than 365 days"),
+			desc:    "Log groups retain logs for at least 365 days (ISO 27001 baseline). A log group set to never expire meets this.",
+			rem:     "Raise retention to 365 days or more on each log group listed. Leave never-expire log groups as they are.",
+			clause:  minRetentionClause(365),
 		}.policy(),
 		autoPolicy{
 			id: "iso27001.8.9.config_recording_enabled", control: ctrlConfigurationManagement, severity: core.SeverityHigh, category: catMonitoring, cadence: cadenceDaily,

@@ -1546,16 +1546,15 @@
   "iso27001.8.15.log_retention_min_365d": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 1,
+      "resources_evaluated": 2,
       "resources_failed": 0
     },
     "noncompliant": {
       "status": "fail",
       "resources_evaluated": 4,
-      "resources_failed": 3,
+      "resources_failed": 2,
       "violated": [
         "/app/debug",
-        "/app/never",
         "/app/worker"
       ]
     },

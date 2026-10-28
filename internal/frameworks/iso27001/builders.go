@@ -431,3 +431,13 @@ func unrestrictedPortsClause(ports ...int) core.PassWhenClause {
 	}
 	return allWhere(filter, anyOf(allOf(missesAll...), opensNothing()), "firewall rule {{.payload.id}} exposes a restricted database port to the internet (0.0.0.0/0 or ::/0)")
 }
+
+// minRetentionClause builds "every log group keeps logs at least days
+// long". retention_set false is the schema's encoding of never-expire,
+// which keeps logs longer than any minimum, so it passes; failing it
+// would tell the user to set a retention, and setting one makes the
+// provider delete older logs.
+func minRetentionClause(days int) core.PassWhenClause {
+	return all(anyOf(leaf("payload.retention_set", "eq", false), leaf("payload.retention_days", "gte", days)),
+		fmt.Sprintf("log group {{.payload.name}} retains logs for fewer than %d days", days))
+}

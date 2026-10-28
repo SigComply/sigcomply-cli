@@ -46,9 +46,9 @@ func cc7LoggingPolicies() []core.Policy {
 		autoPolicy{
 			id: "soc2.cc7.1.log_retention_min_90d", control: ctrlCC71, severity: core.SeverityMedium, category: catLogging, cadence: cadenceDaily,
 			accepts: []string{"log_group"},
-			desc:    "All log groups retain logs for at least 90 days.",
-			rem:     "Set retention to 90 days or more on each log group.",
-			clause:  all(allOf(leaf("payload.retention_set", "eq", true), leaf("payload.retention_days", "gte", 90)), "log group {{.payload.name}} retains logs for fewer than 90 days"),
+			desc:    "All log groups retain logs for at least 90 days. A log group set to never expire meets this.",
+			rem:     "Raise retention to 90 days or more on each log group listed. Leave never-expire log groups as they are.",
+			clause:  minRetentionClause(90),
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc7.1.config_recording_enabled", control: ctrlCC71, severity: core.SeverityHigh, category: catMonitoring, cadence: cadenceDaily,

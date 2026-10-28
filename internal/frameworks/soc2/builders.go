@@ -18,6 +18,8 @@
 package soc2
 
 import (
+	"fmt"
+
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/manualcatalog"
 )
@@ -330,4 +332,14 @@ func noneWhere(filter, cond *core.PassWhenCondition, msg string) core.PassWhenCl
 // anyWhere builds an "at least one record matching filter satisfies cond" clause.
 func anyWhere(filter, cond *core.PassWhenCondition, msg string) core.PassWhenClause {
 	return core.PassWhenClause{Quantifier: core.QuantifierAny, Filter: filter, Condition: cond, ViolationMsg: msg}
+}
+
+// minRetentionClause builds "every log group keeps logs at least days
+// long". retention_set false is the schema's encoding of never-expire,
+// which keeps logs longer than any minimum, so it passes; failing it
+// would tell the user to set a retention, and setting one makes the
+// provider delete older logs.
+func minRetentionClause(days int) core.PassWhenClause {
+	return all(anyOf(leaf("payload.retention_set", "eq", false), leaf("payload.retention_days", "gte", days)),
+		fmt.Sprintf("log group {{.payload.name}} retains logs for fewer than %d days", days))
 }

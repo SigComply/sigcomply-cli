@@ -1917,16 +1917,15 @@
   "soc2.cc7.1.log_retention_min_90d": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 1,
+      "resources_evaluated": 2,
       "resources_failed": 0
     },
     "noncompliant": {
       "status": "fail",
       "resources_evaluated": 4,
-      "resources_failed": 2,
+      "resources_failed": 1,
       "violated": [
-        "/app/debug",
-        "/app/never"
+        "/app/debug"
       ]
     },
     "sparse": {

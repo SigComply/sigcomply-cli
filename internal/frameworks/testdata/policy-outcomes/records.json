@@ -836,11 +836,11 @@
       "payload": {"id": "/app/debug", "name": "/app/debug", "retention_set": true, "retention_days": 89}
     },
     {
-      "scenarios": ["noncompliant"],
+      "scenarios": ["compliant", "noncompliant"],
       "type": "log_group",
       "id": "/app/never",
       "source_id": "aws.cloudwatch",
-      "why": "never expires: no retention set",
+      "why": "never expires: keeps logs longer than any minimum, so it passes the retention policies",
       "payload": {"id": "/app/never", "name": "/app/never", "retention_set": false, "retention_days": 0}
     },
     {
