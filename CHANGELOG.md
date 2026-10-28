@@ -34,7 +34,7 @@ this file lists the changes a user notices.
   policies that are due and carries the last result forward for the rest, so every run covers the
   whole framework. Each install step verifies the archive against `checksums.txt`. To upgrade,
   delete the old `compliance-*.yml` files (or the GitLab `CADENCE` schedules) and run `init-ci`
-  again.
+  again. The pull-request job skips pull requests from forks, which get no OIDC token.
 - Only full runs submit to SigComply Cloud: an unfiltered `check` and `--scheduled`. A run with
   `--cadence`, `--cadences`, `--on-push` or `--pr` prints `cloud submission skipped` and sends
   nothing, because the dashboard reads a project's latest run as its current state.

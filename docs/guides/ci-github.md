@@ -29,7 +29,7 @@ This writes two files to `.github/workflows/`:
 | File | Runs | Command |
 |---|---|---|
 | `compliance-scheduled.yml` | 02:00 UTC daily, and **Run workflow** | `sigcomply check --scheduled`, then `sigcomply evidence due --within-days 30` |
-| `compliance-on-push.yml` | Pushes to `main` and pull requests | `sigcomply check --pr` |
+| `compliance-on-push.yml` | Pushes to `main` and pull requests, except from forks | `sigcomply check --pr` |
 
 `--scheduled` reads each policy's state from the vault, evaluates the policies whose cadence has
 come due (or that failed last time), and carries the others forward. Every run therefore covers
@@ -41,6 +41,10 @@ read every quarter. The state lives in the vault, which is why the vault must be
 is every automated policy; document policies are excluded. A `--pr` run writes its results to
 the vault but never submits to SigComply Cloud and never updates the cadence state, so a pull
 request's branch and config can't become the project's recorded result.
+
+The on-push job skips pull requests opened from forks. GitHub gives a fork's pull request run no
+OIDC token, so the AWS role assumption would fail on every one. A maintainer's pull request from a
+branch of the repository still runs the check.
 
 The `evidence due` step lists empty manual-evidence folders whose period ends within 30 days. A
 manual policy fails in every scheduled run until its folder for the current period has a file, so
@@ -159,8 +163,8 @@ sigcomply init-ci --ci github --framework soc2
 The scaffolded set includes the `evidence due` step in the scheduled workflow. If you prefer a
 single workflow, copy [`examples/github-actions/basic.yml`](../../examples/github-actions/basic.yml)
 into `.github/workflows/` instead and apply steps 3 to 5 above to it. It runs a full
-`sigcomply check` on pushes to `main` and on its schedule, `--pr` on pull requests, and has no
-`evidence due` step.
+`sigcomply check` on pushes to `main` and on its schedule, `--pr` on pull requests (skipping
+pull requests from forks), and has no `evidence due` step.
 
 ## Next steps
 

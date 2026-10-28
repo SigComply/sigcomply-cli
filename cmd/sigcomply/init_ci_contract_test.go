@@ -442,3 +442,54 @@ func cronMatch(allowed []int, v int) bool {
 	}
 	return false
 }
+
+// forkPRGuard is the job condition that skips pull requests from forks.
+// GitHub gives a fork's pull_request run no OIDC token, so the AWS role
+// assumption and the Cloud submission fail on every fork PR without it.
+const forkPRGuard = "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository"
+
+// Every shipped GitHub workflow, and every example, that runs on
+// pull_request guards each job against fork pull requests.
+func TestInitCITemplates_PullRequestJobsSkipForks(t *testing.T) {
+	bodies := map[string]string{}
+	for path, body := range shippedTemplates(t) {
+		if strings.HasPrefix(path, "templates/github/") {
+			bodies[path] = body
+		}
+	}
+	examples, err := filepath.Glob(filepath.Join("..", "..", "examples", "github-actions", "*.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range examples {
+		b, err := os.ReadFile(p) //nolint:gosec // #nosec G304 -- repository example files
+		if err != nil {
+			t.Fatal(err)
+		}
+		bodies[p] = string(b)
+	}
+	guarded := 0
+	for path, body := range bodies {
+		var doc struct {
+			On   map[string]any `yaml:"on"`
+			Jobs map[string]struct {
+				If string `yaml:"if"`
+			} `yaml:"jobs"`
+		}
+		if err := yaml.Unmarshal([]byte(body), &doc); err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
+		if _, ok := doc.On["pull_request"]; !ok {
+			continue
+		}
+		for name, job := range doc.Jobs {
+			if job.If != forkPRGuard {
+				t.Errorf("%s: job %s runs on pull_request with if %q; want %q", path, name, job.If, forkPRGuard)
+			}
+			guarded++
+		}
+	}
+	if guarded == 0 {
+		t.Fatal("no pull_request job found; the template set changed")
+	}
+}
