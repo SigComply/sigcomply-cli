@@ -86,10 +86,6 @@ type Options struct {
 	Stdout io.Writer
 	Logger *log.Logger
 
-	// Submission overrides.
-	ForceCloud   bool
-	DisableCloud bool
-
 	// CapturePayloadPath, when non-empty, writes the SubmissionPayload
 	// JSON to disk instead of POSTing it. Powers the auditor-facing
 	// --capture-cloud-payload escape hatch.
@@ -99,7 +95,8 @@ type Options struct {
 	// production callers leave nil.
 	Now func() time.Time
 
-	// Submitter overrides for tests.
+	// SubmitterOpts decides and performs the cloud submission: base URL,
+	// --cloud (Force) and --no-cloud (Disable). It is the only switch.
 	SubmitterOpts submitter.Options
 
 	// Filter narrows the plan to a subset of policies. The planner

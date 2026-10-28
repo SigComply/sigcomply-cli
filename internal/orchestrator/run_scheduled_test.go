@@ -121,7 +121,6 @@ func TestRun_ScheduledMode_EvaluatesThenCarriesForward(t *testing.T) {
 			CommitTime:    base,
 			Now:           func() time.Time { return now },
 			SubmitterOpts: submitter.Options{Disable: true},
-			DisableCloud:  true,
 		})
 		if err != nil {
 			t.Fatalf("Run: %v", err)
@@ -184,7 +183,6 @@ func TestRun_ScheduledMode_DueAfterIntervalReEvaluates(t *testing.T) {
 			CommitTime:    base,
 			Now:           func() time.Time { return now },
 			SubmitterOpts: submitter.Options{Disable: true},
-			DisableCloud:  true,
 		})
 		if err != nil {
 			t.Fatalf("Run: %v", err)

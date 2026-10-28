@@ -43,7 +43,6 @@ func TestRun_VaultWriteFailureIsExecutionError(t *testing.T) {
 				Vault:         &failingJSONVault{inMemVault: newInMem(), failSuffix: "/" + file},
 				Stdout:        &bytes.Buffer{},
 				Logger:        log.New(&bytes.Buffer{}, false),
-				DisableCloud:  true,
 				SubmitterOpts: submitter.Options{Disable: true},
 			})
 			if err == nil {

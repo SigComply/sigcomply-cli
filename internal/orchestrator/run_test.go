@@ -227,8 +227,6 @@ func TestRun_NoCloudPath(t *testing.T) {
 				Stdout:     &bytes.Buffer{},
 				Logger:     log.New(&bytes.Buffer{}, false),
 				Now:        func() time.Time { return time.Now().UTC() },
-				// check sets both from --no-cloud.
-				DisableCloud: tc.noCloud,
 				SubmitterOpts: submitter.Options{
 					Disable: tc.noCloud,
 					BaseURL: srv.URL,
@@ -267,7 +265,6 @@ func TestRun_ForceCloud_NoTokenIsHandled(t *testing.T) {
 		Stdout:     &bytes.Buffer{},
 		Logger:     log.New(&bytes.Buffer{}, false),
 		Now:        func() time.Time { return time.Now().UTC() },
-		ForceCloud: true,
 		SubmitterOpts: submitter.Options{
 			Force:   true,
 			BaseURL: "https://example.com",

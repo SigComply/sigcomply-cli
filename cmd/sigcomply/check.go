@@ -148,8 +148,6 @@ func runCheck(ctx context.Context, stdout io.Writer, flags *checkFlags) error {
 		Branch:             detectBranch(),
 		Stdout:             stdout,
 		Logger:             logger,
-		ForceCloud:         flags.cloudOn,
-		DisableCloud:       flags.cloudOff,
 		CapturePayloadPath: flags.capturePayloadPath,
 		Mode:               mode,
 		Filter: planner.Filter{
