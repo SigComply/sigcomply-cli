@@ -31,6 +31,9 @@ this file lists the changes a user notices.
   evidence type gains an optional `action` field (`allow` or `deny`; absent means allow).
 - The same checks no longer flag disabled GCP firewall rules, which are not enforced. The
   `firewall_rule` evidence type gains an optional `disabled` field (absent means enabled).
+  A project-local plugin that emits `firewall_rule` and already sends either field in another
+  shape now fails schema validation, which makes the policies `error`: send `action` as lowercase
+  `allow` or `deny` (not `ALLOW` or `accept`), and `disabled` as a boolean (not a string).
 - The install script checks the downloaded archive against the release's `checksums.txt` and stops
   on a mismatch. `SIGCOMPLY_VERSION` accepts a version without the leading `v`.
 - `init-ci` scaffolds pin the CLI release that generated them (or `latest` for a development
