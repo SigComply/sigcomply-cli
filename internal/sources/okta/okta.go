@@ -199,7 +199,8 @@ func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
 // userPayload is the directory_user shape this plugin emits. Cross-
 // vendor fields map to Okta concepts as follows:
-//   - mfa_enabled: derived from MFAFactorCount > 0
+//   - mfa_enabled: derived from MFAFactorCount > 0, which counts ACTIVE
+//     factors except security questions and email (see weakFactor)
 //   - is_active:   true when Status is one in which the user can still sign
 //     in — ACTIVE, RECOVERY, PASSWORD_EXPIRED, LOCKED_OUT — the same set that
 //     maps to roster_entry status=active (see rosterStatus). A locked-out or
@@ -474,8 +475,9 @@ type oktaUser struct {
 }
 
 type oktaFactor struct {
-	ID     string `json:"id"`
-	Status string `json:"status"`
+	ID         string `json:"id"`
+	FactorType string `json:"factorType"`
+	Status     string `json:"status"`
 }
 
 type oktaRole struct {
@@ -588,11 +590,25 @@ func (h *httpAPI) countActiveFactors(ctx context.Context, userID string) (int, e
 	}
 	n := 0
 	for _, f := range factors {
-		if strings.EqualFold(f.Status, "ACTIVE") {
+		if strings.EqualFold(f.Status, "ACTIVE") && !weakFactor(f.FactorType) {
 			n++
 		}
 	}
 	return n, nil
+}
+
+// weakFactor reports factor types that are not a second factor. A security
+// question is something the user knows, the same category as the password.
+// Email proves no specific device, which NIST SP 800-63B 5.1.3.1 rules out
+// for out-of-band authentication. Every other type (push, TOTP, hardware
+// token, WebAuthn, FastPass, SMS, voice) proves possession or inherence.
+func weakFactor(factorType string) bool {
+	switch strings.ToLower(factorType) {
+	case "question", "email":
+		return true
+	default:
+		return false
+	}
 }
 
 // listAdminRoles returns the `type` of each admin role assigned to the

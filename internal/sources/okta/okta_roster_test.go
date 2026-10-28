@@ -161,7 +161,7 @@ func TestHTTPAPI_ListRosterUsers_TwoPassesPagedDeduped(t *testing.T) {
 	var base string
 	var queries []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/users" {
+		if r.URL.Path != testUsersPath {
 			t.Errorf("unexpected per-user call: %s", r.URL.Path)
 			http.NotFound(w, r)
 			return

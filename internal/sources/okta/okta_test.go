@@ -25,6 +25,7 @@ const (
 
 	testOrgURL    = "https://acme.okta.com"
 	testToken     = "tok"
+	testUsersPath = "/api/v1/users"
 	testEmailUser = "u@acme.com"
 	testEmailAmy  = "amy@acme.com"
 )
@@ -336,7 +337,7 @@ func TestNextLinkPath(t *testing.T) {
 func TestHTTPAPI_ListUsers_HappyPath(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/api/v1/users":
+		case testUsersPath:
 			const body = `[{"id":"u1","status":"ACTIVE","lastLogin":"2026-05-01T10:00:00Z","profile":{"email":"a@x.com"}},` +
 				`{"id":"u2","status":"PROVISIONED","profile":{"email":"b@x.com"}}]`
 			_, _ = w.Write([]byte(body)) //nolint:errcheck // test handler
@@ -379,6 +380,42 @@ func TestHTTPAPI_ListUsers_HappyPath(t *testing.T) {
 	}
 	if len(byID["u2"].AdminRoles) != 0 {
 		t.Errorf("u2 AdminRoles = %v; want empty", byID["u2"].AdminRoles)
+	}
+}
+
+// Only possession and inherence factors count as MFA. A security question
+// is a knowledge factor, the same category as the password, and email
+// proves no specific device (NIST SP 800-63B 5.1.3.1), so a user enrolled
+// in only those has no second factor.
+func TestHTTPAPI_ListUsers_CountsOnlyStrongFactors(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case testUsersPath:
+			_, _ = w.Write([]byte(`[{"id":"weak","status":"ACTIVE","profile":{"email":"w@x.com"}},` + //nolint:errcheck // test handler
+				`{"id":"strong","status":"ACTIVE","profile":{"email":"s@x.com"}}]`))
+		case "/api/v1/users/weak/factors":
+			_, _ = w.Write([]byte(`[{"id":"f1","factorType":"question","status":"ACTIVE"},` + //nolint:errcheck // test handler
+				`{"id":"f2","factorType":"email","status":"ACTIVE"}]`))
+		case "/api/v1/users/strong/factors":
+			_, _ = w.Write([]byte(`[{"id":"f3","factorType":"question","status":"ACTIVE"},` + //nolint:errcheck // test handler
+				`{"id":"f4","factorType":"token:software:totp","status":"ACTIVE"},` +
+				`{"id":"f5","factorType":"webauthn","status":"ACTIVE"}]`))
+		default:
+			_, _ = w.Write([]byte(`[]`)) //nolint:errcheck // test handler
+		}
+	}))
+	defer srv.Close()
+	api := &httpAPI{base: srv.URL, token: testToken, client: srv.Client()}
+	users, err := api.ListUsers(context.Background())
+	if err != nil {
+		t.Fatalf("ListUsers: %v", err)
+	}
+	got := map[string]int{}
+	for _, u := range users {
+		got[u.ID] = u.MFAFactorCount
+	}
+	if got["weak"] != 0 || got["strong"] != 2 {
+		t.Errorf("factor counts = %v; want weak 0 (question, email), strong 2 (totp, webauthn)", got)
 	}
 }
 

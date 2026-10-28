@@ -390,6 +390,9 @@ Caveats:
 - `is_admin` comes from directly assigned admin roles. A user who is an admin only through a
   group may read as not admin.
 - `is_active` is true for `ACTIVE`, `RECOVERY`, `PASSWORD_EXPIRED` and `LOCKED_OUT`.
+- `mfa_enabled` is true when the user has at least one active factor other than a security
+  question or email. A security question is a second password, and email proves no specific
+  device (NIST SP 800-63B). SMS and voice still count.
 - `password_policy.v2` has one record per active password policy. A 403 on the policy read is a
   collection error, not "no policies".
 - Users deleted from Okta do not appear in the roster.
