@@ -121,10 +121,10 @@ type bucketPayload struct {
 	Name                    string    `json:"name"`
 	RegionOrLocation        string    `json:"region_or_location,omitempty"`
 	EncryptionAtRestEnabled bool      `json:"encryption_at_rest_enabled"`
-	KMSManaged              bool      `json:"kms_managed,omitempty"`
+	KMSManaged              bool      `json:"kms_managed"`
 	KMSKeyID                string    `json:"kms_key_id,omitempty"`
 	PublicAccessBlocked     bool      `json:"public_access_blocked"`
-	VersioningEnabled       bool      `json:"versioning_enabled,omitempty"`
+	VersioningEnabled       bool      `json:"versioning_enabled"`
 	CreatedAt               time.Time `json:"created_at,omitempty"`
 }
 

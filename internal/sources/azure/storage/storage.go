@@ -24,6 +24,8 @@
 //     on — the schema field covers both ("object versioning / soft-delete").
 //     The granular blob_versioning_enabled / blob_soft_delete_enabled booleans
 //     ride in additionalProperties so the derivation stays auditable.
+//   - FileStorage (Premium Files) accounts are skipped: they have no blob
+//     service, so they are not object storage and ARM refuses the second read.
 //
 // Test injection: the API interface is the single seam; the real adapter
 // (realStorage) wraps the armstorage SDK clients and unit tests inject an
@@ -124,10 +126,10 @@ type bucketPayload struct {
 	Name                    string    `json:"name"`
 	RegionOrLocation        string    `json:"region_or_location,omitempty"`
 	EncryptionAtRestEnabled bool      `json:"encryption_at_rest_enabled"`
-	KMSManaged              bool      `json:"kms_managed,omitempty"`
+	KMSManaged              bool      `json:"kms_managed"`
 	KMSKeyID                string    `json:"kms_key_id,omitempty"`
 	PublicAccessBlocked     bool      `json:"public_access_blocked"`
-	VersioningEnabled       bool      `json:"versioning_enabled,omitempty"`
+	VersioningEnabled       bool      `json:"versioning_enabled"`
 	CreatedAt               time.Time `json:"created_at,omitempty"`
 
 	// Auditable Azure extras (additionalProperties).
@@ -161,7 +163,10 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	now := p.now()
 	records := make([]core.EvidenceRecord, 0, len(accounts))
 	for _, acc := range accounts {
-		if acc == nil {
+		// A FileStorage (Premium Files) account has no blob service, and ARM
+		// refuses its blobServices read. It is not object storage, so it is
+		// not an object_storage_bucket; reading it would fail the source.
+		if acc == nil || (acc.Kind != nil && *acc.Kind == armstorage.KindFileStorage) {
 			continue
 		}
 		name := deref(acc.Name)

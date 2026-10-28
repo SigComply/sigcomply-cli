@@ -92,6 +92,14 @@ func TestCollect_NormalizesPayload_AlphaIsBlockedZetaIsOpen(t *testing.T) {
 	if !zeta.EncryptionAtRestEnabled {
 		t.Errorf("zeta.EncryptionAtRestEnabled = false; want true even for non-CMEK buckets")
 	}
+	// A bucket without versioning or CMEK is a read "no", not unknown:
+	// an absent field would error the versioning policies instead of
+	// failing the bucket.
+	for _, field := range []string{`"versioning_enabled":false`, `"kms_managed":false`} {
+		if !strings.Contains(string(records[1].Payload), field) {
+			t.Errorf("zeta payload lacks %s: %s", field, records[1].Payload)
+		}
+	}
 }
 
 // collectTwoBuckets returns the records the plugin produces against a

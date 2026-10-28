@@ -35,6 +35,7 @@ type fakeAPI struct {
 	blob      map[string]*armstorage.BlobServicePropertiesProperties
 	listErr   error
 	blobErr   error
+	blobFor   map[string]error
 	listCalls int
 	blobCalls int
 }
@@ -51,6 +52,9 @@ func (f *fakeAPI) GetBlobProperties(_ context.Context, _, account string) (*arms
 	f.blobCalls++
 	if f.blobErr != nil {
 		return nil, f.blobErr
+	}
+	if err := f.blobFor[account]; err != nil {
+		return nil, err
 	}
 	return f.blob[account], nil
 }
@@ -216,6 +220,35 @@ func TestCollect_NilBlobProps_VersioningFalse(t *testing.T) {
 	}
 	if got.VersioningEnabled || got.BlobVersioningEnabled || got.BlobSoftDeleteEnabled {
 		t.Errorf("nil blob props should yield all-false versioning, got %+v", got)
+	}
+	// A read "no" must be present: an absent field errors the versioning
+	// policies instead of failing the account.
+	for _, field := range []string{`"versioning_enabled":false`, `"kms_managed":false`} {
+		if !strings.Contains(string(recs[0].Payload), field) {
+			t.Errorf("payload lacks %s: %s", field, recs[0].Payload)
+		}
+	}
+}
+
+// A FileStorage (Premium Files) account has no blob service; ARM refuses
+// the blobServices read for it. It is not object storage, so it is
+// skipped rather than failing every bucket policy.
+func TestCollect_FileStorageAccountSkipped(t *testing.T) {
+	kind := armstorage.KindFileStorage
+	f := &fakeAPI{
+		accounts: []*armstorage.Account{
+			{Name: to.Ptr("files"), ID: idOf("s", "rg", "files"), Kind: &kind},
+			{Name: to.Ptr("blobs"), ID: idOf("s", "rg", "blobs")},
+		},
+		blob: map[string]*armstorage.BlobServicePropertiesProperties{},
+	}
+	f.blobFor = map[string]error{"files": errors.New("FeatureNotSupportedForAccount")}
+	recs, err := New(Options{API: f}).Collect(context.Background(), acceptReq())
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if len(recs) != 1 || recs[0].ID != "blobs" {
+		t.Fatalf("records = %+v; want only the blob account", recs)
 	}
 }
 

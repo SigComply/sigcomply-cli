@@ -268,6 +268,8 @@ Assign roles on the subscription.
 - `azure.entra` `roster_entry` excludes guest users.
 - `azure.certs` reads App Service certificates and certificate orders. It does not read Key
   Vault certificates.
+- `azure.storage` skips FileStorage (Premium Files) accounts. They have no blob service, so
+  they are not object storage.
 - Field caveats for `azure.keyvault`, `azure.cosmos`, `azure.sql` and `azure.monitor` are in
   [Source caveats](#source-caveats).
 

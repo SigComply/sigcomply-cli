@@ -32,7 +32,7 @@ func TestGCPStorageConformance(t *testing.T) {
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}},
 		EvidenceTypes:  sourcetest.BuiltinEvidenceTypes(t),
 		WantScope:      &core.RecordScope{Project: "e2e-project"},
-		OptionalFields: []string{"object_storage_bucket.region_or_location", "object_storage_bucket.kms_managed", "object_storage_bucket.kms_key_id", "object_storage_bucket.versioning_enabled", "object_storage_bucket.created_at"},
+		OptionalFields: []string{"object_storage_bucket.region_or_location", "object_storage_bucket.kms_key_id", "object_storage_bucket.created_at"},
 	})
 	if len(recs) != 1 {
 		t.Fatalf("object_storage_bucket records = %d, want 1", len(recs))
