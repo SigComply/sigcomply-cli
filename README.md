@@ -18,12 +18,13 @@ you comply.
 
 - Teams that won't give a compliance vendor a role in their cloud, or OAuth access to their code
   host and identity provider. The CLI runs with the credentials you give your own pipeline, and
-  the evidence stays in your storage. Only per-policy counts and run details (framework, period,
-  repository, branch, commit and CI run link) leave the pipeline, and only if you turn the
-  dashboard on.
+  the evidence stays in your storage. Only per-policy counts and run details, such as the framework,
+  period, repository, branch, commit and CI run link, leave the pipeline, and only if you turn
+  the dashboard on.
 - Startups preparing for a first SOC 2 or ISO 27001 audit that want a pipeline step, not a
-  platform rollout. `sigcomply init` writes the config, `sigcomply init-ci` writes the CI
-  workflow, and policy violations fail the build.
+  platform rollout, with no agents on laptops and no OAuth apps to install. `sigcomply init`
+  writes the config, `sigcomply init-ci --ci github` (or `gitlab`) writes the CI workflow, and
+  policy violations fail the build.
 
 ### What it doesn't do
 

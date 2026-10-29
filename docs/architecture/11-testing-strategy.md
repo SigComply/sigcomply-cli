@@ -96,7 +96,7 @@ cassettes and L4b.
    bare account IDs, ARNs with a real account, non-`example.*` emails and bearer tokens, and fails
    on a hit. It runs in `test.yml`, `make check-fixtures` and `make pre-commit`;
    `internal/fixturehygiene` proves it catches planted secrets. A fixture that leaks identity
-   breaks the non-custodial architecture.
+   breaks the rule that evidence stays in the customer's storage.
 5. **Build tags.**
    - `live`: L4a. The test's first call is `sourcetest.RequireEnv(t, ...)`, which skips when any
      named variable is unset. The nightly workflow runs `go test -tags live -count=1 -run Live
