@@ -127,7 +127,7 @@ func runCheck(ctx context.Context, stdout io.Writer, flags *checkFlags) error {
 	if err != nil {
 		return &exitCodeError{code: orchestrator.ExitConfig, err: err}
 	}
-	if w := missingProjectIDWarning(cfg, cloudBase, flags.cloudOff); w != "" {
+	if w := missingProjectIDWarning(cfg, flags, cloudBase); w != "" {
 		logger.Warnf("config: %s", w)
 	}
 
@@ -214,18 +214,28 @@ func resolveCloudBase(cfg *spec.ProjectConfig, flags *checkFlags) (string, error
 	return cloudBase, nil
 }
 
-// missingProjectIDWarning returns the warning for a run that may submit
-// (a cloud URL is resolved and --no-cloud is not set) without
-// cloud.project_id, or "" when there is nothing to say. It warns outside
-// CI too, so the operator hears about it before CI does. Only the
-// committed file may set the ID, never a flag or an env var: the commit
-// is what shows the repository chose the project.
-func missingProjectIDWarning(cfg *spec.ProjectConfig, cloudBase string, cloudOff bool) string {
-	if cloudBase == "" || cloudOff || cfg.Cloud.ProjectID != "" {
+// missingProjectIDWarning returns the warning for a run that would
+// submit without cloud.project_id, or "" when there is nothing to say. A
+// run would submit when a cloud URL is resolved, --no-cloud is not set
+// and it covers every policy (unfiltered or --scheduled); a filtered run
+// never submits (orchestrator.handleSubmission), so it stays quiet. It
+// warns outside CI too, so the operator hears about it before CI does.
+// Only the committed file may set the ID, never a flag or an env var: the
+// commit is what shows the repository chose the project.
+func missingProjectIDWarning(cfg *spec.ProjectConfig, flags *checkFlags, cloudBase string) string {
+	if cloudBase == "" || flags.cloudOff || cfg.Cloud.ProjectID != "" || filteredRun(flags) {
 		return ""
 	}
 	return "cloud.project_id is not set in .sigcomply.yaml: copy it from your project's page on the SigComply dashboard; " +
-		"the next release will require it when a cloud URL is set"
+		"the next release will require it when a run that submits has a cloud URL"
+}
+
+// filteredRun reports whether the flags select a subset of policies.
+// It mirrors the orchestrator: --pr always narrows to on-push policies,
+// and the cadence filters make planner.Filter.IsExplicit true.
+func filteredRun(flags *checkFlags) bool {
+	f := planner.Filter{Cadence: flags.cadence, OnPush: flags.onPush, Cadences: flags.cadences}
+	return flags.pr || f.IsExplicit()
 }
 
 // ciLocalStorageWarnings flags local storage in a CI job. A local vault

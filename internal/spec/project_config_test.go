@@ -228,7 +228,7 @@ func TestLoadProjectConfig_CloudProjectID(t *testing.T) {
 			if err == nil {
 				t.Fatalf("project_id %s loaded; want an error", value)
 			}
-			for _, want := range []string{"cloud.project_id", "SigComply dashboard"} {
+			for _, want := range []string{"cloud.project_id", "SigComply dashboard", "base58", "except 0, O, I and l"} {
 				if !strings.Contains(err.Error(), want) {
 					t.Errorf("error = %q; want it to mention %q", err, want)
 				}

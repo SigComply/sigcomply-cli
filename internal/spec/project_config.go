@@ -303,7 +303,7 @@ var projectIDPattern = regexp.MustCompile(`^prj_[1-9A-HJ-NP-Za-km-z]{20}$`)
 func validateCloud(c *CloudConfig) error {
 	if c.ProjectID != "" && !projectIDPattern.MatchString(c.ProjectID) {
 		return fmt.Errorf("project config: cloud.project_id: %q is not a SigComply project ID "+
-			"(want prj_ followed by 20 letters and digits); copy it from your project's page on the SigComply dashboard", c.ProjectID)
+			"(want prj_ followed by 20 base58 characters: letters and digits except 0, O, I and l); copy it from your project's page on the SigComply dashboard", c.ProjectID)
 	}
 	return nil
 }

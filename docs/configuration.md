@@ -241,7 +241,7 @@ error.
 | Key | Type | Default | Effect |
 |---|---|---|---|
 | `cloud.base_url` | string | none | SigComply Cloud endpoint. Set `https://sigcomply.com` to submit. With no value and no `--cloud-url` flag, nothing is submitted. Must be `https://`; plain `http://` is accepted only for `localhost`, and anything else is a config error, exit `3`. |
-| `cloud.project_id` | string | none | The **Project ID** from your project's page on the SigComply dashboard: `prj_` and 20 letters and digits. Sent in the `X-SigComply-Project` header, never in the payload. Any other shape is a config error, exit `3`. When a cloud URL is set and this key is not, `check` warns before collecting and keeps running; the next release will make that exit `3`. There is no flag or environment variable for it: the committed file is what shows the repository chose the project. |
+| `cloud.project_id` | string | none | The **Project ID** from your project's page on the SigComply dashboard: `prj_` followed by 20 base58 characters (letters and digits except 0, O, I and l). Sent in the `X-SigComply-Project` header, never in the payload. Any other shape is a config error, exit `3`. When a run that submits (unfiltered or `--scheduled`) has a cloud URL and this key is not set, `check` warns before collecting and keeps running; the next release will make that exit `3`. There is no flag or environment variable for it: the committed file is what shows the repository chose the project. |
 
 A run submits when `cloud.base_url` (or `--cloud-url`, which overrides it) is set, the run is in
 CI, and an OIDC token is available. The CLI does not follow redirects: a `3xx` answer is a

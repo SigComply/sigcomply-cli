@@ -119,8 +119,9 @@ or `--scheduled`)` to stdout; with no cloud configured it stays quiet.
   removed key is a config error.
 - Project ID: `cloud.project_id` does not change the decision. It is sent as a header when set.
   A malformed value fails config load (exit 3). When a cloud URL is resolved, `--no-cloud` is not
-  set and the key is empty, `check` logs a warning before collection, in or out of CI, and
-  continues (`missingProjectIDWarning`); the next release makes that exit 3. It has no flag and
+  set, the run is not filtered (the same rule as the filtered-run skip, so `--scheduled` counts)
+  and the key is empty, `check` logs a warning before collection, in or out of CI, and continues
+  (`missingProjectIDWarning`); the next release makes that exit 3. It has no flag and
   no environment variable: the committed file is what ties the repository to the project.
 
 The request:

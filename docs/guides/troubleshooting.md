@@ -76,13 +76,14 @@ submit: --cloud was set but no OIDC token detected; skipping
 
 ### `cloud.project_id is not set in .sigcomply.yaml`
 
-A cloud URL is set but the config names no project. The run continues. Copy the **Project ID**
+A run that submits (unfiltered or `--scheduled`) has a cloud URL but the config names no project.
+The run continues. Copy the **Project ID**
 from your project's page on the dashboard into `cloud.project_id` and commit it. The next release
 will make this a config error (exit `3`).
 
 ### `cloud.project_id: "…" is not a SigComply project ID`
 
-The value is not `prj_` followed by 20 letters and digits, so the run stops with exit `3`. Copy the
+The value is not `prj_` followed by 20 base58 characters (letters and digits except 0, O, I and l), so the run stops with exit `3`. Copy the
 ID again from the project's page.
 
 ### A `submit:` warning with an HTTP status

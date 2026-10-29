@@ -542,6 +542,9 @@ func TestBinaryE2E_Check_SubmitsCountsWithOIDC(t *testing.T) {
 // without cloud.project_id prints.
 const missingProjectIDText = "cloud.project_id is not set in .sigcomply.yaml"
 
+// checkCmd is the subcommand most binary tests run.
+const checkCmd = "check"
+
 // e2eProjectID is a well-formed SigComply project ID for the fixtures.
 const e2eProjectID = "prj_7Xq2mKp9RtV4wNc8Bz3a"
 
@@ -600,6 +603,28 @@ func TestBinaryE2E_Check_MissingProjectIDWarning(t *testing.T) {
 		res.wantCode(t, 1)
 		if strings.Count(res.stderr, missingProjectIDText) != 1 {
 			t.Errorf("want the cloud.project_id warning once:\n%s", res.stderr)
+		}
+	})
+	t.Run("--scheduled with cloud url warns", func(t *testing.T) {
+		p := newE2EProject(t)
+		res := runSigcomply(t, p.dir, nil, "check", "--scheduled", "--cloud-url", "https://sigcomply.com")
+		if res.code != 0 && res.code != 1 {
+			res.wantCode(t, 1)
+		}
+		if strings.Count(res.stderr, missingProjectIDText) != 1 {
+			t.Errorf("want the cloud.project_id warning once:\n%s", res.stderr)
+		}
+	})
+	t.Run("filtered run never submits, so no warning", func(t *testing.T) {
+		for _, args := range [][]string{{"--cadence", "weekly"}, {"--cadences", "daily,annual"}, {"--on-push"}, {"--pr"}} {
+			p := newE2EProject(t)
+			res := runSigcomply(t, p.dir, nil, append([]string{checkCmd, "--cloud-url", "https://sigcomply.com"}, args...)...)
+			if res.code != 0 && res.code != 1 {
+				res.wantCode(t, 1)
+			}
+			if strings.Contains(res.stderr, missingProjectIDText) {
+				t.Errorf("%v: filtered run warned about cloud.project_id:\n%s", args, res.stderr)
+			}
 		}
 	})
 	t.Run("--no-cloud", func(t *testing.T) {

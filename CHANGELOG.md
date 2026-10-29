@@ -30,9 +30,10 @@ this file lists the changes a user notices.
   SigComply dashboard. `check` sends it in the `X-SigComply-Project` header, never in the payload,
   and SigComply Cloud uses it with the OIDC token to pick the project a run belongs to, so several
   organizations can connect the same repository without receiving each other's runs. A value that
-  is not `prj_` and 20 letters and digits exits `3`. With a cloud URL set and no
-  `cloud.project_id`, `check` warns and keeps running, locally and in CI; the next release will
-  make that a config error (exit `3`). `init` and `init-ci` mention the key.
+  is not `prj_` followed by 20 base58 characters (letters and digits except 0, O, I and l) exits
+  `3`. When a run that submits (unfiltered or `--scheduled`) has a cloud URL and no
+  `cloud.project_id`, `check` warns and keeps running, locally and in CI; filtered runs never
+  submit and don't warn. The next release will make that a config error (exit `3`). `init` and `init-ci` mention the key.
 
 ### Changed
 

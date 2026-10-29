@@ -82,8 +82,10 @@ identifier. To see which resources failed, read `result.json` in your own vault.
 
 Cloud submission is off unless you set `cloud.base_url` in `.sigcomply.yaml` (or pass
 `--cloud-url`), and it only happens in CI with an OIDC token. The run also names its project with
-`cloud.project_id`, the public Project ID from the dashboard, sent in a header. SigComply Cloud
-accepts the run only when that ID and the token's repository name the same project. See
+`cloud.project_id`, the public Project ID from the dashboard, sent in a header. When the run sends
+it, SigComply Cloud accepts the run only if that ID and the token's repository name the same
+project. Without it, a run is accepted for now only when exactly one project matches the
+repository; the next CLI release requires the key. See
 [Configuration](configuration.md).
 
 ## Signing and the vault

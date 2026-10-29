@@ -38,13 +38,16 @@ reports; only owners see the **Auditors** and **Settings** tabs.
 2. Paste the repository URL in **Repository URL**: `https://github.com/<owner>/<repo>` or
    `https://gitlab.com/<group>/<subgroup>/<project>`.
 3. Select **Create Project**.
-4. Copy the **Project ID** (`prj_` and 20 letters and digits) from the project's page. You add it
-   to `.sigcomply.yaml` in step 3.
+4. Copy the **Project ID** from the project's page: `prj_` followed by 20 base58 characters (letters and digits except 0, O, I and l). You add it to `.sigcomply.yaml` in
+   step 3.
 
-SigComply Cloud has no API keys. It accepts a run only when two things name the same project: the
-project ID from your committed `.sigcomply.yaml`, sent in the `X-SigComply-Project` header, and
-the OIDC token your CI mints (the `repository` claim on GitHub Actions, the `project_path` claim
-on GitLab CI, matched without regard to case). The project ID is not a secret. Only people who can
+SigComply Cloud has no API keys. It identifies a run by the OIDC token your CI mints (the
+`repository` claim on GitHub Actions, the `project_path` claim on GitLab CI, matched without
+regard to case) and by the project ID from your committed `.sigcomply.yaml`, sent in the
+`X-SigComply-Project` header. When the run sends a project ID, SigComply Cloud accepts it only if
+that ID and the token's repository name the same active project. A run without a project ID is
+accepted for now only when exactly one active project matches the repository; the next CLI
+release requires the key. The project ID is not a secret. Only people who can
 push to the repository can commit it, so it shows that the repository chose this project. On the
 first accepted run SigComply Cloud also records the repository's and owner's numeric IDs, and
 later runs must match them. If you rename or move the repository, or recreate it, paste
@@ -60,9 +63,10 @@ cloud:
   project_id: prj_7Xq2mKp9RtV4wNc8Bz3a   # the Project ID from step 2
 ```
 
-A value that is not a project ID is a config error (exit `3`). When a cloud URL is set and
-`cloud.project_id` is not, `sigcomply check` prints a warning before it collects, locally and in
-CI, and still runs. The next CLI release will make that a config error (exit `3`).
+A value that is not a project ID is a config error (exit `3`). When a run that submits (an
+unfiltered `check` or `--scheduled`) has a cloud URL and no `cloud.project_id`, `sigcomply check`
+prints a warning before it collects, locally and in CI, and still runs. The next CLI release will
+make that a config error (exit `3`). Filtered runs never submit, so they don't warn.
 
 The CLI submits only when all of these hold:
 

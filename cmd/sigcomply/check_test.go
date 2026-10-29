@@ -439,9 +439,10 @@ func TestRunCheck_CaptureWriteFailureExitsTwo(t *testing.T) {
 	}
 }
 
-// A run that will submit (a cloud URL is resolved and --no-cloud is not
-// set) but names no project warns before collection. Release N only
-// warns; the next release makes it a config error.
+// A run that would submit (unfiltered or --scheduled, a cloud URL
+// resolved, no --no-cloud) but names no project warns before collection.
+// A filtered run never submits, so it stays quiet. Release N only warns;
+// the next release makes it a config error.
 func TestMissingProjectIDWarning(t *testing.T) {
 	const url = "https://sigcomply.com"
 	withID := &spec.ProjectConfig{Cloud: spec.CloudConfig{BaseURL: url, ProjectID: "prj_7Xq2mKp9RtV4wNc8Bz3a"}}
@@ -450,18 +451,24 @@ func TestMissingProjectIDWarning(t *testing.T) {
 		name      string
 		cfg       *spec.ProjectConfig
 		cloudBase string
-		cloudOff  bool
+		flags     checkFlags
 		want      bool
 	}{
-		{"cloud url without project id", noID, url, false, true},
-		{"--cloud-url without project id", &spec.ProjectConfig{}, url, false, true},
-		{"cloud url with project id", withID, url, false, false},
-		{"--no-cloud", noID, url, true, false},
-		{"no cloud configured", &spec.ProjectConfig{}, "", false, false},
+		{"cloud url without project id", noID, url, checkFlags{}, true},
+		{"--scheduled without project id", noID, url, checkFlags{scheduled: true}, true},
+		{"--cloud-url without project id", &spec.ProjectConfig{}, url, checkFlags{cloudURL: url}, true},
+		{"cloud url with project id", withID, url, checkFlags{}, false},
+		{"--no-cloud", noID, url, checkFlags{cloudOff: true}, false},
+		{"no cloud configured", &spec.ProjectConfig{}, "", checkFlags{}, false},
+		{"--cadence never submits", noID, url, checkFlags{cadence: "hourly"}, false},
+		{"--cadences never submits", noID, url, checkFlags{cadences: []string{"quarterly"}}, false},
+		{"--on-push never submits", noID, url, checkFlags{onPush: true}, false},
+		{"--pr never submits", noID, url, checkFlags{pr: true}, false},
+		{"--scheduled --cadence never submits", noID, url, checkFlags{scheduled: true, cadence: "hourly"}, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := missingProjectIDWarning(tc.cfg, tc.cloudBase, tc.cloudOff)
+			got := missingProjectIDWarning(tc.cfg, &tc.flags, tc.cloudBase)
 			if (got != "") != tc.want {
 				t.Fatalf("warning = %q; want shown=%v", got, tc.want)
 			}

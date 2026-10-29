@@ -63,8 +63,9 @@ Only then does it choose the project from the verified claims (GitHub `repositor
 Several organizations may register the same repository, so the claims alone no longer pick a
 project. The project ID is public, not a secret: committing it to `.sigcomply.yaml` is what shows
 the repository chose the project, so the CLI takes it from that file only (no flag, no env var).
-This CLI release warns when a cloud URL is set without `cloud.project_id`
-(`missingProjectIDWarning` in `cmd/sigcomply/check.go`); the next release makes that exit `3`,
+This CLI release warns when a run that would submit (unfiltered or `--scheduled`) has a cloud URL
+and no `cloud.project_id` (`missingProjectIDWarning` in `cmd/sigcomply/check.go`); filtered runs
+never submit and are exempt; the next release makes that exit `3`,
 after which Rails drops the header-less path. Changing a claim the CLI relies on, or a header,
 means checking that file in the same task.
 
