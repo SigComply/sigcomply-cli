@@ -142,7 +142,7 @@ func evaluateManualIn(slots map[string][]core.EvidenceRecord, period *planner.Pe
 // Violations name the instance and stay vault-side. What crosses the
 // aggregation boundary is Counts: how many instances were examined and
 // how many came up short — never which ones. A vendor list is a set of
-// third-party identifiers, and the non-custodial model does not put
+// third-party identifiers, and the counts-only payload does not put
 // those on the wire.
 func evaluateManualInstances(instances []manualInstance, period *planner.Period) core.RuleResult {
 	var violations []core.Violation

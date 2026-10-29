@@ -26,8 +26,8 @@ type EvidenceRecord struct {
 	SourceID    string          `json:"source_id"`
 	CollectedAt time.Time       `json:"collected_at"`
 	// Scope records which account/region/project this observation was
-	// collected from. Sovereignty buyers are multi-account/multi-region
-	// by regulatory necessity (data residency), so an auditor reading a
+	// collected from. Customers with data-residency requirements run
+	// multi-account/multi-region estates, so an auditor reading a
 	// single envelope has to be able to tell which account it describes.
 	//
 	// Provenance only — NOT a dimension of identity. Nothing reads this

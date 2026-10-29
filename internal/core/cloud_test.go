@@ -11,7 +11,7 @@ import (
 // type graph and rejects fields that could carry resource identity.
 // This is the structural enforcement of the aggregation boundary —
 // it is the gate referenced in cloud.go's SECURITY block (Sacred
-// Invariant #1, the non-custodial aggregation boundary).
+// Invariant #1, the counts-only aggregation boundary).
 //
 // What is rejected:
 //   - any interface{} / any field (lets through arbitrary identities)
@@ -265,7 +265,7 @@ func TestFreeformWalker_RejectsUnserializableKinds(t *testing.T) {
 
 // TestSubmissionPayload_NoViolationsSlice asserts the structural absence
 // of a Violations-style field by name — a belt-and-suspenders companion
-// to the kind-based walker. The non-custodial model forbids a per-policy
+// to the kind-based walker. The counts-only boundary forbids a per-policy
 // list of violation records (which would carry resource identity); the
 // aggregator emits ResourcesEvaluated/ResourcesFailed counts instead.
 func TestSubmissionPayload_NoViolationsSlice(t *testing.T) {

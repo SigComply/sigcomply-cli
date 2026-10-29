@@ -8,8 +8,8 @@
 //
 // Management plane only. Vaults, keys, and secret *metadata* are all readable
 // through ARM (`armkeyvault`) on Reader RBAC — no Key Vault data-plane access
-// policies, and the mgmt plane never returns secret values (good for the
-// non-custodial model). The one wrinkle: the keys *list* endpoint strips the
+// policies, and the mgmt plane never returns secret values (so no secret
+// enters the evidence). The one wrinkle: the keys *list* endpoint strips the
 // rotation policy and key type, so each key needs a follow-up mgmt-plane Get
 // (an N+1) to populate rotation_enabled and the HSM/software protection level.
 //

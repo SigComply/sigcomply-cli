@@ -5,8 +5,8 @@
 # Greps test fixtures (testdata/) and vendor contract snapshots (contracts/)
 # for real secrets and identity that should have been scrubbed to the stable
 # placeholders defined in docs/architecture/11-testing-strategy.md §4. A hit
-# fails the build: a fixture that leaks identity violates the non-custodial
-# architecture, not just a style rule.
+# fails the build: a fixture that leaks identity breaks the rule that
+# evidence stays in the customer's storage, not just a style rule.
 #
 # Usage:
 #   scripts/check-fixtures.sh             # scan all testdata/ dirs + contracts/

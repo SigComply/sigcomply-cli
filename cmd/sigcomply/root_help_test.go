@@ -25,7 +25,7 @@ func TestRootCmd_HelpDescribesProduct(t *testing.T) {
 	}
 	// Cobra prints Long, not Short, on the root help; check both.
 	help := strings.ToLower(root.Short + "\n" + out.String())
-	for _, banned := range []string{"non-custodial", "zero-trust"} {
+	for _, banned := range []string{"non-custodial", "zero-trust", "compliance automation"} {
 		if strings.Contains(help, banned) {
 			t.Errorf("root description contains %q:\n%s", banned, help)
 		}

@@ -17,10 +17,10 @@ type CloudClient interface {
 // concretely typed and represents either a count, an enum status, or
 // already-public metadata.
 //
-// SECURITY: This type is the structural privacy guarantee of the
-// non-custodial architecture. Adding any field that could carry
-// resource identity (ARNs, emails, IDs, file hashes, hostnames) is a
-// non-custodial regression. Required for any such change:
+// SECURITY: This type is the structural privacy guarantee of
+// "evidence without access": only counts leave the customer's pipeline.
+// Adding any field that could carry resource identity (ARNs, emails,
+// IDs, file hashes, hostnames) breaks the counts-only boundary. Required for any such change:
 //  1. Written justification on the PR.
 //  2. Demonstration that the field cannot carry identity in any
 //     deployment.

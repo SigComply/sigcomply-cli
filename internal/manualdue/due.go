@@ -9,7 +9,7 @@
 // after the operator has already uploaded is a warning people learn to
 // ignore, which would leave the product worse off than saying nothing.
 //
-// Non-custodial: the scan issues LIST calls only. It downloads no file
+// Evidence without access: the scan issues LIST calls only. It downloads no file
 // bytes, writes nothing, contacts no cloud API, and needs no OIDC. See
 // docs/architecture/10-cadence-model.md §Day-1 warnings.
 package manualdue

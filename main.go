@@ -1,4 +1,4 @@
-// SigComply CLI - Compliance automation without infrastructure access
+// SigComply CLI: SOC 2 and ISO 27001 checks and signed evidence, run in your own CI.
 package main
 
 import (
