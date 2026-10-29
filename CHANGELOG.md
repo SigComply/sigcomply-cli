@@ -36,6 +36,9 @@ this file lists the changes a user notices.
 
 ### Changed
 
+- `sigcomply --help` and the release notes describe the CLI as SOC 2 and ISO 27001 checks and
+  signed evidence, run in your own CI. `sigcomply report --help` names the SigComply Cloud
+  features it leaves out: drift analysis reports and stale-data alerts.
 - `cloud.project_id` is required on runs that submit: an unfiltered or `--scheduled` `check`
   with a cloud URL (`cloud.base_url` or `--cloud-url`, also with `--cloud`) and no project ID
   exits `3` before collecting, because SigComply Cloud refuses runs without it. Local runs with

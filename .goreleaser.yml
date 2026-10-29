@@ -103,7 +103,7 @@ release:
   header: |
     ## SigComply CLI {{ .Version }}
 
-    Compliance automation without third-party access to your infrastructure.
+    SOC 2 and ISO 27001 checks and signed evidence, run in your own CI.
 
     ### Installation
 

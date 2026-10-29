@@ -59,11 +59,12 @@ func exitCodeFor(err error, stderr io.Writer) int {
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "sigcomply",
-		Short: "SigComply — zero-trust, non-custodial compliance engine",
-		Long: "SigComply runs in your CI/CD environment, evaluates Go-native compliance\n" +
-			"policies (a declarative pass_when DSL) against infrastructure and uploaded\n" +
-			"evidence, signs the resulting evidence locally, and\n" +
-			"optionally submits aggregated counts to a private cloud dashboard.\n",
+		Short: "SOC 2 and ISO 27001 checks and signed evidence, run in your own CI",
+		Long: "SigComply runs in your CI. It reads configuration from cloud and SaaS APIs with the\n" +
+			"credentials you give it and evaluates it against SOC 2 and ISO 27001 policies. It checks\n" +
+			"that manual evidence files are present for the period (it doesn't judge their content),\n" +
+			"and signs the evidence into storage you own. When cloud.base_url is set, it also sends\n" +
+			"per-policy counts and run details to the SigComply Cloud dashboard.\n",
 		// Don't dump the ~19-line usage/flags block after an error (a
 		// missing config, a bad framework); the one-line message is what
 		// the operator needs. Cobra applies the root's SilenceUsage to

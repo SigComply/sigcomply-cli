@@ -8,8 +8,8 @@ assignees: ''
 
 <!--
 Thanks for helping improve SigComply. Please DO NOT paste raw evidence,
-credentials, ARNs, emails, or other identifiers. SigComply is non-custodial —
-keep it that way in issues too. Redact anything sensitive from logs before
+credentials, ARNs, emails, or other identifiers. SigComply never receives
+resource identifiers; keep it that way in issues too. Redact anything sensitive from logs before
 posting.
 -->
 

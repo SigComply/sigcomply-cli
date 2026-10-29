@@ -54,8 +54,8 @@ func newReportCmd() *cobra.Command {
 			"27001:2022 6.1.3 d requires and a Stage 1 auditor asks for first: per\n" +
 			"catalog control, whether it applies, why, and whether it is implemented.\n" +
 			"`--format csv` gives the spreadsheet auditors expect.\n\n" +
-			"Time-series analytics (drift, deviation timelines, continuous-monitoring\n" +
-			"alerts) are paid SigComply Cloud features and intentionally absent here.\n",
+			"Drift analysis reports and stale-data alerts are SigComply Cloud features\n" +
+			"and are not part of this command.\n",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			flags.configSet = cmd.Flags().Changed("config")
 			return runReport(cmd.Context(), cmd.OutOrStdout(), &flags)

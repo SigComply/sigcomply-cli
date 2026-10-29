@@ -26,7 +26,8 @@ assignees: ''
 
 - Does this touch a source plugin / evidence type / framework / policy?
 - Would it change anything sent to SigComply Cloud? (The submission payload is
-  structurally counts-only and must stay non-custodial — no identifiers.)
+  structurally counts-only: SigComply never receives resource identifiers, and
+  it must stay that way.)
 
 ## Additional context
 
