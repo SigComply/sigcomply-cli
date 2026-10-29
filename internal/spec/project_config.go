@@ -288,6 +288,24 @@ func (c *ProjectConfig) ExceptionsFor(policyID string) []PolicyException {
 // CloudConfig models the cloud submission section.
 type CloudConfig struct {
 	BaseURL string `yaml:"base_url"`
+	// ProjectID is the public ID of the SigComply Cloud project this
+	// repository reports to, copied from the project's page. It is not a
+	// secret: committing it proves the repository's maintainers chose
+	// the project, which the OIDC token alone cannot. The submitter sends
+	// it in the X-SigComply-Project header; it is never in the payload.
+	ProjectID string `yaml:"project_id"`
+}
+
+// projectIDPattern is the shape of a SigComply project ID: "prj_" and 20
+// base58 characters (no 0, O, I or l).
+var projectIDPattern = regexp.MustCompile(`^prj_[1-9A-HJ-NP-Za-km-z]{20}$`)
+
+func validateCloud(c *CloudConfig) error {
+	if c.ProjectID != "" && !projectIDPattern.MatchString(c.ProjectID) {
+		return fmt.Errorf("project config: cloud.project_id: %q is not a SigComply project ID "+
+			"(want prj_ followed by 20 letters and digits); copy it from your project's page on the SigComply dashboard", c.ProjectID)
+	}
+	return nil
 }
 
 // CIConfig models CI exit-code behavior knobs.
@@ -395,6 +413,9 @@ func validateProjectConfig(cfg *ProjectConfig) error {
 		return err
 	}
 	if err := validateControls(cfg.Controls); err != nil {
+		return err
+	}
+	if err := validateCloud(&cfg.Cloud); err != nil {
 		return err
 	}
 	// Shape-validated here rather than when the run reads it: found

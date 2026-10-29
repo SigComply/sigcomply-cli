@@ -127,6 +127,9 @@ func runCheck(ctx context.Context, stdout io.Writer, flags *checkFlags) error {
 	if err != nil {
 		return &exitCodeError{code: orchestrator.ExitConfig, err: err}
 	}
+	if w := missingProjectIDWarning(cfg, cloudBase, flags.cloudOff); w != "" {
+		logger.Warnf("config: %s", w)
+	}
 
 	commitSHA, commitTime := gitContext(ctx, logger)
 	mode := orchestrator.ModeManual
@@ -158,6 +161,7 @@ func runCheck(ctx context.Context, stdout io.Writer, flags *checkFlags) error {
 			Force:      flags.cloudOn,
 			Disable:    flags.cloudOff,
 			CLIVersion: cliVersion,
+			ProjectID:  cfg.Cloud.ProjectID,
 		},
 	})
 	if err != nil {
@@ -208,6 +212,20 @@ func resolveCloudBase(cfg *spec.ProjectConfig, flags *checkFlags) (string, error
 		}
 	}
 	return cloudBase, nil
+}
+
+// missingProjectIDWarning returns the warning for a run that may submit
+// (a cloud URL is resolved and --no-cloud is not set) without
+// cloud.project_id, or "" when there is nothing to say. It warns outside
+// CI too, so the operator hears about it before CI does. Only the
+// committed file may set the ID, never a flag or an env var: the commit
+// is what shows the repository chose the project.
+func missingProjectIDWarning(cfg *spec.ProjectConfig, cloudBase string, cloudOff bool) string {
+	if cloudBase == "" || cloudOff || cfg.Cloud.ProjectID != "" {
+		return ""
+	}
+	return "cloud.project_id is not set in .sigcomply.yaml: copy it from your project's page on the SigComply dashboard; " +
+		"the next release will require it when a cloud URL is set"
 }
 
 // ciLocalStorageWarnings flags local storage in a CI job. A local vault

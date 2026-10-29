@@ -441,6 +441,7 @@ type fakeCloud struct {
 	runsAuth    string
 	runsOIDC    string
 	runsVersion string
+	runsProject string
 	runsBody    []byte
 	runsCalls   int
 	tokenCalls  int
@@ -472,6 +473,7 @@ func newFakeCloud(t *testing.T, runsStatus int) *fakeCloud {
 		fc.runsAuth = r.Header.Get("Authorization")
 		fc.runsOIDC = r.Header.Get("X-OIDC-Provider")
 		fc.runsVersion = r.Header.Get("X-Sigcomply-CLI-Version")
+		fc.runsProject = r.Header.Get(submitter.ProjectHeader)
 		fc.mu.Unlock()
 		w.WriteHeader(fc.runsStatus)
 		_, _ = io.WriteString(w, `{"status":"ok"}`) //nolint:errcheck // test server
@@ -527,7 +529,112 @@ func TestBinaryE2E_Check_SubmitsCountsWithOIDC(t *testing.T) {
 	if fc.runsVersion != goldenVersion {
 		t.Errorf("X-Sigcomply-CLI-Version = %q; want %q", fc.runsVersion, goldenVersion)
 	}
+	if fc.runsProject != "" {
+		t.Errorf("X-SigComply-Project = %q; want none without cloud.project_id", fc.runsProject)
+	}
+	if !strings.Contains(res.stderr, missingProjectIDText) {
+		t.Errorf("stderr missing the cloud.project_id warning:\n%s", res.stderr)
+	}
 	assertPayloadMatchesGoldenShape(t, fc.runsBody)
+}
+
+// missingProjectIDText is the start of the warning a submitting run
+// without cloud.project_id prints.
+const missingProjectIDText = "cloud.project_id is not set in .sigcomply.yaml"
+
+// e2eProjectID is a well-formed SigComply project ID for the fixtures.
+const e2eProjectID = "prj_7Xq2mKp9RtV4wNc8Bz3a"
+
+// withCloudProjectID appends a cloud block naming e2eProjectID (and,
+// when baseURL is set, cloud.base_url) to the project's config.
+func withCloudProjectID(t *testing.T, p e2eProject, baseURL string) {
+	t.Helper()
+	block := "cloud:\n  project_id: " + e2eProjectID + "\n"
+	if baseURL != "" {
+		block += "  base_url: " + baseURL + "\n"
+	}
+	f, err := os.OpenFile(p.config, os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }() //nolint:errcheck // test cleanup
+	if _, err := f.WriteString(block); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// With cloud.project_id set, the submission carries it in the
+// X-SigComply-Project header, the payload is unchanged and no warning is
+// printed.
+func TestBinaryE2E_Check_SendsProjectIDHeader(t *testing.T) {
+	p := newE2EProject(t)
+	fc := newFakeCloud(t, http.StatusCreated)
+	withCloudProjectID(t, p, fc.srv.URL)
+
+	res := runSigcomply(t, p.dir, fc.githubActionsEnv(), "check")
+	res.wantCode(t, 1)
+	if strings.Contains(res.stderr, missingProjectIDText) {
+		t.Errorf("warned about cloud.project_id although it is set:\n%s", res.stderr)
+	}
+	fc.mu.Lock()
+	defer fc.mu.Unlock()
+	if fc.runsCalls != 1 {
+		t.Fatalf("POST %s calls = %d; want 1", submitter.Path, fc.runsCalls)
+	}
+	if fc.runsProject != e2eProjectID {
+		t.Errorf("X-SigComply-Project = %q; want %q", fc.runsProject, e2eProjectID)
+	}
+	if strings.Contains(string(fc.runsBody), e2eProjectID) {
+		t.Errorf("project ID leaked into the counts-only payload: %s", fc.runsBody)
+	}
+	assertPayloadMatchesGoldenShape(t, fc.runsBody)
+}
+
+// The warning is about a run that would submit: --no-cloud, or no cloud
+// URL at all, stays quiet. A local run with a cloud URL warns too, so
+// the operator learns before CI does.
+func TestBinaryE2E_Check_MissingProjectIDWarning(t *testing.T) {
+	t.Run("local run with cloud url warns and keeps running", func(t *testing.T) {
+		p := newE2EProject(t)
+		res := runSigcomply(t, p.dir, nil, "check", "--cloud-url", "https://sigcomply.com")
+		res.wantCode(t, 1)
+		if strings.Count(res.stderr, missingProjectIDText) != 1 {
+			t.Errorf("want the cloud.project_id warning once:\n%s", res.stderr)
+		}
+	})
+	t.Run("--no-cloud", func(t *testing.T) {
+		p := newE2EProject(t)
+		res := runSigcomply(t, p.dir, nil, "check", "--no-cloud", "--cloud-url", "https://sigcomply.com")
+		res.wantCode(t, 1)
+		if strings.Contains(res.stderr, missingProjectIDText) {
+			t.Errorf("--no-cloud run warned about cloud.project_id:\n%s", res.stderr)
+		}
+	})
+	t.Run("no cloud configured", func(t *testing.T) {
+		p := newE2EProject(t)
+		res := runSigcomply(t, p.dir, nil, "check")
+		res.wantCode(t, 1)
+		if strings.Contains(res.stderr, missingProjectIDText) {
+			t.Errorf("run without a cloud URL warned about cloud.project_id:\n%s", res.stderr)
+		}
+	})
+	t.Run("malformed project id exits 3", func(t *testing.T) {
+		p := newE2EProject(t)
+		f, err := os.OpenFile(p.config, os.O_APPEND|os.O_WRONLY, 0o600)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = f.WriteString("cloud:\n  project_id: prj_...\n")
+		_ = f.Close() //nolint:errcheck // test cleanup
+		if err != nil {
+			t.Fatal(err)
+		}
+		res := runSigcomply(t, p.dir, nil, "check", "--no-cloud")
+		res.wantCode(t, 3)
+		if !strings.Contains(res.stderr, "cloud.project_id") {
+			t.Errorf("stderr does not name cloud.project_id:\n%s", res.stderr)
+		}
+	})
 }
 
 // A rejected or failed submission is a warning: the run's exit code is

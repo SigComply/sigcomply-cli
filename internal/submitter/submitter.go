@@ -32,6 +32,11 @@ const DefaultAudience = "https://api.sigcomply.com"
 // Path is the cloud endpoint relative to base_url.
 const Path = "/api/v1/runs"
 
+// ProjectHeader carries cloud.project_id. SigComply Cloud accepts a run
+// only when this ID and the OIDC token's repository claims name the same
+// project. The header keeps the ID out of the counts-only payload.
+const ProjectHeader = "X-SigComply-Project"
+
 // GitLabIDTokenEnv is the variable a GitLab job's `id_tokens:` block
 // must name for the CLI to find its OIDC token; GitLabIDTokenFallbackEnv
 // is read when it is unset. The init-ci GitLab template declares
@@ -65,6 +70,9 @@ type Options struct {
 	TokenProvider TokenProvider
 	// CLIVersion is stamped in the X-Sigcomply-CLI-Version header.
 	CLIVersion string
+	// ProjectID (cloud.project_id) is sent in the ProjectHeader header;
+	// empty omits the header.
+	ProjectID string
 }
 
 // TokenProvider returns an OIDC token suitable for cloud authentication.
@@ -76,7 +84,7 @@ type TokenProvider interface {
 // Decide encapsulates the policy described in 06-aggregation.md
 // §Decision matrix. The orchestrator calls Decide first to choose
 // whether to call Submit and to surface the right diagnostic.
-func Decide(opts Options, hasOIDC, inCI bool) Decision {
+func Decide(opts *Options, hasOIDC, inCI bool) Decision {
 	if opts.Disable {
 		return DecisionSkip
 	}
@@ -104,7 +112,7 @@ func Decide(opts Options, hasOIDC, inCI bool) Decision {
 // Submit POSTs the payload to {BaseURL}{Path}. Failures are returned
 // as errors so the caller can log them; the caller is responsible for
 // the "submission failures are non-fatal" policy.
-func Submit(ctx context.Context, opts Options, payload *core.SubmissionPayload) (Response, error) {
+func Submit(ctx context.Context, opts *Options, payload *core.SubmissionPayload) (Response, error) {
 	if opts.BaseURL == "" {
 		return Response{}, fmt.Errorf("submitter: BaseURL empty")
 	}
@@ -131,12 +139,7 @@ func Submit(ctx context.Context, opts Options, payload *core.SubmissionPayload) 
 	if err != nil {
 		return Response{}, fmt.Errorf("submitter: new request: %w", err)
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("X-OIDC-Provider", providerName)
-	if opts.CLIVersion != "" {
-		req.Header.Set("X-Sigcomply-CLI-Version", opts.CLIVersion)
-	}
+	setHeaders(req.Header, opts, token, providerName)
 	client := opts.HTTPClient
 	if client == nil {
 		client = &http.Client{Timeout: 30 * time.Second}
@@ -166,6 +169,20 @@ func Submit(ctx context.Context, opts Options, payload *core.SubmissionPayload) 
 		return out, fmt.Errorf("submitter: %s returned %d: %s", url, resp.StatusCode, string(respBody))
 	}
 	return out, nil
+}
+
+// setHeaders sets the request headers SigComply Cloud reads. The
+// optional ones are omitted rather than sent empty.
+func setHeaders(h http.Header, opts *Options, token, providerName string) {
+	h.Set("Content-Type", "application/json")
+	h.Set("Authorization", "Bearer "+token)
+	h.Set("X-OIDC-Provider", providerName)
+	if opts.CLIVersion != "" {
+		h.Set("X-Sigcomply-CLI-Version", opts.CLIVersion)
+	}
+	if opts.ProjectID != "" {
+		h.Set(ProjectHeader, opts.ProjectID)
+	}
 }
 
 // ValidateBaseURL accepts an https URL with a host, or plain http to a

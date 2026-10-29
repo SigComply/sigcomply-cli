@@ -43,7 +43,7 @@ func TestSubmit_RedirectIsAnError(t *testing.T) {
 	}))
 	defer redirector.Close()
 
-	resp, err := Submit(context.Background(), Options{
+	resp, err := Submit(context.Background(), &Options{
 		BaseURL:       redirector.URL,
 		TokenProvider: &stubProvider{token: stubToken, provider: providerGitLab},
 	}, &core.SubmissionPayload{})
@@ -69,7 +69,7 @@ func TestValidateBaseURL(t *testing.T) {
 }
 
 func TestSubmit_RefusesPlainHTTP(t *testing.T) {
-	_, err := Submit(context.Background(), Options{
+	_, err := Submit(context.Background(), &Options{
 		BaseURL:       "http://sigcomply.example",
 		TokenProvider: &stubProvider{token: stubToken, provider: providerGitLab},
 	}, &core.SubmissionPayload{})

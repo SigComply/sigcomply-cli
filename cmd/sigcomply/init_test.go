@@ -249,6 +249,20 @@ func TestInit_CloudBaseURLComment(t *testing.T) {
 	}
 }
 
+// The commented cloud block names cloud.project_id and where to find it:
+// SigComply Cloud uses it to pick the project a run belongs to.
+func TestInit_CloudProjectIDComment(t *testing.T) {
+	for _, fw := range []string{defaultFW, isoFW} {
+		body := starterConfig(fw)
+		if !strings.Contains(body, "#   project_id: prj_") {
+			t.Errorf("%s scaffold: commented cloud block should show project_id", fw)
+		}
+		if !strings.Contains(body, "project's page on the SigComply dashboard") {
+			t.Errorf("%s scaffold: should say where the project ID comes from", fw)
+		}
+	}
+}
+
 // The scaffold lands in the user's repo, where a relative docs path
 // points nowhere. It must link the published reference.
 func TestStarterConfig_LinksPublishedReference(t *testing.T) {

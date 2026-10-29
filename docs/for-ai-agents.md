@@ -122,9 +122,12 @@ Add to `.sigcomply.yaml`:
 ```yaml
 cloud:
   base_url: https://sigcomply.com
+  project_id: prj_...   # ask the customer: the Project ID on their project's page
 ```
 
-Without `cloud.base_url`, nothing is submitted. With it, submission happens in CI with an OIDC
+`cloud.project_id` must be the customer's real Project ID (`prj_` and 20 letters and digits);
+never invent one. A malformed value exits `3`. Without it, `check` warns when a cloud URL is set
+(the next release will exit `3`). Without `cloud.base_url`, nothing is submitted. With it, submission happens in CI with an OIDC
 token; no secret is needed. Only `sigcomply check` with no filter and `--scheduled` submit;
 `--cadence`, `--cadences`, `--on-push` and `--pr` runs check a subset and never submit. The customer connects the repository on the dashboard
 ([Cloud dashboard](guides/cloud-dashboard.md)).
@@ -143,6 +146,7 @@ produce the documents. Upload rules: [Manual evidence](guides/manual-evidence.md
 - `frameworks:` (plural) or `--framework` on `check`.
 - Slot names that don't exist, such as `user_directory` or `access_keys`.
 - Expecting submission without `cloud.base_url`.
+- Setting `cloud.base_url` without `cloud.project_id`, or making up a project ID.
 - Treating exit `1` on a first run as a broken setup.
 - Using `collect`, `evaluate`, `config`, `evidence init` or `evidence path`. They don't exist.
 - `hipaa` or any other unregistered framework.

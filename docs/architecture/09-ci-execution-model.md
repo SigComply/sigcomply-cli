@@ -135,7 +135,8 @@ is no packaged GitLab CI component.
 - AWS is the cloud. GCP and Azure projects replace the credential step.
 - One AWS account and region.
 - Cloud submission happens only when the config sets `cloud.base_url` (or `--cloud-url` is
-  passed) and the job has an OIDC token; `--no-cloud` turns it off. See
+  passed) and the job has an OIDC token; `--no-cloud` turns it off. The config also needs
+  `cloud.project_id` (sent as `X-SigComply-Project`); without it `check` warns. See
   [`../claude/auth.md`](../claude/auth.md).
 
 ### Copy-paste examples

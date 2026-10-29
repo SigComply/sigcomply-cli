@@ -244,9 +244,12 @@ vault:
 #     approved_by: ciso@example.com
 #
 # Send pass/fail counts to SigComply Cloud (paid plan; runs in CI with an
-# OIDC token). Nothing is sent unless base_url is set:
+# OIDC token). Nothing is sent unless base_url is set. project_id names the
+# project the runs belong to; copy it from
+# your project's page on the SigComply dashboard.
 # cloud:
 #   base_url: https://sigcomply.com
+#   project_id: prj_...
 #
 # ---------------------------------------------------------------------------
 # Declare the estate this project covers (uncomment to opt in)

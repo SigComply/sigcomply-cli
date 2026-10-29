@@ -124,8 +124,9 @@ Layout: [05](05-vault-layout.md).
 ## L8: Submitter
 
 `submitter.Decide` submits only when a cloud URL is set (`cloud.base_url` or `--cloud-url`) and
-the run is in CI with an OIDC token; `--no-cloud` turns it off. A failed submission is a warning
-and does not change the exit code. Auth details: [`docs/claude/auth.md`](../claude/auth.md);
+the run is in CI with an OIDC token; `--no-cloud` turns it off. `cloud.project_id`, when set,
+goes in the `X-SigComply-Project` header. A failed submission is a warning and does not change
+the exit code. Auth details: [`docs/claude/auth.md`](../claude/auth.md);
 payload: [06](06-aggregation.md).
 
 ## L9: Orchestrator

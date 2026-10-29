@@ -81,7 +81,9 @@ The submission type has no free-form fields and no list of violations, so it can
 identifier. To see which resources failed, read `result.json` in your own vault.
 
 Cloud submission is off unless you set `cloud.base_url` in `.sigcomply.yaml` (or pass
-`--cloud-url`), and it only happens in CI with an OIDC token. See
+`--cloud-url`), and it only happens in CI with an OIDC token. The run also names its project with
+`cloud.project_id`, the public Project ID from the dashboard, sent in a header. SigComply Cloud
+accepts the run only when that ID and the token's repository name the same project. See
 [Configuration](configuration.md).
 
 ## Signing and the vault

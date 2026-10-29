@@ -47,7 +47,7 @@ func TestDecide(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := Decide(c.opts, c.hasOIDC, c.inCI); got != c.wantDecision {
+			if got := Decide(&c.opts, c.hasOIDC, c.inCI); got != c.wantDecision {
 				t.Errorf("Decide = %v; want %v", got, c.wantDecision)
 			}
 		})
@@ -55,7 +55,7 @@ func TestDecide(t *testing.T) {
 }
 
 func TestSubmit_RequiresBaseURL(t *testing.T) {
-	_, err := Submit(context.Background(), Options{}, &core.SubmissionPayload{})
+	_, err := Submit(context.Background(), &Options{}, &core.SubmissionPayload{})
 	if err == nil {
 		t.Fatal("want error on empty BaseURL")
 	}
@@ -83,7 +83,7 @@ func TestSubmit_PostsPayloadWithHeaders(t *testing.T) {
 	defer srv.Close()
 
 	payload := &core.SubmissionPayload{Schema: "sigcomply.cloud.v1", RunID: "r1", Framework: "soc2"}
-	resp, err := Submit(context.Background(), Options{
+	resp, err := Submit(context.Background(), &Options{
 		BaseURL:       srv.URL,
 		HTTPClient:    srv.Client(),
 		TokenProvider: &stubProvider{token: "jwt-x", provider: providerGitHub},
@@ -122,7 +122,7 @@ func TestSubmit_PostsPayloadWithHeaders(t *testing.T) {
 func TestSubmit_TokenProviderError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 	defer srv.Close()
-	_, err := Submit(context.Background(), Options{
+	_, err := Submit(context.Background(), &Options{
 		BaseURL:       srv.URL,
 		HTTPClient:    srv.Client(),
 		TokenProvider: &stubProvider{err: ErrNoToken},
@@ -138,7 +138,7 @@ func TestSubmit_ServerError(t *testing.T) {
 		_, _ = w.Write([]byte("nope")) //nolint:errcheck // test handler
 	}))
 	defer srv.Close()
-	_, err := Submit(context.Background(), Options{
+	_, err := Submit(context.Background(), &Options{
 		BaseURL:       srv.URL,
 		HTTPClient:    srv.Client(),
 		TokenProvider: &stubProvider{token: "x", provider: providerGitHub},
@@ -301,7 +301,7 @@ func TestInCI(t *testing.T) {
 }
 
 func TestSubmit_NilPayload(t *testing.T) {
-	_, err := Submit(context.Background(), Options{BaseURL: testBaseURL}, nil)
+	_, err := Submit(context.Background(), &Options{BaseURL: testBaseURL}, nil)
 	if err == nil || !strings.Contains(err.Error(), "nil payload") {
 		t.Errorf("want nil-payload error; got %v", err)
 	}
@@ -312,7 +312,7 @@ func TestSubmit_NetworkFailure(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 	url := srv.URL
 	srv.Close()
-	_, err := Submit(context.Background(), Options{
+	_, err := Submit(context.Background(), &Options{
 		BaseURL:       url,
 		HTTPClient:    &http.Client{},
 		TokenProvider: &stubProvider{token: "x", provider: providerGitHub},
@@ -329,7 +329,7 @@ func TestSubmit_TrimsTrailingSlashInBaseURL(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()
-	_, err := Submit(context.Background(), Options{
+	_, err := Submit(context.Background(), &Options{
 		BaseURL:       srv.URL + "/",
 		HTTPClient:    srv.Client(),
 		TokenProvider: &stubProvider{token: "x", provider: providerGitHub},
@@ -348,7 +348,7 @@ func TestSubmit_SuccessReturnsResponseBody(t *testing.T) {
 		_, _ = w.Write([]byte(`{"id":"run-99"}`)) //nolint:errcheck // test handler
 	}))
 	defer srv.Close()
-	resp, err := Submit(context.Background(), Options{
+	resp, err := Submit(context.Background(), &Options{
 		BaseURL:       srv.URL,
 		HTTPClient:    srv.Client(),
 		TokenProvider: &stubProvider{token: "x", provider: providerGitLab},
@@ -373,7 +373,7 @@ func TestSubmit_NoCLIVersionHeaderWhenUnset(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()
-	_, err := Submit(context.Background(), Options{
+	_, err := Submit(context.Background(), &Options{
 		BaseURL:       srv.URL,
 		HTTPClient:    srv.Client(),
 		TokenProvider: &stubProvider{token: "x", provider: providerGitHub},
@@ -383,6 +383,63 @@ func TestSubmit_NoCLIVersionHeaderWhenUnset(t *testing.T) {
 	}
 	if present {
 		t.Error("X-Sigcomply-CLI-Version sent despite empty CLIVersion")
+	}
+}
+
+// TestSubmit_SendsProjectHeader checks cloud.project_id travels as the
+// X-SigComply-Project header, which SigComply Cloud uses to pick the
+// project the run belongs to, and never in the counts-only body.
+func TestSubmit_SendsProjectHeader(t *testing.T) {
+	const id = "prj_7Xq2mKp9RtV4wNc8Bz3a"
+	var (
+		got  string
+		body []byte
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Get("X-SigComply-Project")
+		body, _ = io.ReadAll(r.Body) //nolint:errcheck // test handler
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+	_, err := Submit(context.Background(), &Options{
+		BaseURL:       srv.URL,
+		HTTPClient:    srv.Client(),
+		TokenProvider: &stubProvider{token: "x", provider: providerGitHub},
+		ProjectID:     id,
+	}, &core.SubmissionPayload{RunID: "r1"})
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	if got != id {
+		t.Errorf("X-SigComply-Project = %q; want %q", got, id)
+	}
+	if ProjectHeader != "X-SigComply-Project" {
+		t.Errorf("ProjectHeader = %q; Rails reads X-SigComply-Project", ProjectHeader)
+	}
+	if strings.Contains(string(body), id) {
+		t.Errorf("project ID leaked into the payload: %s", body)
+	}
+}
+
+// TestSubmit_NoProjectHeaderWhenUnset: without cloud.project_id the
+// header is omitted rather than sent empty.
+func TestSubmit_NoProjectHeaderWhenUnset(t *testing.T) {
+	var present bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, present = r.Header["X-Sigcomply-Project"]
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+	_, err := Submit(context.Background(), &Options{
+		BaseURL:       srv.URL,
+		HTTPClient:    srv.Client(),
+		TokenProvider: &stubProvider{token: "x", provider: providerGitHub},
+	}, &core.SubmissionPayload{})
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	if present {
+		t.Error("X-SigComply-Project sent despite empty ProjectID")
 	}
 }
 
@@ -413,7 +470,7 @@ func TestSubmit_BodyIsCountsOnly(t *testing.T) {
 			Message:            "3 of 10 resources failed.",
 		}},
 	}
-	_, err := Submit(context.Background(), Options{
+	_, err := Submit(context.Background(), &Options{
 		BaseURL:       srv.URL,
 		HTTPClient:    srv.Client(),
 		TokenProvider: &stubProvider{token: "x", provider: providerGitHub},

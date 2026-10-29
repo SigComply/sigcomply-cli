@@ -711,7 +711,7 @@ const filteredSubmissionNotice = "cloud submission skipped: this run evaluates a
 // --capture-cloud-payload write is returned as an error, because the
 // operator asked for that file and an exit 0 without it reads as success.
 func handleSubmission(ctx context.Context, opts *Options, payload *core.SubmissionPayload, completedAt time.Time, filtered bool) (submitted bool, submittedAt time.Time, err error) {
-	decision := submitter.Decide(opts.SubmitterOpts, submitter.HasOIDC(), submitter.InCI())
+	decision := submitter.Decide(&opts.SubmitterOpts, submitter.HasOIDC(), submitter.InCI())
 	if filtered && (opts.CapturePayloadPath != "" || decision != submitter.DecisionSkip) {
 		_, _ = fmt.Fprintln(opts.Stdout, filteredSubmissionNotice) //nolint:errcheck // status output
 	}
@@ -726,7 +726,7 @@ func handleSubmission(ctx context.Context, opts *Options, payload *core.Submissi
 	}
 	switch decision {
 	case submitter.DecisionSubmit:
-		resp, err := submitter.Submit(ctx, opts.SubmitterOpts, payload)
+		resp, err := submitter.Submit(ctx, &opts.SubmitterOpts, payload)
 		if err != nil {
 			opts.Logger.Warnf("submit: %s", err.Error())
 			return false, time.Time{}, nil

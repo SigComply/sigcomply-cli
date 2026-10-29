@@ -49,7 +49,7 @@ from the HEAD commit instead). The first summary line prints it, for example
 | `--scheduled` | | | Run whichever cadences are due according to the vault's execution state, then advance the state |
 | `--cloud` | | | Submit even outside CI. Needs an OIDC token and `cloud.base_url` (or `--cloud-url`); without a URL it warns and skips. |
 | `--no-cloud` | | | Never submit |
-| `--cloud-url <url>` | | `cloud.base_url` | SigComply Cloud base URL. Setting it turns submission on, like `cloud.base_url`. |
+| `--cloud-url <url>` | | `cloud.base_url` | SigComply Cloud base URL. Setting it turns submission on, like `cloud.base_url`. Without `cloud.project_id` in the config, `check` warns; the project ID has no flag. |
 | `--capture-cloud-payload <file>` | | | Write the submission payload to this file instead of sending it. A failed write exits `2`. |
 | `--config <path>` | `-c` | `.sigcomply.yaml` | Config file |
 | `--verbose` | `-v` | `false` | Verbose logging |

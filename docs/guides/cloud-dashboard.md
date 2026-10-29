@@ -38,11 +38,16 @@ reports; only owners see the **Auditors** and **Settings** tabs.
 2. Paste the repository URL in **Repository URL**: `https://github.com/<owner>/<repo>` or
    `https://gitlab.com/<group>/<subgroup>/<project>`.
 3. Select **Create Project**.
+4. Copy the **Project ID** (`prj_` and 20 letters and digits) from the project's page. You add it
+   to `.sigcomply.yaml` in step 3.
 
-SigComply Cloud has no API keys. It identifies a run by the OIDC token your CI mints: the
-`repository` claim on GitHub Actions, the `project_path` claim on GitLab CI, matched without
-regard to case. On the first accepted run it also records the repository's and owner's numeric
-IDs, and later runs must match them. If you rename or move the repository, or recreate it, paste
+SigComply Cloud has no API keys. It accepts a run only when two things name the same project: the
+project ID from your committed `.sigcomply.yaml`, sent in the `X-SigComply-Project` header, and
+the OIDC token your CI mints (the `repository` claim on GitHub Actions, the `project_path` claim
+on GitLab CI, matched without regard to case). The project ID is not a secret. Only people who can
+push to the repository can commit it, so it shows that the repository chose this project. On the
+first accepted run SigComply Cloud also records the repository's and owner's numeric IDs, and
+later runs must match them. If you rename or move the repository, or recreate it, paste
 the new URL in the project's **Settings** tab, or submissions are refused.
 
 ## 3. Turn on submission
@@ -52,7 +57,12 @@ Add to `.sigcomply.yaml`, commit and push:
 ```yaml
 cloud:
   base_url: https://sigcomply.com
+  project_id: prj_7Xq2mKp9RtV4wNc8Bz3a   # the Project ID from step 2
 ```
+
+A value that is not a project ID is a config error (exit `3`). When a cloud URL is set and
+`cloud.project_id` is not, `sigcomply check` prints a warning before it collects, locally and in
+CI, and still runs. The next CLI release will make that a config error (exit `3`).
 
 The CLI submits only when all of these hold:
 
@@ -128,7 +138,9 @@ The `submit:` warning in the CI log includes the HTTP status and an error `code`
 | 401 | `token_expired` | The token expired before the CLI posted it. | Re-run the job. |
 | 401 | `invalid_signature` | The token's signature or signing key did not verify. | Re-run; if it persists, check the token comes from GitHub Actions or GitLab. |
 | 401 | `validation_error` | The token is malformed, has the wrong issuer, or its audience is not `https://api.sigcomply.com`. | On GitLab, set `aud: https://api.sigcomply.com` on the ID token. |
-| 403 | `unregistered_provider` | No active project in SigComply Cloud matches the token's repository. The message names the repository from the token. Matching ignores case. | Connect the repository (step 2), re-paste the URL after a rename, and check the project is active in **Settings**. |
+| 403 | `project_mismatch` | The run sent a `cloud.project_id` that does not name an active project for the token's repository: the ID is mistyped, belongs to another repository's project, or the project is inactive. | Copy the **Project ID** from the project's page into `cloud.project_id`, check the project's repository URL matches the repository the job runs in, and check the project is active in **Settings**. |
+| 403 | `project_id_required` | The run sent no project ID, and SigComply Cloud can't tell which project the run belongs to without one. | Set `cloud.project_id` in `.sigcomply.yaml` to the **Project ID** from the project's page. |
+| 403 | `unregistered_provider` | The run sent no project ID, and no active project in SigComply Cloud matches the token's repository. The message names the repository from the token. Matching ignores case. | Connect the repository (step 2) and set `cloud.project_id`, re-paste the URL after a rename, and check the project is active in **Settings**. |
 | 403 | `repository_mismatch` | The token's repository or owner ID differs from the IDs the project recorded on its first accepted run, for example because the repository was deleted and recreated under the same name. | Update the repository URL in the project's **Settings** tab, which clears the recorded IDs, or contact support. |
 | 402 | `subscription_required` | The trial ended and there is no Pro subscription. | Upgrade from the `upgrade_url`. |
 | 413 | `payload_too_large` | The request body is over 4 MB. | Contact support. |

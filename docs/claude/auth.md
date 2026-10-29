@@ -43,14 +43,30 @@ checks that the env vars exist.
 ## The request and what Rails checks
 
 `submitter.Submit` sends `POST {base_url}/api/v1/runs` with `Authorization: Bearer <jwt>`,
-`X-OIDC-Provider: github|gitlab`, `X-Sigcomply-CLI-Version` and a 30-second timeout. The body is
-`core.SubmissionPayload` (schema `aggregator.SchemaVersion`).
+`X-OIDC-Provider: github|gitlab`, `X-Sigcomply-CLI-Version`, `X-SigComply-Project`
+(`submitter.ProjectHeader`, from `cloud.project_id`, omitted when unset) and a 30-second timeout.
+The body is `core.SubmissionPayload` (schema `aggregator.SchemaVersion`); the project ID is never
+in it, so `cloud_golden.json` does not change.
 
 The dashboard's OIDC validator picks the provider from the token's `iss`, not from
-`X-OIDC-Provider`, verifies the signature against the provider's JWKS, checks the audience, and
-finds the project by claims: GitHub `repository`
-(`owner/name`), GitLab `project_path` and `namespace_path`. Changing a claim the CLI relies on, or
-the header, means checking that file in the same task.
+`X-OIDC-Provider`, verifies the signature against the provider's JWKS and checks the audience.
+Only then does it choose the project from the verified claims (GitHub `repository`
+(`owner/name`), GitLab `project_path` and `namespace_path`):
+
+- With `X-SigComply-Project`, the project with that public ID must be active and its repository
+  must match the claims (case-insensitive); otherwise `403 project_mismatch`, the same body
+  whatever the reason.
+- Without it (CLI v0.89.0 and earlier, or a config without the key), Rails accepts the run only
+  when exactly one active project matches the claims; with several it answers
+  `403 project_id_required`, with none `403 unregistered_provider`.
+
+Several organizations may register the same repository, so the claims alone no longer pick a
+project. The project ID is public, not a secret: committing it to `.sigcomply.yaml` is what shows
+the repository chose the project, so the CLI takes it from that file only (no flag, no env var).
+This CLI release warns when a cloud URL is set without `cloud.project_id`
+(`missingProjectIDWarning` in `cmd/sigcomply/check.go`); the next release makes that exit `3`,
+after which Rails drops the header-less path. Changing a claim the CLI relies on, or a header,
+means checking that file in the same task.
 
 ## Credentials for sources
 

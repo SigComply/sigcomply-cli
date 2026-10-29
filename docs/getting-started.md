@@ -61,11 +61,13 @@ and sends nothing.
 
 1. Sign up at [sigcomply.com](https://sigcomply.com) and connect the repository by its URL. See
    [Cloud dashboard](guides/cloud-dashboard.md).
-2. Add this block to `.sigcomply.yaml` and commit it:
+2. Copy the **Project ID** from the project's page on the dashboard.
+3. Add this block to `.sigcomply.yaml`, with your Project ID, and commit it:
 
    ```yaml
    cloud:
      base_url: https://sigcomply.com
+     project_id: prj_7Xq2mKp9RtV4wNc8Bz3a   # your Project ID
    ```
 
 The base URL is `https://sigcomply.com`. The OIDC audience you meet in step 4,
@@ -74,6 +76,9 @@ purpose.
 
 Without `cloud.base_url`, the CLI never submits, even in CI. With it, the CLI submits when it
 runs in GitHub Actions or GitLab CI and can get an OIDC token. No API key or secret is involved.
+The project ID is not a secret: it tells SigComply Cloud which project the runs belong to. With a
+cloud URL and no `cloud.project_id`, `check` warns and keeps running; the next release will make
+that a config error.
 
 ## 3. Scaffold the CI workflows
 

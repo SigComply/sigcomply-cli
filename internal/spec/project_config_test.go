@@ -190,6 +190,80 @@ func TestLoadProjectConfig_KeepsLiveKeysInPrunedSections(t *testing.T) {
 	}
 }
 
+// cloud.project_id names the SigComply project a run belongs to. A
+// value that cannot be a project ID is a config error at load, so a typo
+// fails the run up front instead of every submission being rejected.
+func TestLoadProjectConfig_CloudProjectID(t *testing.T) {
+	const head = "schema_version: project.v1\nframework: soc2\ncloud:\n  base_url: https://sigcomply.com\n"
+	cfg, err := LoadProjectConfig([]byte(head + "  project_id: prj_7Xq2mKp9RtV4wNc8Bz3a\n"))
+	if err != nil {
+		t.Fatalf("LoadProjectConfig: %v", err)
+	}
+	if cfg.Cloud.ProjectID != "prj_7Xq2mKp9RtV4wNc8Bz3a" {
+		t.Errorf("cloud.project_id = %q", cfg.Cloud.ProjectID)
+	}
+
+	cfg, err = LoadProjectConfig([]byte(head))
+	if err != nil {
+		t.Fatalf("LoadProjectConfig without project_id: %v", err)
+	}
+	if cfg.Cloud.ProjectID != "" {
+		t.Errorf("cloud.project_id = %q; want empty", cfg.Cloud.ProjectID)
+	}
+
+	for name, value := range map[string]string{
+		"no prefix":          "7Xq2mKp9RtV4wNc8Bz3a",
+		"wrong prefix":       "prd_7Xq2mKp9RtV4wNc8Bz3a",
+		"too short":          "prj_7Xq2mKp9RtV4wNc8Bz3",
+		"too long":           "prj_7Xq2mKp9RtV4wNc8Bz3aa",
+		"zero is not base58": "prj_0Xq2mKp9RtV4wNc8Bz3a",
+		"O is not base58":    "prj_OXq2mKp9RtV4wNc8Bz3a",
+		"I is not base58":    "prj_IXq2mKp9RtV4wNc8Bz3a",
+		"l is not base58":    "prj_lXq2mKp9RtV4wNc8Bz3a",
+		"placeholder":        "prj_...",
+		"surrounding space":  "' prj_7Xq2mKp9RtV4wNc8Bz3a'",
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := LoadProjectConfig([]byte(head + "  project_id: " + value + "\n"))
+			if err == nil {
+				t.Fatalf("project_id %s loaded; want an error", value)
+			}
+			for _, want := range []string{"cloud.project_id", "SigComply dashboard"} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("error = %q; want it to mention %q", err, want)
+				}
+			}
+		})
+	}
+}
+
+// An empty cloud.project_id (no value, "", ~ or null) means unset, as
+// the E2E harnesses read it: no shape error, and check then warns.
+func TestLoadProjectConfig_CloudProjectIDEmptyIsUnset(t *testing.T) {
+	const head = "schema_version: project.v1\nframework: soc2\ncloud:\n  base_url: https://sigcomply.com\n"
+	for _, value := range []string{"", ` ""`, " ~", " null"} {
+		t.Run(strings.TrimSpace(value), func(t *testing.T) {
+			cfg, err := LoadProjectConfig([]byte(head + "  project_id:" + value + "\n"))
+			if err != nil {
+				t.Fatalf("project_id:%s: %v", value, err)
+			}
+			if cfg.Cloud.ProjectID != "" {
+				t.Errorf("cloud.project_id = %q; want empty", cfg.Cloud.ProjectID)
+			}
+		})
+	}
+}
+
+// Adding project_id must not loosen the strict decoder: any other
+// unknown key under cloud is still an error.
+func TestLoadProjectConfig_CloudUnknownKeyStillRejected(t *testing.T) {
+	_, err := LoadProjectConfig([]byte("schema_version: project.v1\nframework: soc2\n" +
+		"cloud:\n  base_url: https://sigcomply.com\n  project_id: prj_7Xq2mKp9RtV4wNc8Bz3a\n  project: x\n"))
+	if err == nil || !strings.Contains(err.Error(), "field project not found") {
+		t.Fatalf("err = %v; want the strict decoder to reject cloud.project", err)
+	}
+}
+
 func TestLoadProjectConfig_BindingWithSlotParams(t *testing.T) {
 	data := readTestdata(t, "project_config/valid_binding_with_slot_params.yaml")
 
@@ -484,6 +558,9 @@ func TestLoadProjectConfig_AcmeCorpDocsExample(t *testing.T) {
 	}
 	if cfg.Cloud.BaseURL != "https://sigcomply.com" {
 		t.Errorf("cloud.base_url = %q; want https://sigcomply.com (submission is off without it)", cfg.Cloud.BaseURL)
+	}
+	if cfg.Cloud.ProjectID == "" {
+		t.Error("cloud.project_id is empty; the documented cloud block must name the project")
 	}
 }
 

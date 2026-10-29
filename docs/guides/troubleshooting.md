@@ -64,7 +64,8 @@ Check, in order:
 2. The run is in CI, and the job can mint an OIDC token (GitHub: `permissions: id-token: write`;
    GitLab: an `id_tokens:` entry named `SIGCOMPLY_ID_TOKEN`).
 3. The run does not pass `--no-cloud`.
-4. The repository is connected in the dashboard.
+4. The repository is connected in the dashboard, and `cloud.project_id` is that project's
+   **Project ID**.
 
 Run once with `--cloud` to make the CLI name the missing piece:
 
@@ -72,6 +73,17 @@ Run once with `--cloud` to make the CLI name the missing piece:
 submit: --cloud was set but no cloud endpoint is configured; skipping submission. Set cloud.base_url in .sigcomply.yaml or pass --cloud-url <url>
 submit: --cloud was set but no OIDC token detected; skipping
 ```
+
+### `cloud.project_id is not set in .sigcomply.yaml`
+
+A cloud URL is set but the config names no project. The run continues. Copy the **Project ID**
+from your project's page on the dashboard into `cloud.project_id` and commit it. The next release
+will make this a config error (exit `3`).
+
+### `cloud.project_id: "…" is not a SigComply project ID`
+
+The value is not `prj_` followed by 20 letters and digits, so the run stops with exit `3`. Copy the
+ID again from the project's page.
 
 ### A `submit:` warning with an HTTP status
 

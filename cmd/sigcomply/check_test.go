@@ -438,3 +438,40 @@ func TestRunCheck_CaptureWriteFailureExitsTwo(t *testing.T) {
 		t.Fatalf("want exit 2 naming the capture file; got %v", err)
 	}
 }
+
+// A run that will submit (a cloud URL is resolved and --no-cloud is not
+// set) but names no project warns before collection. Release N only
+// warns; the next release makes it a config error.
+func TestMissingProjectIDWarning(t *testing.T) {
+	const url = "https://sigcomply.com"
+	withID := &spec.ProjectConfig{Cloud: spec.CloudConfig{BaseURL: url, ProjectID: "prj_7Xq2mKp9RtV4wNc8Bz3a"}}
+	noID := &spec.ProjectConfig{Cloud: spec.CloudConfig{BaseURL: url}}
+	cases := []struct {
+		name      string
+		cfg       *spec.ProjectConfig
+		cloudBase string
+		cloudOff  bool
+		want      bool
+	}{
+		{"cloud url without project id", noID, url, false, true},
+		{"--cloud-url without project id", &spec.ProjectConfig{}, url, false, true},
+		{"cloud url with project id", withID, url, false, false},
+		{"--no-cloud", noID, url, true, false},
+		{"no cloud configured", &spec.ProjectConfig{}, "", false, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := missingProjectIDWarning(tc.cfg, tc.cloudBase, tc.cloudOff)
+			if (got != "") != tc.want {
+				t.Fatalf("warning = %q; want shown=%v", got, tc.want)
+			}
+			if tc.want {
+				for _, s := range []string{"cloud.project_id", ".sigcomply.yaml", "SigComply dashboard", "next release"} {
+					if !strings.Contains(got, s) {
+						t.Errorf("warning %q does not mention %q", got, s)
+					}
+				}
+			}
+		})
+	}
+}

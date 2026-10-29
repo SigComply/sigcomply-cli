@@ -502,7 +502,7 @@ func TestInitCI_StdoutMentionsCloudBaseURL(t *testing.T) {
 		if err != nil {
 			t.Fatalf("init-ci --ci %s: %v", ci, err)
 		}
-		for _, want := range []string{"cloud.base_url", "https://sigcomply.com", "https://api.sigcomply.com"} {
+		for _, want := range []string{"cloud.base_url", "https://sigcomply.com", "https://api.sigcomply.com", "cloud.project_id"} {
 			if !strings.Contains(out, want) {
 				t.Errorf("--ci %s stdout missing %q:\n%s", ci, want, out)
 			}

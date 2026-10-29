@@ -130,9 +130,12 @@ To send pass/fail counts to the paid dashboard, add this to `.sigcomply.yaml`:
 ```yaml
 cloud:
   base_url: https://sigcomply.com
+  project_id: prj_7Xq2mKp9RtV4wNc8Bz3a   # the Project ID from your project's page
 ```
 
-Without `cloud.base_url`, the CLI sends nothing. Connect the repository in the dashboard first:
+Without `cloud.base_url`, the CLI sends nothing. `cloud.project_id` is the **Project ID** shown on
+your project's page on the dashboard; without it, `check` warns, and the next release will make
+it a config error. Connect the repository in the dashboard first:
 [Connect to SigComply Cloud](cloud-dashboard.md).
 
 ## 6. Commit and run

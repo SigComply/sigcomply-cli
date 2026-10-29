@@ -26,6 +26,13 @@ this file lists the changes a user notices.
   `AWS_REGION`, `AWS_DEFAULT_REGION` or the config's S3 vault.
 - `docs/guides/configure-sources.md` explains how to pass GitHub, GitLab, Okta and Active Directory
   credentials in CI.
+- `cloud.project_id` in `.sigcomply.yaml`: the **Project ID** from your project's page on the
+  SigComply dashboard. `check` sends it in the `X-SigComply-Project` header, never in the payload,
+  and SigComply Cloud uses it with the OIDC token to pick the project a run belongs to, so several
+  organizations can connect the same repository without receiving each other's runs. A value that
+  is not `prj_` and 20 letters and digits exits `3`. With a cloud URL set and no
+  `cloud.project_id`, `check` warns and keeps running, locally and in CI; the next release will
+  make that a config error (exit `3`). `init` and `init-ci` mention the key.
 
 ### Changed
 

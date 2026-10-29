@@ -136,6 +136,7 @@ policies:
 # only in CI with an OIDC token, and only when base_url is set.
 cloud:
   base_url: https://sigcomply.com
+  project_id: prj_7Xq2mKp9RtV4wNc8Bz3a   # from your project's page on the SigComply dashboard
 
 ci:
   fail_on_violation: true   # the default: exit 1 when a policy fails
