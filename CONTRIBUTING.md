@@ -28,6 +28,19 @@ This page is for anyone changing the CLI's code or docs. AI agents start at
 
 Every push to `main` that changes code cuts a public release, so `main` must stay green.
 
+## Licensing your contribution
+
+The CLI is licensed under the [Elastic License 2.0](./LICENSE). By opening a pull request or
+otherwise submitting a contribution, you agree that:
+
+- you wrote it, or have the right to submit it under these terms;
+- it is licensed under the Elastic License 2.0;
+- you grant SigComply a perpetual, worldwide, royalty-free, irrevocable license to use, modify,
+  sublicense and distribute your contribution under any terms, including commercial ones.
+
+You keep the copyright in your contribution. Earlier contributions were made under Apache-2.0;
+see [`NOTICE`](./NOTICE).
+
 ## Commit messages
 
 Use `<type>: <description>`, with a type such as `feat`, `fix`, `refactor`, `test`, `docs` or
