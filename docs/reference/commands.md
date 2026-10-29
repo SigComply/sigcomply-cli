@@ -10,7 +10,7 @@ same flags.
 | `0` | Success. For `check`: no policy failed, or `ci.fail_on_violation: false` is set. |
 | `1` | `check`: a policy failed, or a source declared under `experimental.scope` is incomplete. Set `ci.fail_on_violation: false` to exit `0` instead. `report --view integrity`: a run failed verification. |
 | `2` | Execution error, including any policy with status `error`, a credential the provider rejected, a failed write of the run's results, summary or manifest to the vault, and a flag the command does not know, a flag value of the wrong type, or two flags that cannot be combined. |
-| `3` | Configuration error: a missing or invalid config, an unknown framework, a listed source whose credentials are missing, a missing required flag value such as `report --period`, or a value a flag does not accept (`report --view bogus`, `report --format xml`, `init-ci --ci jenkins`, `evidence -o csv`). For `report`, also a vault path that does not exist or a period with no runs. |
+| `3` | Configuration error: a missing or invalid config, an unknown framework, a listed source whose credentials are missing, a run that would submit without `cloud.project_id`, a missing required flag value such as `report --period`, or a value a flag does not accept (`report --view bogus`, `report --format xml`, `init-ci --ci jenkins`, `evidence -o csv`). For `report`, also a vault path that does not exist or a period with no runs. |
 
 A missing credential exits `3` before any collection starts. A credential the provider rejects
 can only be found during collection, so the affected policies end as `error` and the run exits
@@ -47,9 +47,9 @@ from the HEAD commit instead). The first summary line prints it, for example
 | `--on-push` | | | Only evaluate policies whose `on_push` attribute is true |
 | `--pr` | | | Pull request mode: on-push policies. A slot that fails with a throttling, `5xx` or network error is tried up to 5 times, with about 3 minutes of waits in total. |
 | `--scheduled` | | | Run whichever cadences are due according to the vault's execution state, then advance the state |
-| `--cloud` | | | Submit even outside CI. Needs an OIDC token and `cloud.base_url` (or `--cloud-url`); without a URL it warns and skips. |
+| `--cloud` | | | Submit even outside CI. Needs an OIDC token, `cloud.base_url` (or `--cloud-url`) and `cloud.project_id`; without a URL it warns and skips, without the project ID it exits `3`. |
 | `--no-cloud` | | | Never submit |
-| `--cloud-url <url>` | | `cloud.base_url` | SigComply Cloud base URL. Setting it turns submission on, like `cloud.base_url`. Without `cloud.project_id` in the config, a run that submits warns; the project ID has no flag. |
+| `--cloud-url <url>` | | `cloud.base_url` | SigComply Cloud base URL. Setting it turns submission on, like `cloud.base_url`. Without `cloud.project_id` in the config, a run that submits exits `3`; the project ID has no flag. |
 | `--capture-cloud-payload <file>` | | | Write the submission payload to this file instead of sending it. A failed write exits `2`. |
 | `--config <path>` | `-c` | `.sigcomply.yaml` | Config file |
 | `--verbose` | `-v` | `false` | Verbose logging |
@@ -62,7 +62,10 @@ has no `--framework` flag.
 Without `--cloud` or `--no-cloud`, the CLI submits only when all of these hold: a base URL is
 set, the run is in GitHub Actions or GitLab CI, and an OIDC token is available. A failed
 submission does not change the exit code. The base URL must be `https://` (plain `http://` only
-for `localhost`), or the run exits `3` before collecting.
+for `localhost`), or the run exits `3` before collecting. A run that would submit (unfiltered or
+`--scheduled`, with or without `--cloud`) also exits `3` before collecting when
+`cloud.project_id` is not set in `.sigcomply.yaml`, even when the URL comes from `--cloud-url`.
+`--no-cloud`, `--capture-cloud-payload` and filtered runs don't need it.
 
 The run ends with the vault folder it wrote and the command that reads it back:
 

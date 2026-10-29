@@ -77,8 +77,9 @@ purpose.
 Without `cloud.base_url`, the CLI never submits, even in CI. With it, the CLI submits when it
 runs in GitHub Actions or GitLab CI and can get an OIDC token. No API key or secret is involved.
 The project ID is not a secret: it tells SigComply Cloud which project the runs belong to. When a
-run that submits has a cloud URL and no `cloud.project_id`, `check` warns and keeps running; the
-next release will make that a config error.
+run that submits has a cloud URL and no `cloud.project_id`, `check` stops with exit `3` before it
+collects anything, locally too. Runs with `--no-cloud` and filtered runs (`--cadence`,
+`--cadences`, `--on-push`, `--pr`) never submit, so they don't need it.
 
 ## 3. Scaffold the CI workflows
 

@@ -440,10 +440,10 @@ func TestRunCheck_CaptureWriteFailureExitsTwo(t *testing.T) {
 }
 
 // A run that would submit (unfiltered or --scheduled, a cloud URL
-// resolved, no --no-cloud) but names no project warns before collection.
-// A filtered run never submits, so it stays quiet. Release N only warns;
-// the next release makes it a config error.
-func TestMissingProjectIDWarning(t *testing.T) {
+// resolved, no --no-cloud) but names no project is a config error before
+// collection: SigComply Cloud refuses it. A filtered run or a captured
+// payload never submits, so it is unaffected.
+func TestMissingProjectIDError(t *testing.T) {
 	const url = "https://sigcomply.com"
 	withID := &spec.ProjectConfig{Cloud: spec.CloudConfig{BaseURL: url, ProjectID: "prj_7Xq2mKp9RtV4wNc8Bz3a"}}
 	noID := &spec.ProjectConfig{Cloud: spec.CloudConfig{BaseURL: url}}
@@ -457,25 +457,30 @@ func TestMissingProjectIDWarning(t *testing.T) {
 		{"cloud url without project id", noID, url, checkFlags{}, true},
 		{"--scheduled without project id", noID, url, checkFlags{scheduled: true}, true},
 		{"--cloud-url without project id", &spec.ProjectConfig{}, url, checkFlags{cloudURL: url}, true},
+		{"--cloud without project id", noID, url, checkFlags{cloudOn: true}, true},
 		{"cloud url with project id", withID, url, checkFlags{}, false},
+		{"--cloud with project id", withID, url, checkFlags{cloudOn: true}, false},
 		{"--no-cloud", noID, url, checkFlags{cloudOff: true}, false},
 		{"no cloud configured", &spec.ProjectConfig{}, "", checkFlags{}, false},
+		{"--cloud without a cloud url", &spec.ProjectConfig{}, "", checkFlags{cloudOn: true}, false},
+		{"--capture-cloud-payload never submits", noID, url, checkFlags{capturePayloadPath: "payload.json"}, false},
 		{"--cadence never submits", noID, url, checkFlags{cadence: "hourly"}, false},
 		{"--cadences never submits", noID, url, checkFlags{cadences: []string{"quarterly"}}, false},
 		{"--on-push never submits", noID, url, checkFlags{onPush: true}, false},
 		{"--pr never submits", noID, url, checkFlags{pr: true}, false},
+		{"--pr --cloud never submits", noID, url, checkFlags{pr: true, cloudOn: true}, false},
 		{"--scheduled --cadence never submits", noID, url, checkFlags{scheduled: true, cadence: "hourly"}, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := missingProjectIDWarning(tc.cfg, &tc.flags, tc.cloudBase)
-			if (got != "") != tc.want {
-				t.Fatalf("warning = %q; want shown=%v", got, tc.want)
+			err := missingProjectIDError(tc.cfg, &tc.flags, tc.cloudBase)
+			if (err != nil) != tc.want {
+				t.Fatalf("error = %v; want error=%v", err, tc.want)
 			}
 			if tc.want {
-				for _, s := range []string{"cloud.project_id", ".sigcomply.yaml", "SigComply dashboard", "next release"} {
-					if !strings.Contains(got, s) {
-						t.Errorf("warning %q does not mention %q", got, s)
+				for _, s := range []string{"cloud.project_id", ".sigcomply.yaml", "project's page on the SigComply dashboard", "--no-cloud"} {
+					if !strings.Contains(err.Error(), s) {
+						t.Errorf("error %q does not mention %q", err, s)
 					}
 				}
 			}

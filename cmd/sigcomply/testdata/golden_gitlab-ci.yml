@@ -17,7 +17,9 @@
 # OIDC: `id_tokens` mints SIGCOMPLY_ID_TOKEN, a GitLab JWT with audience
 # `https://api.sigcomply.com`. It is used twice:
 #   - The CLI sends it to SigComply Cloud when `cloud.base_url` is set in
-#     .sigcomply.yaml. Without that key nothing is submitted.
+#     .sigcomply.yaml. Without that key nothing is submitted. Also set
+#     `cloud.project_id` (copy it from your project's page on the
+#     SigComply dashboard): a run that submits exits 3 without it.
 #   - `before_script` writes it to a private temp file and exports
 #     AWS_WEB_IDENTITY_TOKEN_FILE. With AWS_ROLE_ARN, the AWS SDK then
 #     assumes that role with web identity. The IAM OIDC provider for your

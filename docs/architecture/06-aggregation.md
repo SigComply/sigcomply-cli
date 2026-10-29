@@ -119,10 +119,10 @@ or `--scheduled`)` to stdout; with no cloud configured it stays quiet.
   removed key is a config error.
 - Project ID: `cloud.project_id` does not change the decision. It is sent as a header when set.
   A malformed value fails config load (exit 3). When a cloud URL is resolved, `--no-cloud` is not
-  set, the run is not filtered (the same rule as the filtered-run skip, so `--scheduled` counts)
-  and the key is empty, `check` logs a warning before collection, in or out of CI, and continues
-  (`missingProjectIDWarning`); the next release makes that exit 3. It has no flag and
-  no environment variable: the committed file is what ties the repository to the project.
+  set, no payload capture replaces the POST, the run is not filtered (the same rule as the
+  filtered-run skip, so `--scheduled` counts) and the key is empty, `check` exits 3 before
+  collection, in or out of CI and with or without `--cloud` (`missingProjectIDError`). It has no
+  flag and no environment variable: the committed file is what ties the repository to the project.
 
 The request:
 
@@ -132,13 +132,13 @@ Content-Type: application/json
 Authorization: Bearer <oidc_jwt>
 X-OIDC-Provider: github | gitlab
 X-Sigcomply-CLI-Version: <version>
-X-SigComply-Project: <cloud.project_id>   (omitted when unset)
+X-SigComply-Project: <cloud.project_id>
 ```
 
 Rails validates the token signature and the audience, then picks the project: with
 `X-SigComply-Project`, the active project with that public ID whose repository matches the
-token's claims (else `403 project_mismatch`); without it, the one active project matching the
-claims (`403 project_id_required` when several organizations registered the repository). The
+token's claims (else `403 project_mismatch`); without it (an older CLI), `403
+project_id_required`. The
 project ID is in a header, not the payload, so the counts-only payload and `cloud_golden.json`
 are unchanged. OIDC setup for customers is in the CI and cloud dashboard guides under
 `docs/guides/`; agent-side detail is in [`docs/claude/auth.md`](../claude/auth.md).

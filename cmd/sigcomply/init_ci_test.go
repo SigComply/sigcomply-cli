@@ -510,6 +510,19 @@ func TestInitCI_StdoutMentionsCloudBaseURL(t *testing.T) {
 	}
 }
 
+// A run that submits also needs cloud.project_id (it exits 3 without
+// it), so every scaffolded file that tells the user to set
+// cloud.base_url names cloud.project_id too.
+func TestInitCI_TemplatesNameProjectIDWithBaseURL(t *testing.T) {
+	for _, ci := range supportedCIs {
+		for name, body := range readScaffold(t, ci) {
+			if strings.Contains(body, "cloud.base_url") && !strings.Contains(body, "cloud.project_id") {
+				t.Errorf("--ci %s %s mentions cloud.base_url but not cloud.project_id", ci, name)
+			}
+		}
+	}
+}
+
 // The GitLab job must hand the AWS SDK a web-identity token: AWS_ROLE_ARN
 // alone gives the default credential chain nothing to assume the role with.
 func TestInitCI_GitLabWiresAWSWebIdentity(t *testing.T) {
@@ -566,8 +579,8 @@ func TestExamples_InstallLatestAndWireAWS(t *testing.T) {
 		if !strings.Contains(body, "Pin a release tag") {
 			t.Errorf("%s: missing the comment telling users to pin a release", p)
 		}
-		if !strings.Contains(body, "cloud.base_url") {
-			t.Errorf("%s: should say cloud submission needs cloud.base_url", p)
+		if !strings.Contains(body, "cloud.base_url") || !strings.Contains(body, "cloud.project_id") {
+			t.Errorf("%s: should say cloud submission needs cloud.base_url and cloud.project_id", p)
 		}
 		if strings.Contains(body, "fail_on_violation: true") {
 			t.Errorf("%s: ci.fail_on_violation already defaults to true", p)

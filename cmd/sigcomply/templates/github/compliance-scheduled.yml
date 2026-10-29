@@ -3,9 +3,10 @@
 # --scheduled` re-evaluates each policy whose cadence has come due and
 # carries the rest forward from the vault's state, so every run covers
 # every policy. This is the run SigComply Cloud receives when
-# `cloud.base_url` is set. Keep the vault in durable storage (s3, gcs or
-# azure_blob): with a local vault each CI run starts from no state and
-# re-evaluates everything.
+# `cloud.base_url` is set; it also needs `cloud.project_id` (copy it from
+# your project's page on the SigComply dashboard) or it exits 3. Keep the
+# vault in durable storage (s3, gcs or azure_blob): with a local vault
+# each CI run starts from no state and re-evaluates everything.
 name: Compliance — Scheduled
 
 on:

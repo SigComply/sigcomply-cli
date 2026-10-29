@@ -44,10 +44,8 @@ reports; only owners see the **Auditors** and **Settings** tabs.
 SigComply Cloud has no API keys. It identifies a run by the OIDC token your CI mints (the
 `repository` claim on GitHub Actions, the `project_path` claim on GitLab CI, matched without
 regard to case) and by the project ID from your committed `.sigcomply.yaml`, sent in the
-`X-SigComply-Project` header. When the run sends a project ID, SigComply Cloud accepts it only if
-that ID and the token's repository name the same active project. A run without a project ID is
-accepted for now only when exactly one active project matches the repository; the next CLI
-release requires the key. The project ID is not a secret. Only people who can
+`X-SigComply-Project` header. SigComply Cloud accepts a run only if that ID and the token's
+repository name the same active project, and refuses a run without a project ID. The project ID is not a secret. Only people who can
 push to the repository can commit it, so it shows that the repository chose this project. On the
 first accepted run SigComply Cloud also records the repository's and owner's numeric IDs, and
 later runs must match them. If you rename or move the repository, or recreate it, paste
@@ -64,9 +62,9 @@ cloud:
 ```
 
 A value that is not a project ID is a config error (exit `3`). When a run that submits (an
-unfiltered `check` or `--scheduled`) has a cloud URL and no `cloud.project_id`, `sigcomply check`
-prints a warning before it collects, locally and in CI, and still runs. The next CLI release will
-make that a config error (exit `3`). Filtered runs never submit, so they don't warn.
+unfiltered `check` or `--scheduled`) has a cloud URL, from `cloud.base_url` or `--cloud-url`, and
+no `cloud.project_id`, `sigcomply check` stops with exit `3` before it collects, locally and in
+CI. Runs with `--no-cloud` and filtered runs never submit, so they don't need it.
 
 The CLI submits only when all of these hold:
 
@@ -142,9 +140,8 @@ The `submit:` warning in the CI log includes the HTTP status and an error `code`
 | 401 | `token_expired` | The token expired before the CLI posted it. | Re-run the job. |
 | 401 | `invalid_signature` | The token's signature or signing key did not verify. | Re-run; if it persists, check the token comes from GitHub Actions or GitLab. |
 | 401 | `validation_error` | The token is malformed, has the wrong issuer, or its audience is not `https://api.sigcomply.com`. | On GitLab, set `aud: https://api.sigcomply.com` on the ID token. |
-| 403 | `project_mismatch` | The run sent a `cloud.project_id` that does not name an active project for the token's repository: the ID is mistyped, belongs to another repository's project, or the project is inactive. | Copy the **Project ID** from the project's page into `cloud.project_id`, check the project's repository URL matches the repository the job runs in, and check the project is active in **Settings**. |
-| 403 | `project_id_required` | The run sent no project ID, and SigComply Cloud can't tell which project the run belongs to without one. | Set `cloud.project_id` in `.sigcomply.yaml` to the **Project ID** from the project's page. |
-| 403 | `unregistered_provider` | The run sent no project ID, and no active project in SigComply Cloud matches the token's repository. The message names the repository from the token. Matching ignores case. | Connect the repository (step 2) and set `cloud.project_id`, re-paste the URL after a rename, and check the project is active in **Settings**. |
+| 403 | `project_mismatch` | The run sent a `cloud.project_id` that does not name an active project for the token's repository: the ID is mistyped, belongs to another repository's project, the repository is not connected, or the project is inactive. Matching ignores case. | Copy the **Project ID** from the project's page into `cloud.project_id`, check the project's repository URL matches the repository the job runs in (re-paste it after a rename), and check the project is active in **Settings**. |
+| 403 | `project_id_required` | The run sent no project ID: `cloud.project_id` is not set and the CLI is older than v0.90.1, which still runs without it (v0.90.1 and later exit `3` first). | Upgrade the CLI and set `cloud.project_id` in `.sigcomply.yaml` to the **Project ID** from the project's page. |
 | 403 | `repository_mismatch` | The token's repository or owner ID differs from the IDs the project recorded on its first accepted run, for example because the repository was deleted and recreated under the same name. | Update the repository URL in the project's **Settings** tab, which clears the recorded IDs, or contact support. |
 | 402 | `subscription_required` | The trial ended and there is no Pro subscription. | Upgrade from the `upgrade_url`. |
 | 413 | `payload_too_large` | The request body is over 4 MB. | Contact support. |

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -104,6 +105,17 @@ func runCheck(ctx context.Context, stdout io.Writer, flags *checkFlags) error {
 	// credential check stops the run first.
 	emitConfigWarnings(logger, cfg)
 
+	// Before any source is built: SigComply Cloud refuses a run without
+	// the project ID, so finding out after a full collection wastes the
+	// run, and the eager credential check would hide this error.
+	cloudBase, err := resolveCloudBase(cfg, flags)
+	if err != nil {
+		return &exitCodeError{code: orchestrator.ExitConfig, err: err}
+	}
+	if err := missingProjectIDError(cfg, flags, cloudBase); err != nil {
+		return &exitCodeError{code: orchestrator.ExitConfig, err: err}
+	}
+
 	if err := registerProductionSources(ctx, registries, cfg, manualCatalog); err != nil {
 		return &exitCodeError{code: orchestrator.ExitConfig, err: err}
 	}
@@ -121,14 +133,6 @@ func runCheck(ctx context.Context, stdout io.Writer, flags *checkFlags) error {
 	v, err := vault.FromConfig(ctx, &cfg.Vault)
 	if err != nil {
 		return &exitCodeError{code: orchestrator.ExitConfig, err: fmt.Errorf("vault: %w", err)}
-	}
-
-	cloudBase, err := resolveCloudBase(cfg, flags)
-	if err != nil {
-		return &exitCodeError{code: orchestrator.ExitConfig, err: err}
-	}
-	if w := missingProjectIDWarning(cfg, flags, cloudBase); w != "" {
-		logger.Warnf("config: %s", w)
 	}
 
 	commitSHA, commitTime := gitContext(ctx, logger)
@@ -214,20 +218,24 @@ func resolveCloudBase(cfg *spec.ProjectConfig, flags *checkFlags) (string, error
 	return cloudBase, nil
 }
 
-// missingProjectIDWarning returns the warning for a run that would
-// submit without cloud.project_id, or "" when there is nothing to say. A
-// run would submit when a cloud URL is resolved, --no-cloud is not set
-// and it covers every policy (unfiltered or --scheduled); a filtered run
-// never submits (orchestrator.handleSubmission), so it stays quiet. It
-// warns outside CI too, so the operator hears about it before CI does.
-// Only the committed file may set the ID, never a flag or an env var: the
-// commit is what shows the repository chose the project.
-func missingProjectIDWarning(cfg *spec.ProjectConfig, flags *checkFlags, cloudBase string) string {
-	if cloudBase == "" || flags.cloudOff || cfg.Cloud.ProjectID != "" || filteredRun(flags) {
-		return ""
+// missingProjectIDError returns the config error for a run that would
+// submit without cloud.project_id, or nil. A run would submit when a
+// cloud URL is resolved (cloud.base_url or --cloud-url), --no-cloud is
+// not set, it writes no captured payload instead of POSTing, and it
+// covers every policy (unfiltered or --scheduled); a filtered run never
+// submits (orchestrator.handleSubmission), so it is unaffected. --cloud
+// only forces a submission that would otherwise be skipped, so it needs
+// the ID too. It applies outside CI as well, so the operator hears about
+// it before CI does. Only the committed file may set the ID, never a
+// flag or an env var: the commit is what shows the repository chose the
+// project.
+func missingProjectIDError(cfg *spec.ProjectConfig, flags *checkFlags, cloudBase string) error {
+	if cloudBase == "" || flags.cloudOff || cfg.Cloud.ProjectID != "" || flags.capturePayloadPath != "" || filteredRun(flags) {
+		return nil
 	}
-	return "cloud.project_id is not set in .sigcomply.yaml: copy it from your project's page on the SigComply dashboard; " +
-		"the next release will require it when a run that submits has a cloud URL"
+	return errors.New("cloud.project_id is not set in .sigcomply.yaml, and SigComply Cloud refuses runs without it: " +
+		"copy the Project ID from your project's page on the SigComply dashboard into cloud.project_id, " +
+		"or pass --no-cloud to run without submitting")
 }
 
 // filteredRun reports whether the flags select a subset of policies.

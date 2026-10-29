@@ -125,8 +125,8 @@ cloud:
 ```
 
 Without `cloud.base_url`, the CLI sends nothing. `cloud.project_id` is the **Project ID** shown on
-your project's page on the dashboard; without it, a run that submits warns, and the next release will make
-it a config error. The workflows already grant
+your project's page on the dashboard; without it, a run that submits stops with exit `3` before it
+collects anything. The workflows already grant
 `id-token: write`, which is all the CLI needs to mint its token. Connect the repository in the
 dashboard first: [Connect to SigComply Cloud](cloud-dashboard.md).
 

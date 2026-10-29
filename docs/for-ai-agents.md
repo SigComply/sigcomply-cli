@@ -126,9 +126,8 @@ cloud:
 ```
 
 `cloud.project_id` must be the customer's real Project ID (`prj_` followed by 20 base58 characters (letters and digits except 0, O, I and l));
-never invent one. A malformed value exits `3`. Without it, a run that submits warns when a cloud
-URL is set
-(the next release will exit `3`). Without `cloud.base_url`, nothing is submitted. With it, submission happens in CI with an OIDC
+never invent one. A malformed value exits `3`. Without it, a run that submits exits `3` when a
+cloud URL is set, before it collects anything. Without `cloud.base_url`, nothing is submitted. With it, submission happens in CI with an OIDC
 token; no secret is needed. Only `sigcomply check` with no filter and `--scheduled` submit;
 `--cadence`, `--cadences`, `--on-push` and `--pr` runs check a subset and never submit. The customer connects the repository on the dashboard
 ([Cloud dashboard](guides/cloud-dashboard.md)).

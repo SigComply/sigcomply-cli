@@ -28,7 +28,8 @@ on:
 permissions:
   # OIDC token for AWS role assumption and SigComply Cloud submission.
   # Submission also needs `cloud.base_url: https://sigcomply.com` in
-  # .sigcomply.yaml; without it the CLI sends nothing.
+  # .sigcomply.yaml; without it the CLI sends nothing. With it, also set
+  # `cloud.project_id` from your project's page on the SigComply dashboard.
   id-token: write
   contents: read
 

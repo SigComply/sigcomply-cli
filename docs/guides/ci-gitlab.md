@@ -134,8 +134,8 @@ cloud:
 ```
 
 Without `cloud.base_url`, the CLI sends nothing. `cloud.project_id` is the **Project ID** shown on
-your project's page on the dashboard; without it, a run that submits warns, and the next release will make
-it a config error. Connect the repository in the dashboard first:
+your project's page on the dashboard; without it, a run that submits stops with exit `3` before it
+collects anything. Connect the repository in the dashboard first:
 [Connect to SigComply Cloud](cloud-dashboard.md).
 
 ## 6. Commit and run

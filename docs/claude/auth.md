@@ -56,17 +56,17 @@ Only then does it choose the project from the verified claims (GitHub `repositor
 - With `X-SigComply-Project`, the project with that public ID must be active and its repository
   must match the claims (case-insensitive); otherwise `403 project_mismatch`, the same body
   whatever the reason.
-- Without it (CLI v0.89.0 and earlier, or a config without the key), Rails accepts the run only
-  when exactly one active project matches the claims; with several it answers
-  `403 project_id_required`, with none `403 unregistered_provider`.
+- Without it (an older CLI: v0.89.0 and earlier never send it, v0.90.0 only warns when the key
+  is unset; v0.90.1 and later exit `3` instead), Rails answers `403 project_id_required` before
+  any project lookup.
 
 Several organizations may register the same repository, so the claims alone no longer pick a
 project. The project ID is public, not a secret: committing it to `.sigcomply.yaml` is what shows
 the repository chose the project, so the CLI takes it from that file only (no flag, no env var).
-This CLI release warns when a run that would submit (unfiltered or `--scheduled`) has a cloud URL
-and no `cloud.project_id` (`missingProjectIDWarning` in `cmd/sigcomply/check.go`); filtered runs
-never submit and are exempt; the next release makes that exit `3`,
-after which Rails drops the header-less path. Changing a claim the CLI relies on, or a header,
+A run that would submit (unfiltered or `--scheduled`, a cloud URL resolved, no `--no-cloud`, no
+`--capture-cloud-payload`) without `cloud.project_id` exits `3` before collection
+(`missingProjectIDError` in `cmd/sigcomply/check.go`); filtered runs never submit and are exempt.
+Changing a claim the CLI relies on, or a header,
 means checking that file in the same task.
 
 ## Credentials for sources

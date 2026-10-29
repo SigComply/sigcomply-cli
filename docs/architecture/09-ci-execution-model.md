@@ -136,7 +136,7 @@ is no packaged GitLab CI component.
 - One AWS account and region.
 - Cloud submission happens only when the config sets `cloud.base_url` (or `--cloud-url` is
   passed) and the job has an OIDC token; `--no-cloud` turns it off. The config also needs
-  `cloud.project_id` (sent as `X-SigComply-Project`); without it a run that submits warns. See
+  `cloud.project_id` (sent as `X-SigComply-Project`); without it a run that submits exits 3. See
   [`../claude/auth.md`](../claude/auth.md).
 
 ### Copy-paste examples

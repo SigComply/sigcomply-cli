@@ -31,12 +31,15 @@ this file lists the changes a user notices.
   and SigComply Cloud uses it with the OIDC token to pick the project a run belongs to, so several
   organizations can connect the same repository without receiving each other's runs. A value that
   is not `prj_` followed by 20 base58 characters (letters and digits except 0, O, I and l) exits
-  `3`. When a run that submits (unfiltered or `--scheduled`) has a cloud URL and no
-  `cloud.project_id`, `check` warns and keeps running, locally and in CI; filtered runs never
-  submit and don't warn. The next release will make that a config error (exit `3`). `init` and `init-ci` mention the key.
+  `3`. `init` and `init-ci` mention the key.
 
 ### Changed
 
+- `cloud.project_id` is required on runs that submit: an unfiltered or `--scheduled` `check`
+  with a cloud URL (`cloud.base_url` or `--cloud-url`, also with `--cloud`) and no project ID
+  exits `3` before collecting, because SigComply Cloud refuses runs without it. Local runs with
+  `cloud.base_url` set need it too; pass `--no-cloud` to run without it. Filtered runs never
+  submit and are unaffected.
 - `init-ci` scaffolds one daily workflow, `sigcomply check --scheduled`, plus a pull-request
   check, `sigcomply check --pr`, instead of one workflow per cadence. A scheduled run evaluates the
   policies that are due and carries the last result forward for the rest, so every run covers the

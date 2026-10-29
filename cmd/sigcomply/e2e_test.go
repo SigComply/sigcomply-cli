@@ -502,6 +502,7 @@ func (fc *fakeCloud) githubActionsEnv() []string {
 func TestBinaryE2E_Check_SubmitsCountsWithOIDC(t *testing.T) {
 	p := newE2EProject(t)
 	fc := newFakeCloud(t, http.StatusCreated)
+	withCloudProjectID(t, p, "")
 
 	res := runSigcomply(t, p.dir, fc.githubActionsEnv(), "check", "--cloud-url", fc.srv.URL)
 	res.wantCode(t, 1) // no evidence uploaded: policy failures, not a submission problem
@@ -529,17 +530,14 @@ func TestBinaryE2E_Check_SubmitsCountsWithOIDC(t *testing.T) {
 	if fc.runsVersion != goldenVersion {
 		t.Errorf("X-Sigcomply-CLI-Version = %q; want %q", fc.runsVersion, goldenVersion)
 	}
-	if fc.runsProject != "" {
-		t.Errorf("X-SigComply-Project = %q; want none without cloud.project_id", fc.runsProject)
-	}
-	if !strings.Contains(res.stderr, missingProjectIDText) {
-		t.Errorf("stderr missing the cloud.project_id warning:\n%s", res.stderr)
+	if fc.runsProject != e2eProjectID {
+		t.Errorf("X-SigComply-Project = %q; want %q", fc.runsProject, e2eProjectID)
 	}
 	assertPayloadMatchesGoldenShape(t, fc.runsBody)
 }
 
-// missingProjectIDText is the start of the warning a submitting run
-// without cloud.project_id prints.
+// missingProjectIDText is the start of the config error a run that
+// would submit without cloud.project_id exits with.
 const missingProjectIDText = "cloud.project_id is not set in .sigcomply.yaml"
 
 // checkCmd is the subcommand most binary tests run.
@@ -556,19 +554,25 @@ func withCloudProjectID(t *testing.T, p e2eProject, baseURL string) {
 	if baseURL != "" {
 		block += "  base_url: " + baseURL + "\n"
 	}
+	appendConfig(t, p, block)
+}
+
+// appendConfig appends text to the project's .sigcomply.yaml.
+func appendConfig(t *testing.T, p e2eProject, text string) {
+	t.Helper()
 	f, err := os.OpenFile(p.config, os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { _ = f.Close() }() //nolint:errcheck // test cleanup
-	if _, err := f.WriteString(block); err != nil {
+	if _, err := f.WriteString(text); err != nil {
 		t.Fatal(err)
 	}
 }
 
-// With cloud.project_id set, the submission carries it in the
-// X-SigComply-Project header, the payload is unchanged and no warning is
-// printed.
+// With cloud.project_id and cloud.base_url set in the file, the
+// submission carries the ID in the X-SigComply-Project header and the
+// payload is unchanged.
 func TestBinaryE2E_Check_SendsProjectIDHeader(t *testing.T) {
 	p := newE2EProject(t)
 	fc := newFakeCloud(t, http.StatusCreated)
@@ -576,9 +580,6 @@ func TestBinaryE2E_Check_SendsProjectIDHeader(t *testing.T) {
 
 	res := runSigcomply(t, p.dir, fc.githubActionsEnv(), "check")
 	res.wantCode(t, 1)
-	if strings.Contains(res.stderr, missingProjectIDText) {
-		t.Errorf("warned about cloud.project_id although it is set:\n%s", res.stderr)
-	}
 	fc.mu.Lock()
 	defer fc.mu.Unlock()
 	if fc.runsCalls != 1 {
@@ -593,29 +594,46 @@ func TestBinaryE2E_Check_SendsProjectIDHeader(t *testing.T) {
 	assertPayloadMatchesGoldenShape(t, fc.runsBody)
 }
 
-// The warning is about a run that would submit: --no-cloud, or no cloud
-// URL at all, stays quiet. A local run with a cloud URL warns too, so
-// the operator learns before CI does.
-func TestBinaryE2E_Check_MissingProjectIDWarning(t *testing.T) {
-	t.Run("local run with cloud url warns and keeps running", func(t *testing.T) {
-		p := newE2EProject(t)
-		res := runSigcomply(t, p.dir, nil, "check", "--cloud-url", "https://sigcomply.com")
-		res.wantCode(t, 1)
+// A run that would submit without cloud.project_id is a config error
+// (exit 3) before collection, wherever the cloud URL came from and in or
+// out of CI, so the operator learns before CI does. --no-cloud, a
+// filtered run (it never submits) and a run without a cloud URL are
+// unaffected.
+func TestBinaryE2E_Check_MissingProjectIDExits3(t *testing.T) {
+	wantExit3 := func(t *testing.T, res e2eResult) {
+		t.Helper()
+		res.wantCode(t, 3)
 		if strings.Count(res.stderr, missingProjectIDText) != 1 {
-			t.Errorf("want the cloud.project_id warning once:\n%s", res.stderr)
+			t.Errorf("want the cloud.project_id error once:\n%s", res.stderr)
+		}
+		if strings.Contains(res.stdout, "Collecting evidence") {
+			t.Errorf("collection started before the cloud.project_id error:\n%s", res.stdout)
+		}
+	}
+	t.Run("local run with --cloud-url exits 3", func(t *testing.T) {
+		p := newE2EProject(t)
+		wantExit3(t, runSigcomply(t, p.dir, nil, checkCmd, "--cloud-url", "https://sigcomply.com"))
+	})
+	t.Run("cloud.base_url in the file exits 3", func(t *testing.T) {
+		p := newE2EProject(t)
+		appendConfig(t, p, "cloud:\n  base_url: https://sigcomply.com\n")
+		wantExit3(t, runSigcomply(t, p.dir, nil, checkCmd))
+	})
+	t.Run("--scheduled exits 3", func(t *testing.T) {
+		p := newE2EProject(t)
+		wantExit3(t, runSigcomply(t, p.dir, nil, checkCmd, "--scheduled", "--cloud-url", "https://sigcomply.com"))
+	})
+	t.Run("--cloud in CI exits 3 and sends nothing", func(t *testing.T) {
+		p := newE2EProject(t)
+		fc := newFakeCloud(t, http.StatusCreated)
+		wantExit3(t, runSigcomply(t, p.dir, fc.githubActionsEnv(), checkCmd, "--cloud", "--cloud-url", fc.srv.URL))
+		fc.mu.Lock()
+		defer fc.mu.Unlock()
+		if fc.runsCalls != 0 || fc.tokenCalls != 0 {
+			t.Errorf("made %d submission(s) and %d token request(s); want none", fc.runsCalls, fc.tokenCalls)
 		}
 	})
-	t.Run("--scheduled with cloud url warns", func(t *testing.T) {
-		p := newE2EProject(t)
-		res := runSigcomply(t, p.dir, nil, "check", "--scheduled", "--cloud-url", "https://sigcomply.com")
-		if res.code != 0 && res.code != 1 {
-			res.wantCode(t, 1)
-		}
-		if strings.Count(res.stderr, missingProjectIDText) != 1 {
-			t.Errorf("want the cloud.project_id warning once:\n%s", res.stderr)
-		}
-	})
-	t.Run("filtered run never submits, so no warning", func(t *testing.T) {
+	t.Run("filtered run never submits, so it runs", func(t *testing.T) {
 		for _, args := range [][]string{{"--cadence", "weekly"}, {"--cadences", "daily,annual"}, {"--on-push"}, {"--pr"}} {
 			p := newE2EProject(t)
 			res := runSigcomply(t, p.dir, nil, append([]string{checkCmd, "--cloud-url", "https://sigcomply.com"}, args...)...)
@@ -623,37 +641,29 @@ func TestBinaryE2E_Check_MissingProjectIDWarning(t *testing.T) {
 				res.wantCode(t, 1)
 			}
 			if strings.Contains(res.stderr, missingProjectIDText) {
-				t.Errorf("%v: filtered run warned about cloud.project_id:\n%s", args, res.stderr)
+				t.Errorf("%v: filtered run failed on cloud.project_id:\n%s", args, res.stderr)
 			}
 		}
 	})
 	t.Run("--no-cloud", func(t *testing.T) {
 		p := newE2EProject(t)
-		res := runSigcomply(t, p.dir, nil, "check", "--no-cloud", "--cloud-url", "https://sigcomply.com")
+		res := runSigcomply(t, p.dir, nil, checkCmd, "--no-cloud", "--cloud-url", "https://sigcomply.com")
 		res.wantCode(t, 1)
 		if strings.Contains(res.stderr, missingProjectIDText) {
-			t.Errorf("--no-cloud run warned about cloud.project_id:\n%s", res.stderr)
+			t.Errorf("--no-cloud run failed on cloud.project_id:\n%s", res.stderr)
 		}
 	})
 	t.Run("no cloud configured", func(t *testing.T) {
 		p := newE2EProject(t)
-		res := runSigcomply(t, p.dir, nil, "check")
+		res := runSigcomply(t, p.dir, nil, checkCmd)
 		res.wantCode(t, 1)
 		if strings.Contains(res.stderr, missingProjectIDText) {
-			t.Errorf("run without a cloud URL warned about cloud.project_id:\n%s", res.stderr)
+			t.Errorf("run without a cloud URL failed on cloud.project_id:\n%s", res.stderr)
 		}
 	})
 	t.Run("malformed project id exits 3", func(t *testing.T) {
 		p := newE2EProject(t)
-		f, err := os.OpenFile(p.config, os.O_APPEND|os.O_WRONLY, 0o600)
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = f.WriteString("cloud:\n  project_id: prj_...\n")
-		_ = f.Close() //nolint:errcheck // test cleanup
-		if err != nil {
-			t.Fatal(err)
-		}
+		appendConfig(t, p, "cloud:\n  project_id: prj_...\n")
 		res := runSigcomply(t, p.dir, nil, "check", "--no-cloud")
 		res.wantCode(t, 3)
 		if !strings.Contains(res.stderr, "cloud.project_id") {
@@ -669,6 +679,7 @@ func TestBinaryE2E_Check_SubmissionFailureKeepsExitCode(t *testing.T) {
 		t.Run(fmt.Sprint(status), func(t *testing.T) {
 			p := newE2EProject(t)
 			fc := newFakeCloud(t, status)
+			withCloudProjectID(t, p, "")
 			res := runSigcomply(t, p.dir, fc.githubActionsEnv(), "check", "--cloud-url", fc.srv.URL)
 			res.wantCode(t, 1)
 			want := fmt.Sprintf("[warn] submit: submitter: %s%s returned %d", fc.srv.URL, submitter.Path, status)
@@ -685,6 +696,7 @@ func TestBinaryE2E_Check_SubmissionFailureKeepsExitCode(t *testing.T) {
 func TestBinaryE2E_Check_NoSubmissionOutsideCI(t *testing.T) {
 	p := newE2EProject(t)
 	fc := newFakeCloud(t, http.StatusCreated)
+	withCloudProjectID(t, p, "")
 	res := runSigcomply(t, p.dir, nil, "check", "--cloud-url", fc.srv.URL)
 	res.wantCode(t, 1)
 	fc.mu.Lock()

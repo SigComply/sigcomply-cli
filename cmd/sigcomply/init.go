@@ -245,7 +245,8 @@ vault:
 #
 # Send pass/fail counts to SigComply Cloud (paid plan; runs in CI with an
 # OIDC token). Nothing is sent unless base_url is set.
-# project_id names the project the runs belong to; copy it from
+# project_id names the project the runs belong to and is required
+# with base_url (a run that submits exits 3 without it); copy it from
 # your project's page on the SigComply dashboard.
 # cloud:
 #   base_url: https://sigcomply.com

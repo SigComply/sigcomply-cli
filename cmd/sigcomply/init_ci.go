@@ -312,6 +312,6 @@ func printSummary(stdout io.Writer, framework, ci, version string, written []str
 	b.WriteString("     cloud.base_url: https://sigcomply.com in .sigcomply.yaml. Without it the\n")
 	b.WriteString("     CLI does not submit anything. Only the scheduled run submits. Also set\n")
 	b.WriteString("     cloud.project_id to the Project ID shown on your project's page on the\n")
-	b.WriteString("     SigComply dashboard.\n")
+	b.WriteString("     SigComply dashboard; a run that submits exits 3 without it.\n")
 	_, _ = stdout.Write([]byte(b.String())) //nolint:errcheck // status output; nothing useful to do on failure
 }
