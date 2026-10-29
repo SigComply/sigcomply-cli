@@ -26,6 +26,11 @@ overview `../AGENTS.md` exists only on maintainer machines; nothing here may dep
   Outside contributors open a pull request (`CONTRIBUTING.md`).
 - The repo is public, and another human contributor also commits to `main`. Everything you commit
   is published.
+- The code is source-available under the Elastic License 2.0 (`LICENSE`), not open source. Never
+  call the CLI or its policies "open source" or "open". `NOTICE` holds the copyright line and the
+  Apache-2.0 cut-off (releases up to v0.90.1); keep `licenses/APACHE-2.0.txt`, since earlier
+  contributions were made under it. A future license-key check is protected by ELv2's license key
+  clause; keep it in this repo so that clause applies.
 - A push to `main` runs the tests and cuts a GitHub Release unless every changed file is
   path-ignored. Nested READMEs, `llms.txt`, `examples/**` and `.github/` templates are not
   ignored. The release is published as a prerelease and promoted to latest, after the E2E release

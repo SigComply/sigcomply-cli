@@ -3,10 +3,11 @@
 SigComply runs in your GitHub Actions or GitLab CI pipeline, checks your cloud and SaaS
 configuration against SOC 2 and ISO 27001, and signs the evidence into storage you own. The
 `sigcomply` CLI uses your read-only credentials to pull configuration from AWS, GCP, Azure,
-GitHub, GitLab, Okta and Active Directory, and evaluates it against open SOC 2 and ISO 27001
-policies. For controls no API can answer (policies, training records, reviews), it collects the
-documents you upload: it checks that a supported file is present for the period, merges the
-files into one PDF to validate them, and signs a record of each file's hash. It does not read or
+GitHub, GitLab, Okta and Active Directory, and evaluates it against SOC 2 and ISO 27001 policies
+you can read in the source. For controls no API can answer (policies, training records,
+reviews), it collects the documents you upload: it checks that a supported file is present for
+the period, merges the files into one PDF to validate them, and signs a record of each file's
+hash. It does not read or
 judge what the documents say; your auditor does.
 
 Raw evidence and results stay in storage you own. With a paid SigComply Cloud plan, the CLI also
@@ -34,9 +35,9 @@ GRC platform covers more of that, and needs more access to your systems to do it
 
 ## What you get
 
-- Open policies for SOC 2 (2017 Trust Services Criteria) and ISO/IEC 27001:2022. For ISO 27001
-  that covers all 93 Annex A controls, 26 of them with an automated check, plus
-  the 16 management-system requirements of clauses 4-10. Counts per framework are in
+- Policies for SOC 2 (2017 Trust Services Criteria) and ISO/IEC 27001:2022, readable in the
+  source. For ISO 27001 that covers all 93 Annex A controls, 26 of them with an automated check,
+  plus the 16 management-system requirements of clauses 4-10. Counts per framework are in
   [Frameworks](docs/reference/frameworks.md).
 - Signed evidence in your own storage: a local folder, S3, GCS or Azure Blob. Each evidence file
   is signed with a one-time Ed25519 key, and each run has a signed manifest of file hashes.
@@ -90,4 +91,21 @@ Report vulnerabilities as described in [SECURITY.md](SECURITY.md).
 
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE).
+SigComply follows an open core model. The CLI is free to use and its source is public, but it is
+source-available, not open source: it is licensed under the
+[Elastic License 2.0](LICENSE) (ELv2). The paid part is SigComply Cloud, and paid features may
+need a license key.
+
+Under ELv2 you can use, copy, modify and redistribute the CLI, including at work and in your
+CI, at no cost. You may not:
+
+- provide it to others as a hosted or managed service;
+- move, change, disable or circumvent its license key functionality, or remove or obscure a
+  feature that a license key protects;
+- remove or obscure SigComply's licensing, copyright or other notices.
+
+If you share a modified copy, include the license and a notice that you changed it.
+
+Code published before the license change, including every release up to and including v0.90.1,
+was released under Apache-2.0 and remains available under it. See [NOTICE](NOTICE). For other
+licensing terms, contact support@sigcomply.com.

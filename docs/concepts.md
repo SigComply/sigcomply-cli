@@ -2,10 +2,10 @@
 
 SigComply is a compliance engine and evidence collector that runs in your own CI. The
 `sigcomply` CLI uses your read-only credentials to pull configuration from AWS, GCP, Azure,
-GitHub, GitLab, Okta and Active Directory, and evaluates it against open SOC 2 and ISO 27001
-policies. For controls no API can answer, it collects the documents you upload. Raw evidence and
-results stay in storage you own. With SigComply Cloud (paid, with a 2-month free trial), the CLI
-also sends pass/fail counts per policy to a dashboard.
+GitHub, GitLab, Okta and Active Directory, and evaluates it against SOC 2 and ISO 27001 policies
+you can read in the source. For controls no API can answer, it collects the documents you
+upload. Raw evidence and results stay in storage you own. With SigComply Cloud (paid, with a
+2-month free trial), the CLI also sends pass/fail counts per policy to a dashboard.
 
 The design goal is evidence without access: the vendor never holds your credentials, your
 infrastructure data or the identities in it. Your raw evidence stays in your own storage.

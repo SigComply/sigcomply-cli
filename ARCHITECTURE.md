@@ -15,9 +15,9 @@ dashboard. The architectural point is "evidence without access".
 
 ## CLI and dashboard
 
-- **The CLI (open source)** runs once per invocation: plan, collect, evaluate, write the vault,
-  optionally submit counts. It keeps no history across runs and has no database.
-  `sigcomply report` renders snapshot views of the vault.
+- **The CLI (source-available, free to use)** runs once per invocation: plan, collect,
+  evaluate, write the vault, optionally submit counts. It keeps no history across runs and has
+  no database. `sigcomply report` renders snapshot views of the vault.
 - **SigComply Cloud (paid, private Rails app)** receives the counts-only `SubmissionPayload` and
   keeps them over time. What it does with them: [`06-aggregation.md`](docs/architecture/06-aggregation.md)
   §What the dashboard does with it.

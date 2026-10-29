@@ -53,6 +53,8 @@ archives:
         formats: [zip]
     files:
       - LICENSE*
+      - NOTICE
+      - licenses/*
       - README*
       - CHANGELOG*
 
