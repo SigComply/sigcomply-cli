@@ -1,6 +1,7 @@
 # sigcomply
 
-SigComply is a compliance engine and evidence collector that runs in your own CI. The
+SigComply runs in your GitHub Actions or GitLab CI pipeline, checks your cloud and SaaS
+configuration against SOC 2 and ISO 27001, and signs the evidence into storage you own. The
 `sigcomply` CLI uses your read-only credentials to pull configuration from AWS, GCP, Azure,
 GitHub, GitLab, Okta and Active Directory, and evaluates it against open SOC 2 and ISO 27001
 policies. For controls no API can answer (policies, training records, reviews), it collects the
@@ -12,6 +13,23 @@ Raw evidence and results stay in storage you own. With a paid SigComply Cloud pl
 sends pass/fail counts per policy, never identities, and the dashboard turns them into reports
 for you and your auditor. SigComply does not certify anything; your auditor decides whether
 you comply.
+
+## Who it's for
+
+- Teams that won't give a compliance vendor a role in their cloud, or OAuth access to their code
+  host and identity provider. The CLI runs with the credentials you give your own pipeline, and
+  the evidence stays in your storage. Only per-policy counts and run details (framework, period,
+  repository, branch, commit and CI run link) leave the pipeline, and only if you turn the
+  dashboard on.
+- Startups preparing for a first SOC 2 or ISO 27001 audit that want a pipeline step, not a
+  platform rollout. `sigcomply init` writes the config, `sigcomply init-ci` writes the CI
+  workflow, and policy violations fail the build.
+
+### What it doesn't do
+
+SigComply checks configuration and collects evidence. It doesn't run vendor reviews, security
+training, device monitoring or background checks, host a trust center, or perform the audit. A
+GRC platform covers more of that, and needs more access to your systems to do it.
 
 ## What you get
 

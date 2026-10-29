@@ -1,7 +1,8 @@
 # SigComply CLI documentation
 
-The `sigcomply` CLI evaluates SOC 2 and ISO 27001 policies against your infrastructure from your
-own CI, collects the documents you upload, and signs the evidence into storage you own. New to
+The `sigcomply` CLI runs in your GitHub Actions or GitLab CI pipeline, checks your cloud and SaaS
+configuration against SOC 2 and ISO 27001 policies, checks that the documents you upload are on
+file, and signs the evidence into storage you own. New to
 it? Start with the [Quickstart](quickstart.md).
 
 ## Tutorials

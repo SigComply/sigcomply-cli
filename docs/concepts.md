@@ -8,8 +8,7 @@ results stay in storage you own. With a paid SigComply Cloud plan, the CLI also 
 counts per policy to a dashboard.
 
 The design goal is evidence without access: the vendor never holds your credentials, your
-infrastructure data or the identities in it. SigComply is never the custodian of your raw
-evidence, which is why the model is called non-custodial.
+infrastructure data or the identities in it. Your raw evidence stays in your own storage.
 
 ## What SigComply does not do
 

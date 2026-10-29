@@ -149,8 +149,9 @@ check (`internal/scope`, `experimental.scope`). It never inspects a document.
 
 ## Why it stops here
 
-The product is custody of evidence, not a content validator. Reading document contents would make
-the CLI judge what an auditor judges, and a parser that pulls in network-aware dependencies breaks
+The CLI checks that the expected files are present for the period and signs a record of their
+hashes; it does not validate what they say. Reading document contents would make the CLI judge
+what an auditor judges, and a parser that pulls in network-aware dependencies breaks
 "evidence without access". Richer inspection, if it is ever built, goes in a separate opt-in path
 or a new evidence type (for example `manual.pdf.v2`), never inside `validatePDF`.
 

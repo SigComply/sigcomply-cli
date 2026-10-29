@@ -82,7 +82,7 @@ The CLI writes the payload to the file and doesn't send it.
 
 For an auditor to trust that evidence wasn't re-signed after the run, the vault storage must
 prevent overwrites and deletes at the object layer. The CLI doesn't configure this: doing so would
-need permissions the CLI's read-only, non-custodial model doesn't ask for.
+need permissions the CLI's read-only model, which keeps evidence in your storage, doesn't ask for.
 
 | Backend | Setting |
 |---|---|
