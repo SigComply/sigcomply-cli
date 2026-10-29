@@ -14,6 +14,7 @@ For outside contributors. Maintainers push straight to main (see CONTRIBUTING.md
 - [ ] Docs the change makes wrong are updated in this PR (see the routing table in `docs/claude/development-workflow.md`).
 - [ ] User-visible change: an entry under `[Unreleased]` in `CHANGELOG.md`.
 - [ ] Published counts changed: `go test ./internal/manualcatalog/ -run TestDocFiguresMatchCode` passes.
+- [ ] I agree to the terms in "Licensing your contribution" in `CONTRIBUTING.md` (Elastic License 2.0, with a relicensing grant to SigComply).
 
 ### If this PR adds or changes a source plugin (`internal/sources/**`)
 

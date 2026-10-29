@@ -37,7 +37,7 @@ this file lists the changes a user notices.
 ### Changed
 
 - The CLI is now licensed under the Elastic License 2.0 (source-available, not open source).
-  Releases up to and including v0.90.1 remain available under Apache-2.0; see `NOTICE`.
+  Releases up to and including v0.90.2 remain available under Apache-2.0; see `NOTICE`.
 - `sigcomply --help` and the release notes describe the CLI as SOC 2 and ISO 27001 checks and
   signed evidence, run in your own CI. `sigcomply report --help` names the SigComply Cloud
   features it leaves out: drift analysis reports and stale-data alerts.

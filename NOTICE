@@ -5,7 +5,7 @@ This software is licensed under the Elastic License 2.0 (see LICENSE). SigComply
 the licensor under those terms.
 
 Code in this repository's history before the commit that added this NOTICE file,
-including every release up to and including v0.90.1, was published under the
+including every release up to and including v0.90.2, was published under the
 Apache License, Version 2.0, and remains available under it. The Apache License text
 is in licenses/APACHE-2.0.txt. Parts of the current code originate from that earlier
 code and carry its Apache License 2.0 grant in addition to these terms.
