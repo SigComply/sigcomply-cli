@@ -31,7 +31,8 @@ this file lists the changes a user notices.
   and SigComply Cloud uses it with the OIDC token to pick the project a run belongs to, so several
   organizations can connect the same repository without receiving each other's runs. A value that
   is not `prj_` followed by 20 base58 characters (letters and digits except 0, O, I and l) exits
-  `3`. `init` and `init-ci` mention the key.
+  `3`. `init` and `init-ci` mention the key. (v0.90.0 added the key and only warned when it was
+  missing.)
 
 ### Changed
 

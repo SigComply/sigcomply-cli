@@ -61,10 +61,10 @@ cloud:
   project_id: prj_7Xq2mKp9RtV4wNc8Bz3a   # the Project ID from step 2
 ```
 
-A value that is not a project ID is a config error (exit `3`). When a run that submits (an
-unfiltered `check` or `--scheduled`) has a cloud URL, from `cloud.base_url` or `--cloud-url`, and
-no `cloud.project_id`, `sigcomply check` stops with exit `3` before it collects, locally and in
-CI. Runs with `--no-cloud` and filtered runs never submit, so they don't need it.
+A value that is not a project ID is a config error (exit `3`). When an unfiltered `check` or
+a `--scheduled` run has a cloud URL, from `cloud.base_url` or `--cloud-url`, and no
+`cloud.project_id`, `sigcomply check` stops with exit `3` before it collects. That includes local
+runs, which never submit, so the mistake shows up before CI. Runs with `--no-cloud` and filtered runs never submit, so they don't need it.
 
 The CLI submits only when all of these hold:
 
