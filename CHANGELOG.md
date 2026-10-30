@@ -139,6 +139,30 @@ this file lists the changes a user notices.
 - `check` refuses to send SigComply Cloud an OIDC token whose audience does not include
   `https://api.sigcomply.com`, and warns when `AWS_WEB_IDENTITY_TOKEN_FILE` holds a token with
   that audience: an AWS role that trusts it accepts tokens SigComply Cloud receives.
+- Manual evidence: images over 50 megapixels and files over 100 MB fail their policy
+  (`conversion_failed`, `file_too_large`) instead of exhausting memory, a malformed image or PDF
+  can no longer crash `check`, and a PDF with object numbers above 1,000,000 is refused
+  (`merge_failed`).
+- Project-local `rule.rego` can no longer call network, environment, clock or randomness
+  builtins (`http.send`, `opa.runtime`, `time.now_ns` and the rest OPA marks non-deterministic);
+  use `input.now`. A builtin error now makes the policy `error`.
+- A policy state shard dated in the future is ignored and the policy is evaluated, so a forged
+  shard can't carry a pass forward or block later writes.
+- Project-local policy IDs may use only letters, digits, `.`, `_` and `-`, and every vault key
+  segment is validated, so no ID can write outside its run folder.
+- The local manual-evidence folder and the local vault read and write regular files only; symlinks
+  are ignored.
+- GitHub pagination links that leave the configured API host are refused, so the token never goes
+  to another host.
+- `check` output and logs neutralize newlines, GitHub workflow commands and terminal escapes in
+  text from sources and from SigComply Cloud's error replies, and redact GitHub, GitLab and Okta
+  tokens. A SigComply Cloud error reply is read up to 1 MiB and quoted up to 512 bytes.
+- CSV reports prefix cells that start with `=`, `+`, `-`, `@`, tab or carriage return with `'`, so
+  a spreadsheet doesn't run them as formulas.
+- Releases are promoted to latest only after `install.sh` installs them with build provenance
+  required, and the release workflows run only from `main` or a `v*` tag.
+- The nightly live SaaS drift issue lists only failing test names and the run link, never raw
+  test output.
 - Unversioned S3, GCS and Azure storage buckets fail the versioning policies instead of making
   them error (exit 2).
 - `aws.s3` reads each bucket in its own region; a bucket outside the configured region no longer
