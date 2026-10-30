@@ -57,6 +57,7 @@ func TestSPAGoldenEnvelopes(t *testing.T) {
 	vectors := []goldenVector{
 		basicVector(t),
 		bignumVector(t),
+		unicodeKeysVector(t),
 		manualVector(t),
 		fanOutVector(t),
 	}
@@ -148,6 +149,24 @@ func bignumVector(t *testing.T) goldenVector {
 		ID:          "trail-1",
 		Payload:     payload,
 		SourceID:    "aws.cloudtrail",
+		CollectedAt: goldenCollectedAt,
+	}}}
+}
+
+func unicodeKeysVector(t *testing.T) goldenVector {
+	t.Helper()
+	// Canonical JSON sorts object keys by their UTF-8 bytes (Go string
+	// order). JavaScript's default sort compares UTF-16 code units, which
+	// puts an astral character (😀, a surrogate pair starting 0xD83D)
+	// before private-use U+E000 and fullwidth U+FF01; UTF-8 puts it after
+	// both. The SPA must sort by code point to rebuild these bytes.
+	payload := json.RawMessage(`{"😀":"astral","！":"fullwidth","":"private use","é":"latin-1",` +
+		`"Z":"upper","a":"lower","nested":{"😀":1,"！":2,"":3,"é":4,"a":5}}`)
+	return goldenVector{name: "unicodekeys", records: []core.EvidenceRecord{{
+		Type:        "user_account",
+		ID:          "user-0002",
+		Payload:     payload,
+		SourceID:    "okta",
 		CollectedAt: goldenCollectedAt,
 	}}}
 }

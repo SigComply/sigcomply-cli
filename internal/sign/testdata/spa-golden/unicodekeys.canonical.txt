@@ -1,0 +1,1 @@
+{"format_version":"envelope.v1","produced_at":"2026-02-15T14:00:00Z","records":[{"collected_at":"2026-02-15T14:00:01Z","id":"user-0002","payload":{"Z":"upper","a":"lower","nested":{"a":5,"é":4,"":3,"！":2,"😀":1},"é":"latin-1","":"private use","！":"fullwidth","😀":"astral"},"source_id":"okta","type":"user_account"}]}

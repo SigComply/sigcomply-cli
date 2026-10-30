@@ -20,7 +20,9 @@ them from there. In the SPA, `npm run check:goldens -- --copy` does the copy and
 | `<name>.<folder>.pdf` | The PDF a manual record's `file_hash` attests to, named as the vault names it under `attachments/` |
 
 Vectors: `basic` (key order, non-ASCII, HTML characters, escapes, record scope), `bignum`
-(integers beyond 2^53), `manual` (a single-folder manual-evidence record from the real `manual.pdf`
+(integers beyond 2^53), `unicodekeys` (object keys sorted by UTF-8 bytes, which differs from
+JavaScript's UTF-16 sort: ASCII, `é`, private-use U+E000, fullwidth `！` U+FF01 and astral `😀`
+U+1F600), `manual` (a single-folder manual-evidence record from the real `manual.pdf`
 plugin), `fanout` (a vendor fan-out record: two members with PDFs, one missing, one exempt).
 
 The vectors are signed with a fixed test key so they are reproducible. The CLI itself signs every
