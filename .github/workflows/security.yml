@@ -84,12 +84,6 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
           govulncheck ./...
 
-      - name: Run nancy (Sonatype OSS Index)
-        run: |
-          go install github.com/sonatype-nexus-community/nancy/v2@v2.1.1
-          go list -json -deps ./... | nancy sleuth --loud || echo "::warning::Nancy check failed - OSS Index may require authentication"
-        continue-on-error: true
-
   scorecard:
     name: OpenSSF Scorecard
     runs-on: ubuntu-latest
@@ -204,16 +198,22 @@ jobs:
         with:
           persist-credentials: false
 
+      # Blocking: any finding fails the job. Fix it, or suppress one false
+      # positive in code with `// nosemgrep: <rule-id> -- <reason>`. A file
+      # that cannot carry a comment (JSON test data) is excluded below by
+      # exact path, with the reason. Never exclude a directory.
+      #   records.json: a GCP IAM binding fixture whose "service_account"
+      #   principal matches detected-google-gcm-service-account.
       - name: Run Semgrep
-        run: semgrep ci --sarif --output=semgrep.sarif || true
-        env:
-          SEMGREP_RULES: >-
-            p/golang
-            p/security-audit
-            p/secrets
-            p/owasp-top-ten
+        run: >-
+          semgrep scan --metrics=off --error
+          --config p/golang --config p/security-audit
+          --config p/secrets --config p/owasp-top-ten
+          --exclude=internal/frameworks/testdata/policy-outcomes/records.json
+          --sarif --output=semgrep.sarif
 
       - name: Upload SARIF file
+        if: always()
         uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
           sarif_file: semgrep.sarif
@@ -343,9 +343,9 @@ jobs:
 
   # Static analysis of .github/workflows and dependabot.yml: unpinned
   # actions and images, template injection, excessive permissions,
-  # credential persistence. Findings go to code scanning (SARIF) and do
-  # not fail the job. Accepted findings: .github/zizmor.yml and inline
-  # `# zizmor: ignore[...]` comments.
+  # credential persistence. Blocking: findings go to code scanning (SARIF)
+  # and any finding fails the job. Accepted findings: .github/zizmor.yml
+  # and inline `# zizmor: ignore[...]` comments.
   zizmor:
     name: Workflow Security (zizmor)
     runs-on: ubuntu-latest
@@ -364,9 +364,25 @@ jobs:
           persist-credentials: false
 
       - name: Run zizmor
+        id: zizmor
         uses: zizmorcore/zizmor-action@53290badfa369cb0bf7ad16342cb62c2fa47ac7b # v0.8.0
         with:
           version: 1.31.1
+
+      # zizmor exits 0 when it writes SARIF, so count the results here.
+      # Ignored findings are not in the file.
+      - name: Fail on zizmor findings
+        env:
+          SARIF: ${{ steps.zizmor.outputs.output-file }}
+        run: |
+          set -euo pipefail
+          count=$(jq '[.runs[].results[]] | length' "$SARIF")
+          if [ "$count" -ne 0 ]; then
+            jq -r '.runs[].results[] | "::error file=\(.locations[0].physicalLocation.artifactLocation.uri),line=\(.locations[0].physicalLocation.region.startLine)::\(.ruleId): \(.message.text)"' "$SARIF"
+            echo "::error::zizmor reported $count finding(s); run 'zizmor .' locally (docs/claude/development-workflow.md)"
+            exit 1
+          fi
+          echo "zizmor: no findings"
 
   # ===========================================
   # SBOM & LICENSE COMPLIANCE
@@ -456,7 +472,7 @@ jobs:
   security-summary:
     name: Security Summary
     runs-on: ubuntu-latest
-    needs: [supply-chain, codeql, gosec, semgrep, trivy, osv-scan, secret-scan]
+    needs: [supply-chain, codeql, gosec, semgrep, trivy, osv-scan, secret-scan, zizmor]
     if: always()
     steps:
       - name: Harden runner
@@ -473,6 +489,7 @@ jobs:
           TRIVY: ${{ needs.trivy.result }}
           OSV: ${{ needs.osv-scan.result }}
           SECRETS: ${{ needs.secret-scan.result }}
+          ZIZMOR: ${{ needs.zizmor.result }}
         run: |
           {
             echo "## Security Scan Summary"
@@ -486,10 +503,12 @@ jobs:
             echo "| Trivy | $TRIVY |"
             echo "| OSV Scanner | $OSV |"
             echo "| Secret Scan | $SECRETS |"
+            echo "| zizmor | $ZIZMOR |"
           } >> "$GITHUB_STEP_SUMMARY"
 
-          # Fail if any critical check failed
-          if [[ "$SUPPLY_CHAIN" == "failure" ]] || [[ "$SECRETS" == "failure" ]]; then
+          # Fail if any blocking check failed
+          if [[ "$SUPPLY_CHAIN" == "failure" ]] || [[ "$SECRETS" == "failure" ]] || \
+             [[ "$SEMGREP" == "failure" ]] || [[ "$ZIZMOR" == "failure" ]]; then
             echo "❌ Critical security checks failed!" >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
