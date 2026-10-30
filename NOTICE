@@ -7,7 +7,7 @@ the licensor under those terms.
 Code in this repository's history before the commit that added this NOTICE file,
 including every release up to and including v0.90.2, was published under the
 Apache License, Version 2.0, and remains available under it. The Apache License text
-is in licenses/APACHE-2.0.txt. Every contributor to that earlier code has agreed to
-license it under the Elastic License 2.0 from then on.
+is in licenses/APACHE-2.0.txt. Every author of that earlier code has agreed that
+SigComply may license their contributions under the Elastic License 2.0 or other terms.
 
 Licensing questions: support@sigcomply.com
