@@ -73,7 +73,8 @@ sigcomply check
 echo $?
 ```
 
-`echo $?` prints `1`: policies failed. That is expected on a first run. The output starts with a
+`echo $?` prints `1`: policies failed. That is expected on a first run. After a short header and two
+`coverage-gap` warnings (expected, since no automated source is configured), the output shows a
 summary line that names the framework and the run period:
 
 ```

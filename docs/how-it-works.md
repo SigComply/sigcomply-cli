@@ -17,7 +17,7 @@ pass/fail counts per policy and details of the run, such as the repository and c
   |       GitLab, Okta, AD)                                       |
   |   2. check the manual-evidence folder for this period         |
   |   3. evaluate policies                                        |
-  |   4. sign evidence, results and the run manifest              |
+  |   4. sign the evidence and a manifest hashing every file      |
   +-----------------------------|---------------------------------+
                                 |                 :
                                 v                 : counts only, optional
@@ -149,8 +149,12 @@ has the threat model.
 Nothing, unless all of these hold:
 
 - `cloud.base_url` is set in `.sigcomply.yaml` (or `--cloud-url` is passed),
-- the run is in GitHub Actions or GitLab CI and can get an OIDC token,
-- the run covers every policy: `sigcomply check` with no filter, or `--scheduled`.
+- `cloud.project_id` is set,
+- the run can get an OIDC token: it runs in GitHub Actions or GitLab CI, or you pass `--cloud`,
+- the run covers every policy: `sigcomply check` with no filter, or `--scheduled`,
+- you didn't pass `--no-cloud`.
+
+[Commands](reference/commands.md#sigcomply-check) has the full rule.
 
 | Sent to SigComply Cloud | Stays in your pipeline and bucket |
 |---|---|

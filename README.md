@@ -30,16 +30,18 @@ not certify anything; your auditor decides whether you comply.
 
 ## How it works
 
-1. A step in your pipeline runs `sigcomply check`, on a daily schedule and on pushes.
+1. A step in your pipeline runs `sigcomply check`, on a daily schedule, and on pull requests and
+   pushes to main.
 2. Automated policies evaluate configuration read from cloud and SaaS APIs.
 3. Manual policies check that a document (a policy, a training record, a review) is in the right
    folder for the period. The CLI never reads or judges what the document says; your auditor
    does.
-4. The CLI signs the evidence and results into your storage. With SigComply Cloud turned on,
-   it also sends pass/fail counts per policy, never evidence files, their hashes, or the names,
-   emails and account IDs of what it checked.
+4. The CLI writes the signed evidence, the results and a signed manifest of every file's hash
+   to your storage. With SigComply Cloud turned on, it also sends pass/fail counts per policy,
+   never evidence files, their hashes, or the names, emails and account IDs of what it checked.
 
-A run prints one line per policy and exits 1 if any policy fails:
+A run prints one line per policy and exits 1 if any policy fails (2 on an execution error). This
+run had only manual evidence configured; the counts depend on the release and your sources:
 
 ```text
 SigComply check soc2/2026-Q4 — 133 policies
@@ -88,8 +90,9 @@ config ([Cloud dashboard](docs/guides/cloud-dashboard.md)).
   [Frameworks](docs/reference/frameworks.md).
 - Sources: AWS, GCP, Azure, GitHub, GitLab, Okta, Active Directory, and manual documents in a
   local folder, S3, GCS or Azure Blob ([Sources](docs/reference/sources.md)).
-- Every policy is readable in the source. You can add your own policies and sources in your
-  repository; `sigcomply build` compiles them into the CLI.
+- Every policy is readable in the source. You can add your own policies (YAML or Rego) in your
+  repository, and `check` loads them. Custom sources are Go; `sigcomply build` compiles them
+  into the CLI.
 - Reports from your own storage, including the ISO 27001 Statement of Applicability:
   `sigcomply report`.
 
