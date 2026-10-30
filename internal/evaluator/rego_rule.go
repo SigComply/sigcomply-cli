@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/open-policy-agent/opa/v1/ast"
 	"github.com/open-policy-agent/opa/v1/rego"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
@@ -12,8 +13,9 @@ import (
 
 // RegoRule wraps an OPA Rego module. The module is prepared once at
 // New; each Evaluate call instantiates a fresh evaluator with the
-// per-policy input. Pure-function semantics are preserved by OPA's
-// sandbox.
+// per-policy input. Rules are pure functions of the input: the module
+// compiles against regoCapabilities, which has no network, environment,
+// clock or randomness builtins.
 type RegoRule struct {
 	idValue   string
 	query     rego.PreparedEvalQuery
@@ -28,6 +30,8 @@ func NewRegoRule(id, module, query string) (*RegoRule, error) {
 	r := rego.New(
 		rego.Query(query),
 		rego.Module(fmt.Sprintf("rule-%s.rego", id), module),
+		rego.Capabilities(regoCapabilities()),
+		rego.StrictBuiltinErrors(true),
 	)
 	prep, err := r.PrepareForEval(context.Background())
 	if err != nil {
@@ -38,6 +42,29 @@ func NewRegoRule(id, module, query string) (*RegoRule, error) {
 		query:     prep,
 		statusKey: query,
 	}, nil
+}
+
+// regoCapabilities is the builtin set a rule may call: OPA's builtins
+// minus every one OPA marks non-deterministic. That removes the ones
+// that reach the network (http.send, net.lookup_ip_addr, the JSON
+// schema builtins that resolve remote $ref), read the CLI's environment
+// (opa.runtime) or the clock and randomness (time.now_ns, rand.intn,
+// uuid.rfc4122); rules get the run time as input.now instead. AllowNet
+// is empty, so no host is reachable even if a network builtin came back.
+// A rule.rego is repository code evaluated over evidence that may be
+// sensitive, and the evidence must stay in the customer's storage.
+// TestRegoBuiltinsGolden pins the resulting list.
+func regoCapabilities() *ast.Capabilities {
+	caps := ast.CapabilitiesForThisVersion()
+	kept := make([]*ast.Builtin, 0, len(caps.Builtins))
+	for _, b := range caps.Builtins {
+		if !b.Nondeterministic {
+			kept = append(kept, b)
+		}
+	}
+	caps.Builtins = kept
+	caps.AllowNet = []string{}
+	return caps
 }
 
 // ID returns the registered rule reference.

@@ -352,6 +352,9 @@ status := "fail" if count(violations) > 0
 - `result.violations` is optional, a list of `{resource_id, reason, details}`.
 - Input: `policy_id`, `slots.<name>[]` (each `{id, identity_key, source_id, payload}`), `params`
   (every declared parameter, defaulted), `now` (RFC 3339).
+- Builtins that reach the network, the environment, the clock or randomness (`http.send`,
+  `opa.runtime`, `time.now_ns`, ...) are not available; a module that calls one fails to load.
+  Use `input.now`. The full rule is in [`07-extensibility.md`](07-extensibility.md#automated-with-a-rego-rule).
 
 Code: `internal/evaluator/rego_rule.go` (`NewRegoRule`, `projectRegoResult`),
 `internal/orchestrator/project_local.go` (`loadProjectRules`).

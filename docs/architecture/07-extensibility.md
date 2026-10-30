@@ -10,7 +10,7 @@ upstream contribution. Every example below was loaded by a real `sigcomply check
 | Kind | Where | How it loads |
 |---|---|---|
 | Policy | `.sigcomply/policies/<id>/policy.yaml` | Data. Read at bootstrap by `registerProjectLocal` (`internal/orchestrator/project_local.go`) on every `sigcomply check`. |
-| Rego rule | `.sigcomply/policies/<id>/rule.rego` | Data. Read at bootstrap. |
+| Rego rule | `.sigcomply/policies/<id>/rule.rego` | Code, compiled at bootstrap against a restricted builtin set: no network, environment, clock or randomness (below). |
 | Evidence type | `.sigcomply/evidence_types/*.json` | Data. Read at bootstrap; see [`04a-evidence-type-registry.md`](04a-evidence-type-registry.md). |
 | Source plugin | `.sigcomply/plugins/<id>/` | Go. Compiled in by `sigcomply build`; `init()` calls `plugin.RegisterSource`. |
 | Vault backend | `.sigcomply/plugins/<id>/` | Go. `init()` calls `plugin.RegisterVaultBackend`. |
@@ -143,6 +143,18 @@ result := {"status": "fail", "violations": [{"resource_id": "external_identities
 
 `is_external` is optional in `directory_user.v2`, so a record without it simply does not count
 here. A Rego rule gets no `is_set` protection from the evaluator; handle absent fields yourself.
+
+A rule is code evaluated over evidence that may be sensitive, so it runs as a pure function of
+its input. `NewRegoRule` (`internal/evaluator/rego_rule.go`) compiles every module against
+`regoCapabilities`: OPA's builtins minus each one OPA marks non-deterministic. A module that
+calls `http.send`, `net.lookup_ip_addr`, `json.match_schema`/`json.verify_schema` (remote
+`$ref`), `opa.runtime` (the CLI's environment), `time.now_ns`, `rand.intn`, `uuid.rfc4122` or the
+`io.jwt` signing and verifying builtins fails to load, and `check` stops with the compile error.
+Use `input.now` (RFC 3339, the run's clock) instead of `time.now_ns()`. The pure
+`net.cidr_*` helpers stay. Builtin errors are strict: a builtin that fails (a malformed
+timestamp, for example) makes the policy `error` instead of leaving a value undefined. The
+allowed list is pinned in `internal/evaluator/testdata/rego_builtins.golden`; an OPA upgrade that
+adds a builtin fails `TestRegoBuiltinsGolden` until someone reviews it.
 
 ### Evidence types
 
