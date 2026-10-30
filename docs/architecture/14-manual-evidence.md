@@ -55,7 +55,9 @@ in `src/lib/storage-path.ts`; change both together.
    dotfiles such as `.DS_Store`, `Thumbs.db` and `desktop.ini`. The cloud readers list
    recursively and the local one does not; this rule makes every backend read the same files.
    `evidence due` applies it too. No files left: `file_present=false`. The evaluator fails the
-   policy with "manual evidence not found; expected files in: <folder URI>".
+   policy with "manual evidence not found; expected files in: <folder URI>". The local reader
+   opens its folder with `os.OpenRoot` and lists and reads regular files only, so a checked-in
+   symlink cannot hand it a file from elsewhere on the runner.
 2. Classify each file by extension (`fileconv.SupportedExt`: PDF, JPEG, PNG, GIF, TIFF, WebP,
    BMP). An unsupported file adds `unsupported_file_type` to `validation_failures` and is skipped.
 3. Fetch each supported file, SHA-256 its original bytes, and convert images to PDF

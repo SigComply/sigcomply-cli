@@ -120,7 +120,8 @@ Rules for the files:
   (`conversion_failed`). Split a larger file, or downscale the image or save it as a PDF.
 - The CLI ignores hidden files (names starting with `.`, such as `.DS_Store`), `Thumbs.db`,
   `desktop.ini`, the empty folder object that the S3 or GCS console's "Create folder" makes, and
-  everything in subfolders. Put the evidence files directly in the period folder.
+  everything in subfolders. Put the evidence files directly in the period folder. With a local
+  folder (`path:`), symbolic links are ignored too; copy the file in instead.
 - A PDF that opens without a password is accepted even if it carries an owner password that
   restricts printing or editing, as many vendor and penetration-test reports do. The merged copy
   in the vault is stored without that restriction; the record hashes the file as uploaded.

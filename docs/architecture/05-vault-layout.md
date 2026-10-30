@@ -250,6 +250,11 @@ All access goes through `core.Vault` (`Init`, `PutEnvelope`, `PutJSON`, `PutBina
 manual-evidence upload bucket is configured separately under `sources.manual.pdf`. Keys per
 backend are owned by [`docs/configuration.md`](../configuration.md).
 
+The `local` backend opens its root with `os.OpenRoot`, so no symlink leads a read or write outside
+it, and reads and writes regular files only: a symlink at a key is an error and `List` skips
+symlinks. The vault folder may be checked in or restored from a CI cache, so its contents are
+not trusted to point where they claim.
+
 ### Adding a backend
 
 A backend is a factory registered with `vault.RegisterBackend` (in-tree) or `plugin.RegisterVaultBackend`

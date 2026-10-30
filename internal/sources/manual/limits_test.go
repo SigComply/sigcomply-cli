@@ -129,3 +129,42 @@ func TestManualReadersCapReads(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// A checked-in evidence folder can hold a symlink to any file on the CI
+// runner (credentials, /proc/self/environ). The local reader must read
+// regular files inside its root only.
+func TestLocalReader_RefusesSymlinks(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "secret.pdf"), []byte("%PDF-TOKEN"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	folder := filepath.Join(root, "manual", "ev", "2026-Q1")
+	if err := os.MkdirAll(folder, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(outside, "secret.pdf"), filepath.Join(folder, "linked.pdf")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(root, "manual", "escape")); err != nil {
+		t.Fatal(err)
+	}
+	r := &localReader{root: root}
+	ctx := context.Background()
+	if data, _, err := r.Get(ctx, "manual/ev/2026-Q1/linked.pdf"); err == nil {
+		t.Errorf("Get(symlinked file) = %q; want an error", data)
+	}
+	if data, _, err := r.Get(ctx, "manual/escape/secret.pdf"); err == nil {
+		t.Errorf("Get(through symlinked dir) = %q; want an error", data)
+	}
+	items, err := r.List(ctx, "manual/ev/2026-Q1/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 0 {
+		t.Errorf("List = %v; want the symlink left out", items)
+	}
+	if items, err := r.List(ctx, "manual/escape/"); err != nil || len(items) != 0 {
+		t.Errorf("List(symlinked dir) = %v, %v; want nothing", items, err)
+	}
+}

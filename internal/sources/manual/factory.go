@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
+	"path"
+	"path/filepath"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -153,19 +155,35 @@ type localReader struct {
 	root string
 }
 
+// Get reads one regular file inside the root. The root is opened with
+// os.OpenRoot, so no symlink can lead outside it, and a key whose final
+// component is a symlink, device or directory is refused: a checked-in
+// evidence folder could otherwise point a "PDF" at any file on the CI
+// runner.
 func (r *localReader) Get(_ context.Context, uri string) (_ []byte, _ time.Time, err error) {
-	full := strings.TrimRight(r.root, "/") + "/" + uri
-	info, err := os.Stat(full)
+	root, err := os.OpenRoot(r.root)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return nil, time.Time{}, ErrNotFound
 		}
 		return nil, time.Time{}, err
 	}
+	defer func() { err = errors.Join(err, root.Close()) }()
+	name := filepath.FromSlash(uri)
+	info, err := root.Lstat(name)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, time.Time{}, ErrNotFound
+		}
+		return nil, time.Time{}, err
+	}
+	if !info.Mode().IsRegular() {
+		return nil, time.Time{}, fmt.Errorf("manual.pdf.local: %s is not a regular file (symlinks are not followed)", uri)
+	}
 	if info.Size() > MaxFileBytes {
 		return nil, time.Time{}, &FileTooLargeError{Key: uri, Limit: MaxFileBytes}
 	}
-	f, err := os.Open(full) //nolint:gosec // root is the operator-configured evidence folder
+	f, err := root.Open(name)
 	if err != nil {
 		return nil, time.Time{}, err
 	}
@@ -177,18 +195,31 @@ func (r *localReader) Get(_ context.Context, uri string) (_ []byte, _ time.Time,
 	return data, info.ModTime().UTC(), nil
 }
 
-func (r *localReader) List(_ context.Context, prefix string) ([]FileInfo, error) {
-	full := strings.TrimRight(r.root, "/") + "/" + prefix
-	entries, err := os.ReadDir(full)
+// List returns the regular files directly in the prefix folder.
+// Symlinks (to files or folders) are left out, like subfolders.
+func (r *localReader) List(_ context.Context, prefix string) (_ []FileInfo, err error) {
+	root, err := os.OpenRoot(r.root)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return nil, nil
 		}
 		return nil, err
 	}
+	defer func() { err = errors.Join(err, root.Close()) }()
+	dir := path.Clean("./" + prefix)
+	if info, err := root.Lstat(filepath.FromSlash(dir)); err != nil || !info.IsDir() {
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return nil, err
+		}
+		return nil, nil // missing, or a symlink / file where a folder should be
+	}
+	entries, err := fs.ReadDir(root.FS(), dir)
+	if err != nil {
+		return nil, err
+	}
 	items := make([]FileInfo, 0, len(entries))
 	for _, e := range entries {
-		if e.IsDir() {
+		if !e.Type().IsRegular() {
 			continue
 		}
 		info, err := e.Info()

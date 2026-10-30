@@ -73,15 +73,24 @@ func (v *Vault) PutBinary(_ context.Context, key string, body []byte, _ map[stri
 	return v.write(key, body)
 }
 
-// GetBinary reads the file at key and returns its bytes. A missing
-// file is reported as an error containing "not found"; callers can
-// match against errors.Is(err, fs.ErrNotExist) for type-safe checks.
-func (v *Vault) GetBinary(_ context.Context, key string) ([]byte, error) {
-	path, err := v.resolve(key)
+// GetBinary reads the regular file at key and returns its bytes. A
+// missing file is reported as an error containing "not found"; callers
+// can match against errors.Is(err, fs.ErrNotExist) for type-safe checks.
+// A symlink, directory or device at key is an error.
+func (v *Vault) GetBinary(_ context.Context, key string) (_ []byte, err error) {
+	name, err := v.resolve(key)
 	if err != nil {
 		return nil, err
 	}
-	data, err := os.ReadFile(path)
+	root, err := v.openRoot()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errors.Join(err, root.Close()) }()
+	if err := regularOrMissing(root, name, key); err != nil {
+		return nil, err
+	}
+	data, err := root.ReadFile(name)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, fmt.Errorf("local vault: not found: %s: %w", key, err)
@@ -91,39 +100,46 @@ func (v *Vault) GetBinary(_ context.Context, key string) ([]byte, error) {
 	return data, nil
 }
 
-// List walks the filesystem under prefix and returns the keys it finds
-// (relative to Root, with forward slashes). The walk follows the spec:
-// prefixes are slash-terminated logical buckets; directories without
-// any files are not reported.
-func (v *Vault) List(_ context.Context, prefix string) ([]string, error) {
-	root, err := v.resolve(prefix)
+// List walks the filesystem under prefix and returns the keys of the
+// regular files it finds (relative to Root, with forward slashes). The
+// walk follows the spec: prefixes are slash-terminated logical buckets;
+// directories without any files are not reported. Symlinks are neither
+// followed nor reported.
+func (v *Vault) List(_ context.Context, prefix string) (_ []string, err error) {
+	name, err := v.resolve(prefix)
 	if err != nil {
 		return nil, err
 	}
-	info, err := os.Stat(root)
+	root, err := v.openRoot()
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	defer func() { err = errors.Join(err, root.Close()) }()
+	info, err := root.Lstat(name)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("local vault: stat %s: %w", prefix, err)
 	}
-	if !info.IsDir() {
+	if info.Mode().IsRegular() {
 		// Prefix points at a single file — list that one key.
 		return []string{prefix}, nil
 	}
+	if !info.IsDir() {
+		return nil, nil
+	}
 	var keys []string
-	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
+	err = fs.WalkDir(root.FS(), filepath.ToSlash(name), func(p string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
-		if d.IsDir() {
-			return nil
+		if d.Type().IsRegular() {
+			keys = append(keys, p)
 		}
-		rel, err := filepath.Rel(v.Root, path)
-		if err != nil {
-			return err
-		}
-		keys = append(keys, filepath.ToSlash(rel))
 		return nil
 	})
 	if err != nil {
@@ -132,24 +148,58 @@ func (v *Vault) List(_ context.Context, prefix string) ([]string, error) {
 	return keys, nil
 }
 
-func (v *Vault) write(key string, data []byte) error {
-	path, err := v.resolve(key)
+func (v *Vault) write(key string, data []byte) (err error) {
+	name, err := v.resolve(key)
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+	root, err := v.openRoot()
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, root.Close()) }()
+	if err := root.MkdirAll(filepath.Dir(name), 0o750); err != nil {
 		return fmt.Errorf("local vault: mkdir for %s: %w", key, err)
 	}
-	if err := os.WriteFile(path, data, 0o600); err != nil {
+	if err := regularOrMissing(root, name, key); err != nil {
+		return err
+	}
+	if err := root.WriteFile(name, data, 0o600); err != nil {
 		return fmt.Errorf("local vault: write %s: %w", key, err)
 	}
 	return nil
 }
 
-// resolve joins key onto Root and rejects paths that escape the Root
-// via "..", absolute paths, or symlink-shaped trickery. Vaults are
-// trusted internal storage, but a buggy caller passing user input
-// shouldn't be able to write outside the configured root.
+// openRoot opens the vault root with os.OpenRoot: every path below it
+// is resolved inside the root, so a symlinked directory cannot lead a
+// read or write outside it.
+func (v *Vault) openRoot() (*os.Root, error) {
+	root, err := os.OpenRoot(v.Root)
+	if err != nil {
+		return nil, fmt.Errorf("local vault: open root %s: %w", v.Root, err)
+	}
+	return root, nil
+}
+
+// regularOrMissing refuses a key whose final component is anything but
+// a regular file (a symlink, even one inside the root, or a directory).
+func regularOrMissing(root *os.Root, name, key string) error {
+	info, err := root.Lstat(name)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("local vault: stat %s: %w", key, err)
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("local vault: %s is not a regular file (symlinks are not followed)", key)
+	}
+	return nil
+}
+
+// resolve checks key and returns it as a path relative to Root ("." for
+// the root itself). It rejects absolute keys and keys that escape the
+// root via ".."; openRoot then keeps symlinks from escaping it.
 func (v *Vault) resolve(key string) (string, error) {
 	if v.Root == "" {
 		return "", fmt.Errorf("local vault: not initialized (Root empty)")
@@ -158,12 +208,11 @@ func (v *Vault) resolve(key string) (string, error) {
 		return "", fmt.Errorf("local vault: key %q must be relative, not absolute", key)
 	}
 	cleanedRoot := filepath.Clean(v.Root)
-	joined := filepath.Join(cleanedRoot, filepath.FromSlash(key))
-	cleaned := filepath.Clean(joined)
+	cleaned := filepath.Clean(filepath.Join(cleanedRoot, filepath.FromSlash(key)))
 	if cleaned != cleanedRoot && !strings.HasPrefix(cleaned, cleanedRoot+string(filepath.Separator)) {
 		return "", fmt.Errorf("local vault: key %q escapes vault root", key)
 	}
-	return cleaned, nil
+	return filepath.Rel(cleanedRoot, cleaned)
 }
 
 // Compile-time assertion that *Vault satisfies core.Vault.
