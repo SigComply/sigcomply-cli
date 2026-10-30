@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -138,7 +137,7 @@ func (r *realAzure) Get(ctx context.Context, key string) (_ []byte, _ time.Time,
 	defer func() {
 		err = errors.Join(err, resp.Body.Close())
 	}()
-	data, err := io.ReadAll(resp.Body)
+	data, err := manual.ReadAllLimited(resp.Body, key, manual.MaxFileBytes)
 	if err != nil {
 		return nil, time.Time{}, err
 	}

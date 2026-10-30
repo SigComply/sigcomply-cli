@@ -17,6 +17,8 @@ import (
 	"bytes"
 	"fmt"
 	"image"
+	_ "image/gif"  // registers GIF for image.DecodeConfig
+	_ "image/jpeg" // registers JPEG for image.DecodeConfig
 	"image/png"
 	"path/filepath"
 	"strings"
@@ -92,40 +94,95 @@ func (e *UnsupportedTypeError) Error() string {
 // stdlib-plus-gofpdf dependency set).
 func (e *UnsupportedTypeError) Retryable() bool { return false }
 
+// MaxImagePixels is the largest image, in pixels (width × height), that
+// ToPDF converts. Decoders allocate about four bytes per pixel before
+// reading any pixel data, so a header of a few dozen bytes can otherwise
+// ask for gigabytes. 50 megapixels covers a full-resolution photo from
+// any current phone camera or a 600 dpi A4 scan (about 35 megapixels).
+const MaxImagePixels = 50_000_000
+
+// ImageTooLargeError is returned by ToPDF when an image header declares
+// more than MaxImagePixels pixels (or a zero or negative dimension).
+type ImageTooLargeError struct {
+	Filename      string
+	Width, Height int
+}
+
+func (e *ImageTooLargeError) Error() string {
+	return fmt.Sprintf(
+		"image %q is %d×%d pixels; the limit is %d megapixels, so downscale it or save it as a PDF",
+		e.Filename, e.Width, e.Height, MaxImagePixels/1_000_000,
+	)
+}
+
+// Retryable implements sources.RetryableError: the file will be just as
+// large on a second attempt.
+func (e *ImageTooLargeError) Retryable() bool { return false }
+
 // ToPDF converts data (a file named filename with the given lowercase ext)
 // to PDF bytes. If the file is already a PDF, it is returned as-is with
 // converted=false. Images are wrapped in a single A4 page with the image
 // scaled to fit while preserving aspect ratio; converted=true.
 //
+// Every image's header is read first and an image larger than
+// MaxImagePixels is refused with ImageTooLargeError. A panic inside an
+// image decoder (gofpdf indexes past short pixel data) is returned as an
+// error, so one bad upload fails its own policy instead of the run.
+//
 // Returns UnsupportedTypeError for unrecognized extensions.
 func ToPDF(filename, ext string, data []byte) (pdf []byte, converted bool, err error) {
-	switch ext {
-	case extPDF:
+	if ext == extPDF {
 		return data, false, nil
+	}
+	if !SupportedExt(ext) {
+		return nil, false, &UnsupportedTypeError{
+			Filename: filepath.Base(filename),
+			Ext:      ext,
+		}
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			pdf, converted = nil, false
+			err = fmt.Errorf("fileconv: %s is not a readable image (decoder failed: %v)", filename, r)
+		}
+	}()
+	if err := checkDimensions(filename, data); err != nil {
+		return nil, false, err
+	}
+	var out []byte
+	switch ext {
 	case ".jpg", ".jpeg":
-		out, e := imageToPDF(filename, "JPEG", data)
-		return out, e == nil, e
+		out, err = imageToPDF(filename, "JPEG", data)
 	case ".png":
-		out, e := imageToPDF(filename, "PNG", data)
-		return out, e == nil, e
+		out, err = imageToPDF(filename, "PNG", data)
 	case ".gif":
-		out, e := imageToPDF(filename, "GIF", data)
-		return out, e == nil, e
-	case ".tif", ".tiff", ".webp", ".bmp":
+		out, err = imageToPDF(filename, "GIF", data)
+	default: // ".tif", ".tiff", ".webp", ".bmp"
 		// gofpdf can't read these. Decode via x/image (registered above)
 		// then re-encode as PNG, which gofpdf does support.
 		pngData, e := reencodeAsPNG(data)
 		if e != nil {
 			return nil, false, fmt.Errorf("fileconv: decode %s: %w", filename, e)
 		}
-		out, e := imageToPDF(filename+".png", "PNG", pngData)
-		return out, e == nil, e
-	default:
-		return nil, false, &UnsupportedTypeError{
-			Filename: filepath.Base(filename),
-			Ext:      ext,
-		}
+		out, err = imageToPDF(filename+".png", "PNG", pngData)
 	}
+	if err != nil {
+		return nil, false, err
+	}
+	return out, true, nil
+}
+
+// checkDimensions reads only the image header and refuses images over
+// MaxImagePixels, before any decoder allocates the pixel buffer.
+func checkDimensions(filename string, data []byte) error {
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("fileconv: read image header of %s: %w", filename, err)
+	}
+	if cfg.Width <= 0 || cfg.Height <= 0 || int64(cfg.Width)*int64(cfg.Height) > MaxImagePixels {
+		return &ImageTooLargeError{Filename: filepath.Base(filename), Width: cfg.Width, Height: cfg.Height}
+	}
+	return nil
 }
 
 // NormalizeExt returns the lowercase extension of a filename with the

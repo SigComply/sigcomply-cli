@@ -132,7 +132,19 @@ covers; after that period ends, runs read the next period's folder instead.
 ### `merge_failed`
 
 The CLI could not merge the folder's files into one PDF. The message names the file it could not
-read. Open that file to check it is a complete PDF, then replace it.
+read. Open that file to check it is a complete PDF, then replace it. A PDF whose internal object
+numbers go above 1,000,000 is also refused; printing it to a new PDF renumbers them.
+
+### `conversion_failed`
+
+The CLI could not convert an image to PDF. Either the file is not a complete image of the type
+its extension says, or it is larger than 50 megapixels. Open the image to check it, then
+downscale it or save it as a PDF and upload that instead.
+
+### `file_too_large`
+
+A file in the folder is larger than 100 MB. Split it into several files, or reduce it (for
+example, scan at a lower resolution), and upload the parts to the same folder.
 
 ### `unsupported_file_type`
 

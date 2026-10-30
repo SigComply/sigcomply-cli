@@ -224,3 +224,29 @@ func TestReader_List_ErrorSurfaces(t *testing.T) {
 	_ = strPtr("")
 	_ = timePtr(time.Time{})
 }
+
+// endlessAPI returns an object body that never ends, as a hostile or
+// broken S3-compatible endpoint can.
+type endlessAPI struct{ *errorAPI }
+
+type zeroReader struct{}
+
+func (zeroReader) Read(p []byte) (int, error) {
+	clear(p)
+	return len(p), nil
+}
+
+func (endlessAPI) GetObject(_ context.Context, _ *awss3.GetObjectInput, _ ...func(*awss3.Options)) (*awss3.GetObjectOutput, error) {
+	return &awss3.GetObjectOutput{Body: io.NopCloser(zeroReader{})}, nil
+}
+
+// TestReader_Get_CapsBodySize: Get stops at manual.MaxFileBytes and
+// returns FileTooLargeError instead of reading until memory runs out.
+func TestReader_Get_CapsBodySize(t *testing.T) {
+	r := &manuals3.Reader{Client: endlessAPI{&errorAPI{}}, Bucket: testBucket}
+	_, _, err := r.Get(context.Background(), "huge.pdf")
+	var tooLarge *manual.FileTooLargeError
+	if !errors.As(err, &tooLarge) {
+		t.Fatalf("Get(endless body) err = %v; want *manual.FileTooLargeError", err)
+	}
+}

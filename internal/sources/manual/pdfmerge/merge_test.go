@@ -18,9 +18,14 @@ import (
 // accept without errors.
 func realPDF(t *testing.T) []byte {
 	t.Helper()
+	return mustRealPDF(t)
+}
+
+func mustRealPDF(tb testing.TB) []byte {
+	tb.Helper()
 	pdf, _, err := fileconv.ToPDF("test.png", ".png", minimalPNG())
 	if err != nil {
-		t.Fatalf("realPDF: fileconv: %v", err)
+		tb.Fatalf("realPDF: fileconv: %v", err)
 	}
 	return pdf
 }

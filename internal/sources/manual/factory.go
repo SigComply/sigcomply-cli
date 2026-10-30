@@ -2,6 +2,7 @@ package manual
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -152,7 +153,7 @@ type localReader struct {
 	root string
 }
 
-func (r *localReader) Get(_ context.Context, uri string) ([]byte, time.Time, error) {
+func (r *localReader) Get(_ context.Context, uri string) (_ []byte, _ time.Time, err error) {
 	full := strings.TrimRight(r.root, "/") + "/" + uri
 	info, err := os.Stat(full)
 	if err != nil {
@@ -161,7 +162,15 @@ func (r *localReader) Get(_ context.Context, uri string) ([]byte, time.Time, err
 		}
 		return nil, time.Time{}, err
 	}
-	data, err := os.ReadFile(full)
+	if info.Size() > MaxFileBytes {
+		return nil, time.Time{}, &FileTooLargeError{Key: uri, Limit: MaxFileBytes}
+	}
+	f, err := os.Open(full) //nolint:gosec // root is the operator-configured evidence folder
+	if err != nil {
+		return nil, time.Time{}, err
+	}
+	defer func() { err = errors.Join(err, f.Close()) }()
+	data, err := ReadAllLimited(f, uri, MaxFileBytes)
 	if err != nil {
 		return nil, time.Time{}, err
 	}

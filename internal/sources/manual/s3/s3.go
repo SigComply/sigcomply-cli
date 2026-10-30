@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -111,7 +110,7 @@ func (r *Reader) Get(ctx context.Context, key string) (_ []byte, _ time.Time, er
 	defer func() {
 		err = errors.Join(err, out.Body.Close())
 	}()
-	data, err := io.ReadAll(out.Body)
+	data, err := manual.ReadAllLimited(out.Body, key, manual.MaxFileBytes)
 	if err != nil {
 		return nil, time.Time{}, fmt.Errorf("manual.pdf s3: read body for %s: %w", key, err)
 	}

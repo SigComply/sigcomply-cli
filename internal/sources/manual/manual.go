@@ -456,6 +456,14 @@ func (p *Plugin) fetchAndConvert(ctx context.Context, items []FileInfo) (pdfPart
 			continue
 		}
 		data, uploadedAt, fetchErr := p.reader.Get(ctx, item.Key)
+		var tooLarge *FileTooLargeError
+		if errors.As(fetchErr, &tooLarge) {
+			validationFailures = append(validationFailures, fmt.Sprintf(
+				"file_too_large: %q (larger than %d MB; split it or reduce it)",
+				filepath.Base(item.Key), tooLarge.Limit>>20,
+			))
+			continue
+		}
 		if fetchErr != nil {
 			return nil, nil, nil, time.Time{}, fmt.Errorf("manual.pdf: fetch %s: %w", item.Key, fetchErr)
 		}

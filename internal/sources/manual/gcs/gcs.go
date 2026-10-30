@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -94,7 +93,7 @@ func (r *realGCS) Get(ctx context.Context, key string) (_ []byte, _ time.Time, e
 	defer func() {
 		err = errors.Join(err, reader.Close())
 	}()
-	data, err := io.ReadAll(reader)
+	data, err := manual.ReadAllLimited(reader, key, manual.MaxFileBytes)
 	if err != nil {
 		return nil, time.Time{}, err
 	}

@@ -116,6 +116,8 @@ Rules for the files:
 - Supported formats: PDF, JPEG, PNG, GIF, TIFF, WebP and BMP. The CLI converts images to PDF and
   merges all files in the folder into one PDF. Any other file in the folder fails the policy
   with `unsupported_file_type`.
+- Size limits: each file at most 100 MB (`file_too_large`), and each image at most 50 megapixels
+  (`conversion_failed`). Split a larger file, or downscale the image or save it as a PDF.
 - The CLI ignores hidden files (names starting with `.`, such as `.DS_Store`), `Thumbs.db`,
   `desktop.ini`, the empty folder object that the S3 or GCS console's "Create folder" makes, and
   everything in subfolders. Put the evidence files directly in the period folder.

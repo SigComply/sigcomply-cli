@@ -60,8 +60,18 @@ in `src/lib/storage-path.ts`; change both together.
    BMP). An unsupported file adds `unsupported_file_type` to `validation_failures` and is skipped.
 3. Fetch each supported file, SHA-256 its original bytes, and convert images to PDF
    (`fileconv.ToPDF`, pure Go). Each file gets a `source_files[]` entry: filename, type,
-   `sha256`, upload time, `converted`. A conversion error adds `conversion_failed`.
-4. Merge all PDF parts (`pdfmerge.Merge`, pdfcpu). A merge error adds `merge_failed`.
+   `sha256`, upload time, `converted`. A file over `manual.MaxFileBytes` (100 MB) adds
+   `file_too_large`; every backend reads through `manual.ReadAllLimited`, and the local reader
+   checks the size before reading. A conversion error adds `conversion_failed`: the image header
+   is read first (`image.DecodeConfig`) and an image over `fileconv.MaxImagePixels` (50
+   megapixels) is refused before any decoder allocates its pixel buffer, and a panic inside a
+   decoder is recovered into the error.
+4. Merge all PDF parts (`pdfmerge.Merge`, pdfcpu with its stateless configuration, so it never
+   reads or writes a config directory). Each part is read and validated on its own first; a
+   part pdfcpu cannot read, or whose object numbers exceed `pdfmerge.MaxObjects` (1,000,000;
+   pdfcpu sizes a table by the highest object number), adds `merge_failed` naming the file. A
+   panic inside pdfcpu is recovered into the same failure. `FuzzToPDF` and `FuzzMerge` exercise
+   both packages; a crasher is kept under the package's `testdata/fuzz/` so `go test` replays it.
 5. Run `validatePDF` on the merged bytes: at least 100 bytes, a `%PDF-` prefix, at least one
    `/Page` marker. Stdlib byte checks only, no PDF parser.
 6. Temporal window: the latest upload time must lie in
