@@ -38,7 +38,10 @@ paths = [
     '''LICENSE''',
 ]
 
-# Regex patterns to ignore (for test/example values)
+# Regex patterns to ignore (for test/example values). Matched against the
+# secret, unanchored unless a pattern says otherwise, so a pattern that can
+# match a substring of a real token (such as `000+`) hides that token.
+# Placeholder patterns are anchored to the whole secret.
 regexes = [
     '''AKIA[0-9A-Z]{16}EXAMPLE''',
     '''test[_-]?api[_-]?key''',
@@ -46,14 +49,17 @@ regexes = [
     '''dummy[_-]?secret''',
     '''placeholder''',
     '''your[_-]?.*[_-]?here''',
-    '''xxx+''',
-    '''000+''',
+    '''(?i)^x{3,}$''',
+    '''^0{3,}$''',
 ]
 
 # Commits to ignore (if needed)
 commits = []
 
-# Stop words to prevent false positives
+# Stop words to prevent false positives. A secret containing one is
+# ignored. "test" is broad, but dropping it flags only test fixtures and
+# resource names in history (sigcomply-e2e-test, a fake JWT), re-checked
+# 2026-10-30 with `gitleaks git --redact`.
 stopwords = [
     "example",
     "test",
