@@ -297,7 +297,7 @@ install() {
 
     # Create temp directory
     TMP_DIR=$(mktemp -d)
-    trap "rm -rf $TMP_DIR" EXIT
+    trap 'rm -rf "$TMP_DIR"' EXIT
 
     # Download
     info "Downloading from $DOWNLOAD_URL"

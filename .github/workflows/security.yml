@@ -465,27 +465,33 @@ jobs:
           egress-policy: audit
 
       - name: Check security job results
+        env:
+          SUPPLY_CHAIN: ${{ needs.supply-chain.result }}
+          CODEQL: ${{ needs.codeql.result }}
+          GOSEC: ${{ needs.gosec.result }}
+          SEMGREP: ${{ needs.semgrep.result }}
+          TRIVY: ${{ needs.trivy.result }}
+          OSV: ${{ needs.osv-scan.result }}
+          SECRETS: ${{ needs.secret-scan.result }}
         run: |
-          echo "## Security Scan Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Supply Chain | ${{ needs.supply-chain.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| CodeQL | ${{ needs.codeql.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| gosec | ${{ needs.gosec.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Semgrep | ${{ needs.semgrep.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Trivy | ${{ needs.trivy.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| OSV Scanner | ${{ needs.osv-scan.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Secret Scan | ${{ needs.secret-scan.result }} |" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Security Scan Summary"
+            echo ""
+            echo "| Check | Status |"
+            echo "|-------|--------|"
+            echo "| Supply Chain | $SUPPLY_CHAIN |"
+            echo "| CodeQL | $CODEQL |"
+            echo "| gosec | $GOSEC |"
+            echo "| Semgrep | $SEMGREP |"
+            echo "| Trivy | $TRIVY |"
+            echo "| OSV Scanner | $OSV |"
+            echo "| Secret Scan | $SECRETS |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
           # Fail if any critical check failed
-          if [[ "${{ needs.supply-chain.result }}" == "failure" ]] || \
-             [[ "${{ needs.secret-scan.result }}" == "failure" ]]; then
-            echo ""
-            echo "❌ Critical security checks failed!" >> $GITHUB_STEP_SUMMARY
+          if [[ "$SUPPLY_CHAIN" == "failure" ]] || [[ "$SECRETS" == "failure" ]]; then
+            echo "❌ Critical security checks failed!" >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
 
-          echo ""
-          echo "✅ All critical security checks passed" >> $GITHUB_STEP_SUMMARY
+          echo "✅ All critical security checks passed" >> "$GITHUB_STEP_SUMMARY"
