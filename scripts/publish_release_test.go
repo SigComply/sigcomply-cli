@@ -15,6 +15,7 @@ import (
 type publishFixture struct {
 	t           *testing.T
 	work, gh    string
+	draft       string
 	ghLog       string
 	head, other string
 	env         []string
@@ -24,7 +25,10 @@ const fakeGH = `#!/bin/sh
 echo "$*" >> "$FAKE_GH_LOG"
 if [ "$1 $2" = "release view" ]; then
   [ -f "$FAKE_GH_ASSETS" ] || exit 1
-  cat "$FAKE_GH_ASSETS"
+  case "$*" in
+    *isDraft*) cat "$FAKE_GH_DRAFT" 2>/dev/null || echo false ;;
+    *) cat "$FAKE_GH_ASSETS" ;;
+  esac
 fi
 exit 0
 `
@@ -41,12 +45,13 @@ func newPublishFixture(t *testing.T) *publishFixture {
 		t.Fatal(err)
 	}
 	f.gh = filepath.Join(dir, "assets.txt")
+	f.draft = filepath.Join(dir, "draft.txt")
 	f.env = append(environWithoutGit(),
 		"PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"),
 		"GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_NOSYSTEM=1",
 		"GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@example.invalid",
 		"GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@example.invalid",
-		"FAKE_GH_LOG="+f.ghLog, "FAKE_GH_ASSETS="+f.gh,
+		"FAKE_GH_LOG="+f.ghLog, "FAKE_GH_ASSETS="+f.gh, "FAKE_GH_DRAFT="+f.draft,
 		"GITHUB_REPOSITORY=example/repo",
 	)
 	origin := filepath.Join(dir, "origin.git")
@@ -154,6 +159,42 @@ func TestPublishRelease_RerunIsIdempotent(t *testing.T) {
 	}
 	if !strings.Contains(calls, "release upload v1.2.3 --repo example/repo dist/checksums.txt\n") {
 		t.Errorf("re-run did not upload exactly the missing asset:\n%s", calls)
+	}
+	if strings.Contains(calls, "release edit") {
+		t.Errorf("re-run edited a published release:\n%s", calls)
+	}
+}
+
+// gh release create uploads the assets to a draft and publishes it last,
+// so a job killed in between leaves a draft. A re-run uploads what the draft
+// lacks and then publishes it, still as a prerelease: with immutable
+// releases nothing can be added once it is published.
+func TestPublishRelease_RerunPublishesALeftoverDraft(t *testing.T) {
+	f := newPublishFixture(t)
+	if out, err := f.publish(); err != nil {
+		t.Fatalf("first publish: %v\n%s", err, out)
+	}
+	if err := os.WriteFile(f.gh, []byte("a.tar.gz\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(f.draft, []byte("true\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(f.ghLog); err != nil {
+		t.Fatal(err)
+	}
+	out, err := f.publish()
+	if err != nil {
+		t.Fatalf("re-run failed: %v\n%s", err, out)
+	}
+	calls := f.ghCalls()
+	upload := strings.Index(calls, "release upload v1.2.3 --repo example/repo dist/checksums.txt\n")
+	edit := strings.Index(calls, "release edit v1.2.3 --repo example/repo --draft=false\n")
+	if upload < 0 || edit < 0 || edit < upload {
+		t.Errorf("want the missing asset uploaded, then the draft published:\n%s", calls)
+	}
+	if strings.Contains(calls, "--prerelease=false") || strings.Contains(calls, "--latest") {
+		t.Errorf("publishing the draft must not promote it:\n%s", calls)
 	}
 }
 

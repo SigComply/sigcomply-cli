@@ -11,7 +11,11 @@
 #   - the tag already on origin and pointing at GITHUB_SHA: not pushed again;
 #   - the tag on origin pointing at any other commit: fails, never moves it;
 #   - the release already exists: not created again; only assets it lacks
-#     are uploaded, so an asset already published is never replaced.
+#     are uploaded, so an asset already published is never replaced;
+#   - the release is a draft (gh release create uploads to a draft and
+#     publishes it last; a job killed in between leaves one): its missing
+#     assets are uploaded, then it is published, still as a prerelease.
+#     With immutable releases nothing can be added after that.
 set -euo pipefail
 
 if [ "$#" -lt 2 ]; then
@@ -68,6 +72,10 @@ if existing=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets -
   else
     echo "Release $TAG already exists; uploading ${#missing[@]} missing asset(s)."
     gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" "${missing[@]}"
+  fi
+  if [ "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = "true" ]; then
+    gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false
+    echo "Published the draft of $TAG as a prerelease."
   fi
 else
   gh release create "$TAG" \

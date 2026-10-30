@@ -22,8 +22,10 @@
 #   feat: -> minor bump
 #   anything else (fix:, refactor:, perf:, docs:, ...) -> patch bump
 #
-# Build provenance attestations are generated for all release artifacts.
-# Customers can verify with: gh attestation verify <binary> --repo SigComply/sigcomply-cli
+# Build provenance: a GitHub attestation for every release archive, also
+# published as the release asset sigcomply_<version>_provenance.sigstore.json
+# so it can be verified offline. Customer steps: docs/guides/install.md.
+# Renaming this file breaks every verifier that pins the signing workflow.
 
 name: Auto Release Pipeline
 
@@ -62,6 +64,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Determine version bump
         id: bump
@@ -124,9 +127,9 @@ jobs:
 
       - name: Tag locally (pushed after build and attest)
         id: tag
+        env:
+          NEW_TAG: ${{ steps.bump.outputs.new_tag }}
         run: |
-          NEW_TAG="${{ steps.bump.outputs.new_tag }}"
-
           # created=true means "build and publish this tag".
           if git rev-parse -q --verify "refs/tags/$NEW_TAG" >/dev/null; then
             if [ "$(git rev-parse "$NEW_TAG^{commit}")" = "$(git rev-parse HEAD)" ]; then
@@ -152,7 +155,9 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-          cache: true
+          # No module cache in a release build: a cache written by another
+          # workflow run could alter what ships.
+          cache: false
 
       - name: Run GoReleaser (build only, skip publish)
         if: steps.tag.outputs.created == 'true'
@@ -201,11 +206,30 @@ jobs:
           path: dist/
 
       - name: Attest build provenance
+        id: attest
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
             dist/*.tar.gz
             dist/*.zip
+
+      # Published as a release asset, so the provenance can be verified
+      # offline: gh attestation verify --bundle, no token, no API call.
+      - name: Name the attestation bundle for the release
+        env:
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+          TAG: ${{ needs.auto-release.outputs.new_tag }}
+        run: |
+          mkdir -p provenance
+          cp "$BUNDLE" "provenance/sigcomply_${TAG#v}_provenance.sigstore.json"
+
+      - name: Upload attestation bundle
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: provenance
+          path: provenance/
+          if-no-files-found: error
+          retention-days: 1
 
   publish:
     name: Push Tag and Publish Prerelease
@@ -220,8 +244,9 @@ jobs:
         with:
           egress-policy: audit
 
+      # Keeps its credentials: publish-release.sh pushes the tag.
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # zizmor: ignore[artipacked]
 
       - name: Download build artifacts
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -229,13 +254,19 @@ jobs:
           name: artifacts
           path: dist/
 
+      - name: Download attestation bundle
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: provenance
+          path: provenance/
+
       # Pushes the tag, then publishes a prerelease: releases/latest does
       # not move until release-promote.yml promotes it. Safe to re-run.
       - name: Push tag and publish prerelease
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.auto-release.outputs.new_tag }}
-        run: ./scripts/publish-release.sh "$TAG" dist/*.tar.gz dist/*.zip dist/checksums.txt
+        run: ./scripts/publish-release.sh "$TAG" dist/*.tar.gz dist/*.zip dist/checksums.txt provenance/*.sigstore.json
 
   promote:
     name: Gate and Promote

@@ -8,13 +8,15 @@
 # prerelease and is never promoted.
 #
 # The test suite (test.yml) runs first and must pass before the build.
-# The tag is pushed only after the build and the provenance succeed, and
+# The tag is pushed only after the build and the attestation succeed, and
 # the publish job is safe to re-run (scripts/publish-release.sh). To
 # re-release an existing tag, dispatch with the tag itself as the ref: a
 # tag that points at any commit other than the dispatched one fails.
 #
-# SLSA L3 provenance is generated for all release artifacts.
-# Customers can verify with: gh attestation verify <binary> --repo SigComply/sigcomply-cli
+# Build provenance: the same GitHub attestation as auto-release-pipeline.yml,
+# published as the release asset sigcomply_<version>_provenance.sigstore.json
+# so it can be verified offline. Customer steps: docs/guides/install.md.
+# Renaming this file breaks every verifier that pins the signing workflow.
 
 name: Release
 
@@ -60,8 +62,6 @@ jobs:
     # Read only: this job tags locally; publish pushes the tag.
     permissions:
       contents: read
-    outputs:
-      hashes: ${{ steps.hash.outputs.hashes }}
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
@@ -72,6 +72,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Validate version format
         env:
@@ -106,7 +107,9 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-          cache: true
+          # No module cache in a release build: a cache written by another
+          # workflow run could alter what ships.
+          cache: false
 
       - name: Run GoReleaser (build only, skip publish)
         uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
@@ -121,11 +124,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ inputs.version }}
 
-      - name: Generate artifact hashes
-        id: hash
-        run: |
-          echo "hashes=$(cat dist/checksums.txt | base64 -w0)" >> "$GITHUB_OUTPUT"
-
       - name: Upload build artifacts
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -134,20 +132,55 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  provenance:
+  attest:
+    name: Attest Artifacts
     needs: goreleaser
+    runs-on: ubuntu-latest
     permissions:
-      actions: read
-      id-token: write   # required to sign provenance with OIDC
-      contents: write   # required to upload provenance artifact
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # v2.1.0
-    with:
-      base64-subjects: ${{ needs.goreleaser.outputs.hashes }}
-      upload-assets: false  # publish job uploads everything together
+      id-token: write      # required to sign attestations with OIDC
+      attestations: write  # required to store attestations
+      contents: read
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: artifacts
+          path: dist/
+
+      - name: Attest build provenance
+        id: attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/*.tar.gz
+            dist/*.zip
+
+      # Published as a release asset, so the provenance can be verified
+      # offline: gh attestation verify --bundle, no token, no API call.
+      - name: Name the attestation bundle for the release
+        env:
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+          TAG: ${{ inputs.version }}
+        run: |
+          mkdir -p provenance
+          cp "$BUNDLE" "provenance/sigcomply_${TAG#v}_provenance.sigstore.json"
+
+      - name: Upload attestation bundle
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: provenance
+          path: provenance/
+          if-no-files-found: error
+          retention-days: 1
 
   publish:
     name: Publish Release
-    needs: [goreleaser, provenance]
+    needs: [goreleaser, attest]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -157,8 +190,9 @@ jobs:
         with:
           egress-policy: audit
 
+      # Keeps its credentials: publish-release.sh pushes the tag.
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # zizmor: ignore[artipacked]
 
       - name: Download build artifacts
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -166,10 +200,10 @@ jobs:
           name: artifacts
           path: dist/
 
-      - name: Download SLSA provenance
+      - name: Download attestation bundle
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: ${{ needs.provenance.outputs.provenance-name }}
+          name: provenance
           path: provenance/
 
       # Pushes the tag, then publishes a prerelease. Safe to re-run.
@@ -177,7 +211,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ inputs.version }}
-        run: ./scripts/publish-release.sh "$TAG" dist/*.tar.gz dist/*.zip dist/checksums.txt provenance/*
+        run: ./scripts/publish-release.sh "$TAG" dist/*.tar.gz dist/*.zip dist/checksums.txt provenance/*.sigstore.json
 
   promote:
     name: Gate and Promote
@@ -209,10 +243,15 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
+      # The runners have gh, so install.sh also verifies the provenance;
+      # SIGCOMPLY_REQUIRE_PROVENANCE makes a skipped check fail the job.
       - name: Install via script
         env:
           SIGCOMPLY_VERSION: ${{ inputs.version }}
+          SIGCOMPLY_REQUIRE_PROVENANCE: '1'
         run: |
           ./scripts/install.sh
 

@@ -25,9 +25,15 @@ tracker. Don't import those assumptions from the Rails dashboard repo.
      major bump. A `feat` subject means minor, anything else means patch. Commits from earlier
      doc-only pushes count toward the next release, so a docs subject containing "breaking
      change" makes the next code release major.
-  2. Builds with GoReleaser (pinned version) from a local tag and attests build provenance. Only
-     then does it push the tag and publish the GitHub Release, as a prerelease, with notes from
-     `gh release create --generate-notes` (`scripts/publish-release.sh`). A failed build leaves
+  2. Builds with GoReleaser (pinned version, no module cache) from a local tag and attests build
+     provenance (`actions/attest-build-provenance`). Only then does it push the tag and publish
+     the GitHub Release, as a prerelease, with notes from `gh release create --generate-notes`
+     (`scripts/publish-release.sh`). The attestation bundle ships as the asset
+     `sigcomply_<version>_provenance.sigstore.json`; `install.sh`, the `init-ci` templates and
+     the E2E repos verify against it with a certificate identity that names
+     `auto-release-pipeline.yml` and `release.yml`. Renaming either workflow, or moving the build
+     to another workflow, breaks every verifier: change `PROVENANCE_IDENTITY` in
+     `scripts/install.sh`, the templates, `docs/guides/install.md` and the E2E repos together. A failed build leaves
      no tag. A re-run is safe: when HEAD already carries a final tag it resumes that version
      instead of bumping again, a tag already on origin is not pushed twice (one at another commit
      fails the run), and an existing release only gets the assets it lacks.
@@ -73,7 +79,8 @@ To push without releasing, put the skip marker (`[skip release]`, or a `chore(re
 in the head commit's message deliberately, and only then. The job matches it anywhere in the head
 commit's full message, so never quote it in a body by accident. A release that was skipped or
 path-ignored can be cut by hand with `workflow_dispatch` on `auto-release.yml`. `release.yml` is a
-separate manual release that takes an explicit version. It calls `test.yml` first and builds only
+separate manual release that takes an explicit version. Its `verify` job runs `install.sh` with
+`SIGCOMPLY_REQUIRE_PROVENANCE=1`, so a release whose provenance does not verify turns it red. It calls `test.yml` first and builds only
 when the suite passes on the dispatched commit; unlike `auto-release.yml` it holds the `release`
 group for the whole run, tests included. A version with a suffix (`v1.2.3-rc.1`)
 stays a prerelease, any other goes through the same gate and promotion. It also tags only after
