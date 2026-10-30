@@ -1,6 +1,7 @@
 package manual
 
 import (
+	"errors"
 	"fmt"
 	"io"
 )
@@ -30,14 +31,38 @@ func (e *FileTooLargeError) Retryable() bool { return false }
 
 // ReadAllLimited reads r to the end, but no more than limit bytes; a
 // longer stream returns FileTooLargeError naming key. Every Reader
-// backend reads object bodies through it (TestManualReadersCapReads).
+// backend reads object bodies through it or ReadAllLimitedSize
+// (TestManualReadersCapReads).
 func ReadAllLimited(r io.Reader, key string, limit int64) ([]byte, error) {
-	data, err := io.ReadAll(io.LimitReader(r, limit+1))
-	if err != nil {
-		return nil, err
+	return ReadAllLimitedSize(r, key, limit, 512)
+}
+
+// ReadAllLimitedSize is ReadAllLimited with the expected size known (a
+// local file's stat): the buffer starts at size+1 bytes, so a file of
+// that size is read with one allocation instead of io.ReadAll's
+// doubling. A wrong size only costs extra allocations; the cap still
+// holds.
+func ReadAllLimitedSize(r io.Reader, key string, limit, size int64) ([]byte, error) {
+	if size < 0 || size > limit {
+		size = limit
 	}
-	if int64(len(data)) > limit {
+	buf := make([]byte, 0, size+1)
+	lr := io.LimitReader(r, limit+1)
+	for {
+		if len(buf) == cap(buf) {
+			buf = append(buf, 0)[:len(buf)]
+		}
+		n, err := lr.Read(buf[len(buf):cap(buf)])
+		buf = buf[:len(buf)+n]
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	if int64(len(buf)) > limit {
 		return nil, &FileTooLargeError{Key: key, Limit: limit}
 	}
-	return data, nil
+	return buf, nil
 }

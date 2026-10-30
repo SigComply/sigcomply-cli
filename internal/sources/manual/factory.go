@@ -188,7 +188,7 @@ func (r *localReader) Get(_ context.Context, uri string) (_ []byte, _ time.Time,
 		return nil, time.Time{}, err
 	}
 	defer func() { err = errors.Join(err, f.Close()) }()
-	data, err := ReadAllLimited(f, uri, MaxFileBytes)
+	data, err := ReadAllLimitedSize(f, uri, MaxFileBytes, info.Size())
 	if err != nil {
 		return nil, time.Time{}, err
 	}

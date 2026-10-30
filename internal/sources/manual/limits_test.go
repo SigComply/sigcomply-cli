@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -99,8 +100,12 @@ func TestCollect_FileTooLargeIsAValidationFailure(t *testing.T) {
 // TestManualReadersCapReads is the class guard for unbounded reads of
 // uploaded evidence: no manual-evidence backend may read a whole body or
 // file without the MaxFileBytes cap. New backends inherit the rule.
+// Reading a whole stream (io.ReadAll, os.ReadFile) is allowed only in
+// limits.go, which implements the cap; copying a stream (io.Copy,
+// ReadFrom) is allowed only from an io.LimitReader on the same line.
 func TestManualReadersCapReads(t *testing.T) {
-	banned := regexp.MustCompile(`\bio\.ReadAll\(|\bos\.ReadFile\(|\bioutil\.ReadAll\(`)
+	readAll := regexp.MustCompile(`\bio\.ReadAll\(|\bos\.ReadFile\(|\bioutil\.ReadAll\(|\bioutil\.ReadFile\(`)
+	copyAll := regexp.MustCompile(`\bio\.Copy(Buffer)?\(|\.ReadFrom\(`)
 	err := filepath.WalkDir(".", func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -119,8 +124,11 @@ func TestManualReadersCapReads(t *testing.T) {
 			return err
 		}
 		for i, line := range strings.Split(string(src), "\n") {
-			if banned.MatchString(line) && !strings.Contains(line, "io.LimitReader(") {
+			if readAll.MatchString(line) && path != "limits.go" {
 				t.Errorf("%s:%d reads evidence without a size cap; use manual.ReadAllLimited", path, i+1)
+			}
+			if copyAll.MatchString(line) && !strings.Contains(line, "io.LimitReader(") {
+				t.Errorf("%s:%d copies evidence without a size cap; read through io.LimitReader or manual.ReadAllLimited", path, i+1)
 			}
 		}
 		return nil
@@ -166,5 +174,47 @@ func TestLocalReader_RefusesSymlinks(t *testing.T) {
 	}
 	if items, err := r.List(ctx, "manual/escape/"); err != nil || len(items) != 0 {
 		t.Errorf("List(symlinked dir) = %v, %v; want nothing", items, err)
+	}
+}
+
+// The local reader knows a file's size before reading it. Reading with
+// that size as the initial buffer allocates the file once; io.ReadAll's
+// doubling allocated about 2.2 times the file.
+func TestReadAllLimitedSize_AllocatesOnce(t *testing.T) {
+	const size = 8 << 20
+	data, err := ReadAllLimitedSize(bytes.NewReader(make([]byte, size)), "k", MaxFileBytes, size)
+	if err != nil || len(data) != size {
+		t.Fatalf("ReadAllLimitedSize = %d bytes, %v; want %d", len(data), err, size)
+	}
+	if cap(data) != size+1 {
+		t.Errorf("cap = %d; want %d (one allocation of size+1)", cap(data), size+1)
+	}
+	// A wrong hint still reads everything and keeps the cap.
+	if data, err := ReadAllLimitedSize(bytes.NewReader(make([]byte, 3000)), "k", MaxFileBytes, 10); err != nil || len(data) != 3000 {
+		t.Errorf("short hint: %d bytes, %v; want 3000", len(data), err)
+	}
+	var tooLarge *FileTooLargeError
+	if _, err := ReadAllLimitedSize(bytes.NewReader(make([]byte, 101)), "k", 100, 100); !errors.As(err, &tooLarge) {
+		t.Errorf("over the limit: err = %v; want FileTooLargeError", err)
+	}
+}
+
+func TestLocalReader_GetAllocatesAboutTheFileSize(t *testing.T) {
+	root := t.TempDir()
+	const size = 16 << 20
+	if err := os.WriteFile(filepath.Join(root, "big.pdf"), make([]byte, size), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	r := &localReader{root: root}
+	var before, after runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&before)
+	data, _, err := r.Get(context.Background(), "big.pdf")
+	runtime.ReadMemStats(&after)
+	if err != nil || len(data) != size {
+		t.Fatalf("Get = %d bytes, %v", len(data), err)
+	}
+	if grew := after.TotalAlloc - before.TotalAlloc; grew > size+size/4 {
+		t.Errorf("Get allocated %d MB for a %d MB file", grew>>20, size>>20)
 	}
 }
