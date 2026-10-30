@@ -1,54 +1,60 @@
 # sigcomply
 
-SigComply runs in your GitHub Actions or GitLab CI pipeline, checks your cloud and SaaS
-configuration against SOC 2 and ISO 27001, and signs the evidence into storage you own. The
-`sigcomply` CLI uses your read-only credentials to pull configuration from AWS, GCP, Azure,
-GitHub, GitLab, Okta and Active Directory, and evaluates it against SOC 2 and ISO 27001 policies
-you can read in the source. For controls no API can answer (policies, training records,
-reviews), it collects the documents you upload: it checks that a supported file is present for
-the period, merges the files into one PDF to validate them, and signs a record of each file's
-hash. It does not read or judge what the documents say; your auditor does.
+SOC 2 and ISO 27001 checks and signed evidence, run in your own CI.
 
-Raw evidence and results stay in storage you own. With a paid SigComply Cloud plan, the CLI also
-sends pass/fail counts per policy, never identities, and the dashboard turns them into reports
-for you and your auditor. SigComply does not certify anything; your auditor decides whether
-you comply.
+SigComply runs in your GitHub or GitLab pipeline, checks your cloud and SaaS configuration
+against SOC 2 and ISO 27001, and signs the evidence into storage you own. The CLI is free to use
+and its source is public. SigComply Cloud (paid, with a 2-month free trial) is an optional
+dashboard: it receives pass/fail counts per policy and turns them into a record of every
+scheduled run and reports for you and your auditor.
 
-## Who it's for
+Evidence without access: no vendor gets a role in your cloud or OAuth access to your code host
+and identity provider, including us.
 
-- Teams that won't give a compliance vendor a role in their cloud, or OAuth access to their code
-  host and identity provider. The CLI runs with the credentials you give your own pipeline, and
-  the evidence stays in your storage. Only per-policy counts and run details, such as the framework,
-  period, repository, branch, commit and CI run link, leave the pipeline, and only if you turn
-  the dashboard on.
-- Startups preparing for a first SOC 2 or ISO 27001 audit that want a pipeline step, not a
-  platform rollout, with no agents on laptops and no OAuth apps to install. `sigcomply init`
-  writes the config, `sigcomply init-ci --ci github` (or `gitlab`) writes the CI workflow, and
-  policy violations fail the build.
+## Why teams use it
 
-### What it doesn't do
+- Your evidence stays in your storage. The CLI reads AWS, GCP, Azure, GitHub, GitLab, Okta
+  and Active Directory with the credentials you give your own pipeline, and writes the evidence
+  to a bucket or folder you own.
+- Compliance checks run like tests. `sigcomply init` writes the config and `sigcomply init-ci`
+  writes the CI workflow. A policy violation fails the build, like a failing test. No agents on
+  laptops and no OAuth apps to install.
+- Signed evidence your auditor can verify. Every evidence file and every run is signed. A
+  file changed after the run fails verification. Keep the bucket write-once (for example S3
+  Object Lock) and nobody can replace and re-sign it.
 
 SigComply checks configuration and collects evidence. It doesn't run vendor reviews, security
 training, device monitoring or background checks, host a trust center, or perform the audit. A
-GRC platform covers more of that, and needs more access to your systems to do it.
+GRC platform covers more of that, and needs more access to your systems to do it. SigComply does
+not certify anything; your auditor decides whether you comply.
 
-## What you get
+## How it works
 
-- Policies for SOC 2 (2017 Trust Services Criteria) and ISO/IEC 27001:2022, readable in the
-  source. For ISO 27001 that covers all 93 Annex A controls, 26 of them with an automated check,
-  plus the 16 management-system requirements of clauses 4-10. Counts per framework are in
-  [Frameworks](docs/reference/frameworks.md).
-- Signed evidence in your own storage: a local folder, S3, GCS or Azure Blob. Each evidence file
-  is signed with a one-time Ed25519 key, and each run has a signed manifest of file hashes.
-- A list of the documents you still owe, with the folder for each: `sigcomply evidence due`.
-- CI workflows for GitHub Actions and GitLab CI, scaffolded by `sigcomply init-ci`.
-- Read-only reports from your storage, including the ISO 27001 Statement of Applicability:
-  `sigcomply report`.
-- Optional: the SigComply Cloud dashboard (paid, counts only), and the
-  [Evidence SPA](https://sigcomply.github.io/sigcomply-evidence-spa/), a browser page that turns
-  declaration and checklist forms into PDFs and verifies signed evidence files.
+1. A step in your pipeline runs `sigcomply check`, on a daily schedule and on pushes.
+2. Automated policies evaluate configuration read from cloud and SaaS APIs.
+3. Manual policies check that a document (a policy, a training record, a review) is in the right
+   folder for the period. The CLI never reads or judges what the document says; your auditor
+   does.
+4. The CLI signs the evidence and results into your storage. With SigComply Cloud turned on,
+   it also sends pass/fail counts per policy, never evidence files, their hashes, or the names,
+   emails and account IDs of what it checked.
 
-## Install
+A run prints one line per policy and exits 1 if any policy fails:
+
+```text
+SigComply check soc2/2026-Q4 — 133 policies
+  pass=1 fail=51 carried=0 skip=81 error=0 na=0 waived=0
+  [fail] soc2.a1.1.capacity_management_process — A1.1
+      ↳ manual evidence not found; expected files in: file://./evidence/manual/capacity_management_process/2026/
+  [pass] soc2.a1.2.business_continuity_plan — A1.2
+...
+Results written to ./.sigcomply/vault/soc2/2026-Q4/run_20261030T090413Z_e84412b4
+```
+
+[How it works](docs/how-it-works.md) covers a run stage by stage: API and manual evidence,
+signing and verification, what leaves your pipeline, and links to every implementation doc.
+
+## Try it in five minutes, no cloud account
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/SigComply/sigcomply-cli/main/scripts/install.sh | sh
@@ -57,19 +63,35 @@ curl -fsSL https://raw.githubusercontent.com/SigComply/sigcomply-cli/main/script
 The script installs the latest release into `/usr/local/bin`. For a pinned version, another
 folder or `go install`, see [Install](docs/guides/install.md).
 
-## Try it
+The [Quickstart](docs/quickstart.md) runs SigComply on your laptop with manual evidence only, so
+it needs no credentials. You run a check, add one PDF to make a control pass, verify the
+signatures, then change a file and watch verification fail. Its last step adds a read-only AWS
+account to see automated checks.
+
+## Add it to your pipeline
 
 ```sh
-sigcomply init -f soc2
-export AWS_ACCESS_KEY_ID=<your-access-key-id> AWS_SECRET_ACCESS_KEY=<your-secret-access-key>
-sigcomply check
-sigcomply report --period <period-id>
+sigcomply init                 # writes .sigcomply.yaml
+sigcomply init-ci --ci github  # or --ci gitlab; writes the CI workflow
 ```
 
-`init` writes a `.sigcomply.yaml` that reads AWS IAM users, access keys and the password policy,
-and stores signed results in `./.sigcomply/vault`. `check` prints the framework and period on
-its first summary line, for example `soc2/2026-Q4`; `report --period` takes `2026-Q4` or the
-whole value. The [Quickstart](docs/quickstart.md) walks through this run step by step.
+[Run SigComply in CI](docs/getting-started.md) walks through the rest: a bucket for the
+evidence, a CI role that your pipeline assumes over OIDC, the first run, and uploading manual
+evidence. To send counts to SigComply Cloud, add `cloud.base_url` and your project ID to the
+config ([Cloud dashboard](docs/guides/cloud-dashboard.md)).
+
+## What it checks
+
+- SOC 2 (2017 Trust Services Criteria) and ISO/IEC 27001:2022. For ISO 27001 that covers
+  all 93 Annex A controls, 26 of them with an automated check, plus
+  the 16 management-system requirements of clauses 4-10. Counts per framework are in
+  [Frameworks](docs/reference/frameworks.md).
+- Sources: AWS, GCP, Azure, GitHub, GitLab, Okta, Active Directory, and manual documents in a
+  local folder, S3, GCS or Azure Blob ([Sources](docs/reference/sources.md)).
+- Every policy is readable in the source. You can add your own policies and sources in your
+  repository; `sigcomply build` compiles them into the CLI.
+- Reports from your own storage, including the ISO 27001 Statement of Applicability:
+  `sigcomply report`.
 
 ## Documentation
 
@@ -77,11 +99,12 @@ All docs are indexed in [docs/README.md](docs/README.md).
 
 | You want to | Read |
 |---|---|
-| Run a first check on your machine | [Quickstart](docs/quickstart.md) |
-| Run SigComply in CI, with or without the dashboard | [Getting started](docs/getting-started.md) |
+| Understand how SigComply works before you adopt it | [How it works](docs/how-it-works.md) |
+| Try it on your laptop, no cloud account needed | [Quickstart](docs/quickstart.md) |
+| Run SigComply in CI, with or without the dashboard | [Run SigComply in CI](docs/getting-started.md) |
 | Do one task: add a source, upload evidence, verify a run | [How-to guides](docs/README.md#how-to-guides) |
 | Look up a command, flag, config key or exit code | [Reference](docs/README.md#reference) |
-| Understand what leaves your environment and how signing works | [Concepts](docs/concepts.md) |
+| Read what leaves your environment and the limits of signing | [Concepts](docs/concepts.md) |
 | Set up a repo with an AI coding agent | [For AI agents](docs/for-ai-agents.md) |
 | See what changed between releases | [Changelog](CHANGELOG.md) |
 
