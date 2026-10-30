@@ -26,6 +26,62 @@ var endpointKeys = map[string]string{
 	"url":      "ldap://dc.example.com",
 }
 
+// hostKeys maps every config key whose value becomes part of a request
+// host to a value that would move the request, and its credential, to
+// another host. Keys a cloud SDK validates or escapes are not here: the
+// AWS SDK refuses a region that is not a host label and puts an unusual
+// bucket in the path, azidentity validates tenant_id, and project,
+// subscription and bucket names elsewhere go into escaped URL paths.
+var hostKeys = map[string]string{
+	"account": "evil.example/#",
+}
+
+// notHostKeys are keys that contain "account" but never form a host.
+var notHostKeys = map[string]bool{
+	"service_account_ous":    true,
+	"target_service_account": true,
+}
+
+// hostKeyBackend is the extra config that makes a source use a host key
+// (manual.pdf reads "account" only on the azure_blob backend).
+var hostKeyBackend = map[string]map[string]any{
+	"account": {"backend": "azure_blob", "container": "evidence"},
+}
+
+// Every registered source that builds a request host from a config value
+// refuses a value that is not a bare host label. Like the endpoint test
+// above, a key that looks host-forming and is not listed fails it.
+func TestEverySourceRefusesHostInjection(t *testing.T) {
+	setDummyAWSCredentials(t)
+	checked := 0
+	for _, id := range sources.IDs() {
+		for _, key := range sources.ConfigKeys(id) {
+			bad, isHost := hostKeys[key]
+			if !isHost {
+				if lower := strings.ToLower(key); (strings.Contains(lower, "account") || strings.Contains(lower, "domain")) && !notHostKeys[key] {
+					t.Errorf("%s declares %q, which may form a host: add it to hostKeys or notHostKeys", id, key)
+				}
+				continue
+			}
+			checked++
+			t.Run(id+"/"+key, func(t *testing.T) {
+				cfg := routingBaseConfig()
+				for k, v := range hostKeyBackend[key] {
+					cfg[k] = v
+				}
+				cfg[key] = bad
+				_, err := sources.Build(context.Background(), id, sources.Env{Config: cfg})
+				if err == nil || !strings.Contains(err.Error(), key) {
+					t.Fatalf("%s did not refuse %s %q by name; got %v", id, key, bad, err)
+				}
+			})
+		}
+	}
+	if checked == 0 {
+		t.Fatal("no source declares a host key; the registry was not populated")
+	}
+}
+
 // routingBaseConfig is enough config for every factory that declares an
 // endpoint or token_env key to get as far as resolving them, with no
 // network call.

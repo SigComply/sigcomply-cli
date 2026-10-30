@@ -389,7 +389,7 @@ storage block takes credential keys.
 | `local` | `path` (default `./.sigcomply/vault`) | `path` (required); `prefix` (default `manual/`); `bucket` (defaults to `path`; files are always read from under `path`) |
 | `s3` | `bucket`, `region` (required); `prefix` (default none); `endpoint` (`https://`, or `http://` for `localhost` only), `force_path_style` (`true` or `false`, quoted or not) for S3-compatible stores | `bucket`, `region` (required; `region` falls back to `vault.region`); `prefix` (default `manual/`); `endpoint`, `force_path_style` |
 | `gcs` | `bucket` (required); `prefix` | `bucket` (required); `prefix` (default `manual/`) |
-| `azure_blob` | `account`, `container` (required); `prefix` | `account`, `container` (required); `prefix` (default `manual/`) |
+| `azure_blob` | `account` (the storage account name: 3 to 24 lowercase letters and digits), `container` (required); `prefix` | `account`, `container` (required); `prefix` (default `manual/`) |
 
 `backend` defaults to `local` in both blocks. Both blocks add a trailing `/` to a `prefix` that
 lacks one. Manual evidence is read from `{prefix}{evidence_catalog_id}/{period_id}/` under the

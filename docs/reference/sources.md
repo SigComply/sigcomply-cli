@@ -462,7 +462,7 @@ policy to collect (all automated, carried forward, or excepted as a whole) does 
 | `region` | `s3`, unless `vault.region` is set | `vault.region` | Bucket region. |
 | `endpoint` | no | none | `s3` only: URL of an S3-compatible store. Must be `https://` (`http://` only for `localhost`). |
 | `force_path_style` | no | `false` | `s3` only: `true` or `false` (quoted or not), path-style addressing for S3-compatible stores. Any other value is a config error (exit `3`). |
-| `account` | `azure_blob` | none | Storage account name. |
+| `account` | `azure_blob` | none | Storage account name: 3 to 24 lowercase letters and digits. |
 | `container` | `azure_blob` | none | Container name. |
 
 Credentials come from the backend's provider chain, the same as the matching `aws.*`, `gcp.*` or

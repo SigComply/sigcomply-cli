@@ -27,3 +27,24 @@ func TestValidateHTTPS(t *testing.T) {
 		}
 	}
 }
+
+// An Azure storage account name becomes the host of the request that
+// carries the job's Azure Storage token, so anything but the 3-24
+// lowercase letters and digits Azure allows is refused.
+func TestValidateAzureStorageAccount(t *testing.T) {
+	for _, ok := range []string{"abc", "evidence01", strings.Repeat("a", 24)} {
+		if err := ValidateAzureStorageAccount("account", ok); err != nil {
+			t.Errorf("%q: unexpected error %v", ok, err)
+		}
+	}
+	for _, bad := range []string{"", "ab", strings.Repeat("a", 25), "Evidence", "evil.example/#", "evil.example?", "a-b-c", "acct@evil.example", "acct:443"} {
+		err := ValidateAzureStorageAccount("account", bad)
+		if err == nil {
+			t.Errorf("%q: accepted", bad)
+			continue
+		}
+		if !strings.Contains(err.Error(), "account") {
+			t.Errorf("%q: the error should name the setting: %v", bad, err)
+		}
+	}
+}

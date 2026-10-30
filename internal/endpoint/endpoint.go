@@ -7,6 +7,7 @@ package endpoint
 import (
 	"fmt"
 	neturl "net/url"
+	"regexp"
 )
 
 // ValidateHTTPS accepts an https URL with a host, or plain http to a
@@ -34,4 +35,19 @@ func ValidateHTTPS(name, raw string) error {
 	default:
 		return fmt.Errorf("%s %q: want https://<host>", name, raw)
 	}
+}
+
+// azureStorageAccountRE is Azure's rule for a storage account name.
+var azureStorageAccountRE = regexp.MustCompile(`^[a-z0-9]{3,24}$`)
+
+// ValidateAzureStorageAccount accepts an Azure storage account name: 3
+// to 24 lowercase letters and digits. The name becomes the host
+// <account>.blob.core.windows.net of a request that carries the job's
+// Azure Storage token, so a value such as "evil.example/#" would send
+// that token to another host. name labels the setting in the error.
+func ValidateAzureStorageAccount(name, account string) error {
+	if !azureStorageAccountRE.MatchString(account) {
+		return fmt.Errorf("%s %q: an Azure storage account name is 3 to 24 lowercase letters and digits", name, account)
+	}
+	return nil
 }

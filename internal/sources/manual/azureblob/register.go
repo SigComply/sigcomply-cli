@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/sigcomply/sigcomply-cli/internal/endpoint"
 	"github.com/sigcomply/sigcomply-cli/internal/sources"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual"
 )
@@ -17,6 +18,9 @@ func build(raw map[string]any) (reader manual.Reader, scheme, bucketOut, prefixO
 	container := sources.StringOpt(raw, "container")
 	if account == "" || container == "" {
 		return nil, "", "", "", fmt.Errorf("manual.pdf azureblob: \"account\" and \"container\" both required")
+	}
+	if err := endpoint.ValidateAzureStorageAccount(`manual.pdf azureblob: "account"`, account); err != nil {
+		return nil, "", "", "", err
 	}
 	prefix := sources.StringOpt(raw, "prefix")
 	if prefix == "" {
