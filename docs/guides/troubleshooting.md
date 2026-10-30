@@ -90,8 +90,8 @@ ID again from the project's page.
 ### A `submit:` warning with an HTTP status
 
 The dashboard rejected the submission; the run itself is unaffected. Each status and its fix:
-[Connect to SigComply Cloud](cloud-dashboard.md#fix-submission-errors). `402` means the trial
-ended.
+[Connect to SigComply Cloud](cloud-dashboard.md#fix-submission-errors). The plan never blocks a
+submission: runs are recorded on every plan.
 
 ## Manual evidence
 

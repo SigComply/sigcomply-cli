@@ -105,10 +105,14 @@ and the response, and the exit code still reflects the policy results.
 
 ## 5. Trial and plan
 
-Your organization's first authenticated run submission starts a 2-month Pro trial. No card is
-needed. When the trial ends, the dashboard answers new submissions with HTTP `402`
-(`subscription_required`) and an `upgrade_url`. Upgrade under **Settings > Subscription**.
-Runs already submitted stay in the dashboard.
+Your organization's first authenticated run submission starts a 2-month trial of SigComply
+Cloud. No card is needed. Upgrade under **Settings > Subscription**.
+
+Your runs are always recorded, on every plan. When the trial ends without a paid plan, the
+dashboard shows each project's latest status and the last 30 days of runs. Older runs are kept
+and come back when you upgrade. Generating reports, inviting auditors and the auditor portal
+pause until you upgrade. Auditors keep their access, and reports you already generated stay
+available to download.
 
 ## 6. Generate a report
 
@@ -143,7 +147,6 @@ The `submit:` warning in the CI log includes the HTTP status and an error `code`
 | 403 | `project_mismatch` | The run sent a `cloud.project_id` that does not name an active project for the token's repository: the ID is mistyped, belongs to another repository's project, the repository is not connected, or the project is inactive. Matching ignores case. | Copy the **Project ID** from the project's page into `cloud.project_id`, check the project's repository URL matches the repository the job runs in (re-paste it after a rename), and check the project is active in **Settings**. |
 | 403 | `project_id_required` | The run sent no project ID: `cloud.project_id` is not set and the CLI is older than v0.90.1, which still runs without it (v0.90.1 and later exit `3` first). | Upgrade the CLI and set `cloud.project_id` in `.sigcomply.yaml` to the **Project ID** from the project's page. |
 | 403 | `repository_mismatch` | The token's repository or owner ID differs from the IDs the project recorded on its first accepted run, for example because the repository was deleted and recreated under the same name. | Update the repository URL in the project's **Settings** tab, which clears the recorded IDs, or contact support. |
-| 402 | `subscription_required` | The trial ended and there is no Pro subscription. | Upgrade from the `upgrade_url`. |
 | 413 | `payload_too_large` | The request body is over 4 MB. | Contact support. |
 | 422 | `validation_failed` or a message | The payload was rejected, for example because its `run_id` was already used by another project in your organization, or its summary counts or score disagree with its policy list. Resending the same run to the same project is not an error: it answers `200` and keeps the first copy. | Re-run the job; each run gets a new run ID. Check the message. |
 | 503 | `jwks_unavailable` | SigComply Cloud could not fetch your CI provider's signing keys to check the token. | Re-run the job later. |
