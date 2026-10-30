@@ -43,6 +43,8 @@ func FuzzToPDF(f *testing.F) {
 		f.Add(uint8(i), b.Bytes()) //nolint:gosec // i < len(fuzzExts)
 	}
 	f.Add(uint8(1), pngWithIDAT(100, 100, []byte{0, 1, 2, 3}))
+	f.Add(uint8(1), pngBomb(6, 1<<20)) // RGBA, IDAT inflates past the header
+	f.Add(uint8(1), pngBomb(4, 1<<20)) // gray+alpha
 	f.Add(uint8(4), webpVP8XHeader(3, 2))
 	f.Add(uint8(3), tiffHeader(3, 2))
 	f.Add(uint8(5), bmpHeader(3, 2))

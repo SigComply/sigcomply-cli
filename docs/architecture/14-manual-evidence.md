@@ -51,9 +51,9 @@ in `src/lib/storage-path.ts`; change both together.
 `Plugin.scanFolder` in `internal/sources/manual/manual.go`, in order:
 
 1. List the folder and keep only its own files (`manual.EvidenceFiles`): drop the zero-byte
-   folder object a bucket console creates (a key ending in `/`), anything in a subfolder,
-   dotfiles such as `.DS_Store`, `Thumbs.db` and `desktop.ini`. The cloud readers list
-   recursively and the local one does not; this rule makes every backend read the same files.
+   folder object a bucket console creates (a key ending in `/`), anything in a subfolder, files
+   whose names start with a dot (`.DS_Store`), `Thumbs.db` and `desktop.ini`. The cloud readers
+   list recursively and the local one does not; this rule makes every backend read the same files.
    `evidence due` applies it too. No files left: `file_present=false`. The evaluator fails the
    policy with "manual evidence not found; expected files in: <folder URI>". The local reader
    opens its folder with `os.OpenRoot` and lists and reads regular files only, so a checked-in
@@ -67,7 +67,9 @@ in `src/lib/storage-path.ts`; change both together.
    checks the size before reading. A conversion error adds `conversion_failed`: the image header
    is read first (`image.DecodeConfig`) and an image over `fileconv.MaxImagePixels` (50
    megapixels) is refused before any decoder allocates its pixel buffer, and a panic inside a
-   decoder is recovered into the error.
+   decoder is recovered into the error. A PNG is decoded with `image/png` and re-encoded before
+   `gofpdf` sees it, because `gofpdf` inflates a PNG's whole data stream with no limit; `image/png`
+   reads no more pixel data than the header declares.
 4. Merge all PDF parts (`pdfmerge.Merge`, pdfcpu with its stateless configuration, so it never
    reads or writes a config directory). Each part is read and validated on its own first; a
    part pdfcpu cannot read, or whose object numbers exceed `pdfmerge.MaxObjects` (1,000,000;

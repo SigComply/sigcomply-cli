@@ -138,8 +138,9 @@ numbers go above 1,000,000 is also refused; printing it to a new PDF renumbers t
 ### `conversion_failed`
 
 The CLI could not convert an image to PDF. Either the file is not a complete image of the type
-its extension says, or it is larger than 50 megapixels. Open the image to check it, then
-downscale it or save it as a PDF and upload that instead.
+its extension says, or it is larger than 50 megapixels. A phone photo taken in a high-resolution
+mode (108 or 200 megapixels) is over the limit; the default camera mode is not. Open the image to
+check it, then downscale it or save it as a PDF and upload that instead.
 
 ### `file_too_large`
 

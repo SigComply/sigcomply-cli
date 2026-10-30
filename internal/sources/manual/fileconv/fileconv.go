@@ -4,9 +4,10 @@
 // upload JPEG screenshots, PNG exports, or scanned TIFFs alongside PDFs
 // without pre-converting them manually.
 //
-// Supported input formats: .pdf (pass-through), .jpg/.jpeg, .png, .gif
-// (via gofpdf native), .tif/.tiff, .webp, .bmp (via x/image decode → PNG
-// re-encode → gofpdf — gofpdf has no native TIFF/WebP/BMP support).
+// Supported input formats: .pdf (pass-through), .jpg/.jpeg, .gif (via
+// gofpdf native), .png, .tif/.tiff, .webp, .bmp (via image/png or x/image
+// decode → PNG re-encode → gofpdf: gofpdf has no native TIFF/WebP/BMP
+// support, and its own PNG reader inflates without a limit).
 //
 // Unsupported formats (e.g. .docx, .xlsx) are not converted; callers
 // receive a typed UnsupportedTypeError with the full list of supported
@@ -97,8 +98,10 @@ func (e *UnsupportedTypeError) Retryable() bool { return false }
 // MaxImagePixels is the largest image, in pixels (width × height), that
 // ToPDF converts. Decoders allocate about four bytes per pixel before
 // reading any pixel data, so a header of a few dozen bytes can otherwise
-// ask for gigabytes. 50 megapixels covers a full-resolution photo from
-// any current phone camera or a 600 dpi A4 scan (about 35 megapixels).
+// ask for gigabytes. 50 megapixels covers a phone photo at its default
+// resolution and a 600 dpi A4 scan (about 35 megapixels); a phone's
+// high-resolution mode (108 or 200 megapixels) is over the limit and must
+// be downscaled before upload.
 const MaxImagePixels = 50_000_000
 
 // ImageTooLargeError is returned by ToPDF when an image header declares
@@ -153,13 +156,16 @@ func ToPDF(filename, ext string, data []byte) (pdf []byte, converted bool, err e
 	switch ext {
 	case ".jpg", ".jpeg":
 		out, err = imageToPDF(filename, "JPEG", data)
-	case ".png":
-		out, err = imageToPDF(filename, "PNG", data)
 	case ".gif":
 		out, err = imageToPDF(filename, "GIF", data)
-	default: // ".tif", ".tiff", ".webp", ".bmp"
-		// gofpdf can't read these. Decode via x/image (registered above)
-		// then re-encode as PNG, which gofpdf does support.
+	default: // ".png", ".tif", ".tiff", ".webp", ".bmp"
+		// gofpdf can't read TIFF, WebP or BMP: decode via x/image
+		// (registered above), then re-encode as PNG. An uploaded PNG
+		// takes the same path: gofpdf inflates a PNG's whole IDAT
+		// stream with no limit, so a small file with a valid header
+		// could decompress to gigabytes. image/png reads no more pixel
+		// data than the header declares, and the re-encoded PNG is
+		// bounded by MaxImagePixels.
 		pngData, e := reencodeAsPNG(data)
 		if e != nil {
 			return nil, false, fmt.Errorf("fileconv: decode %s: %w", filename, e)
