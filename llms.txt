@@ -15,7 +15,7 @@ Facts agents get wrong:
 
 ## Tutorials
 
-- [Quickstart](https://github.com/SigComply/sigcomply-cli/blob/main/docs/quickstart.md): First local check against one AWS account, into a local vault.
+- [Quickstart](https://github.com/SigComply/sigcomply-cli/blob/main/docs/quickstart.md): First local check with no cloud account: add one document, verify the signed evidence in a local vault.
 - [Run SigComply in CI](https://github.com/SigComply/sigcomply-cli/blob/main/docs/getting-started.md): Bucket vault, CI workflows, AWS OIDC, optional cloud submission, manual evidence upload.
 
 ## How-to guides
@@ -45,5 +45,6 @@ Facts agents get wrong:
 
 ## Optional
 
+- [How SigComply works](https://github.com/SigComply/sigcomply-cli/blob/main/docs/how-it-works.md): One run from start to finish, manual evidence, signing and its limits, what leaves the pipeline, what SigComply Cloud adds.
 - [Concepts](https://github.com/SigComply/sigcomply-cli/blob/main/docs/concepts.md): What SigComply does and does not do, evidence flows, the aggregation boundary, signing and its limits.
 - [Changelog](https://github.com/SigComply/sigcomply-cli/blob/main/CHANGELOG.md): Changes per release.

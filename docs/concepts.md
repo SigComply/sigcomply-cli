@@ -64,9 +64,9 @@ configured source can fill makes the policy skip.
 
 The CLI is the only place raw evidence is reduced to counts.
 
-Stays in your storage: raw API responses, uploaded documents, the full list of failing
-resources with their identifiers (ARNs, emails, usernames, account IDs), signatures, and each
-run's `manifest.json`.
+Stays in your storage: the normalized evidence records that sources build from API responses,
+uploaded documents, the full list of failing resources with their identifiers (ARNs, emails,
+usernames, account IDs), signatures, and each run's `manifest.json`.
 
 Leaves your environment, only when cloud submission is on: per-policy counts and status, the
 run's summary counts and score, and CI metadata (repository, branch, commit, CLI version).
@@ -142,6 +142,8 @@ coverage` shows which kind of check stands behind each control.
 
 ## See also
 
+- [How SigComply works](how-it-works.md): one run from start to finish, and what leaves your
+  pipeline.
 - [Frameworks](reference/frameworks.md): shipped frameworks and their counts.
 - [Verify evidence](guides/verify-evidence.md): report views and the `/verify` page.
 - [ARCHITECTURE.md](../ARCHITECTURE.md): the system design, for contributors.

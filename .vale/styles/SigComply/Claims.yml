@@ -13,3 +13,5 @@ tokens:
   - fully secure
   - audit[- ]proof
   - pass(?:es)? (?:your|an|the) audit
+  - tamper[- ]?proof
+  - continuous compliance

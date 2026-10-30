@@ -9,7 +9,7 @@ it? Start with the [Quickstart](quickstart.md).
 
 | Page | What you do |
 |---|---|
-| [Quickstart](quickstart.md) | Run a first check against one AWS account on your machine and add one document |
+| [Quickstart](quickstart.md) | Run a first check on your machine with no cloud account, add one document and verify the signed evidence |
 | [Run SigComply in CI](getting-started.md) | Move the project to CI with a bucket vault, AWS OIDC and, optionally, the SigComply Cloud dashboard |
 
 ## How-to guides
@@ -42,6 +42,7 @@ it? Start with the [Quickstart](quickstart.md).
 
 | Page | Topic |
 |---|---|
+| [How SigComply works](how-it-works.md) | One run from start to finish, manual evidence, signing and its limits, what leaves your pipeline, what SigComply Cloud adds |
 | [Concepts](concepts.md) | What SigComply does and doesn't do, the two evidence flows, what leaves your environment, signing and its limits, what the score hides |
 | [SECURITY.md](../SECURITY.md) | Threat model and how to report a vulnerability |
 

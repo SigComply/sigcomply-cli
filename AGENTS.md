@@ -129,7 +129,7 @@ hashes) is reduced to counts. Nothing that identifies a resource or person may r
 request. The wire type `core.SubmissionPayload` (`internal/core/cloud.go`) has no
 `map[string]any`, no `Violations` slice and no freeform field;
 `TestSubmissionPayload_StructurallyCountsOnly` (`internal/core/cloud_test.go`) fails the build if
-one is added. Field list and rationale: `docs/architecture/06-aggregation.md`. Raw responses,
+one is added. Field list and rationale: `docs/architecture/06-aggregation.md`. Evidence records,
 violation lists, envelopes and `manifest.json` stay in the customer's vault.
 
 ### 2. Two evidence flows, and only two
