@@ -63,11 +63,12 @@ variables:
       curl -fsSL "${base}/checksums.txt" -o /tmp/checksums.txt
       # Verify against the release's checksums before extracting anything.
       (cd /tmp && grep "  ${asset}\$" checksums.txt | sha256sum -c -)
-      # Optional: also verify the build provenance, offline. Needs git and a
+      # Optional: also verify the build provenance (no token). Needs git and a
       # recent GitHub CLI (gh) in the image; see the install guide:
       # https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/install.md
       # bundle="sigcomply_${ver}_provenance.sigstore.json"
-      # curl -fsSL "${base}/${bundle}" -o "/tmp/${bundle}"
+      # curl -fsSL "${base}/${bundle}" -o "/tmp/${bundle}" \
+      #   || { echo "${tag} has no ${bundle}: pin v0.91.0 or later" >&2; exit 1; }
       # commit=$(git ls-remote https://github.com/SigComply/sigcomply-cli "refs/tags/${tag}^{}" | cut -f1)
       # gh attestation verify "/tmp/${asset}" --bundle "/tmp/${bundle}" \
       #   --repo SigComply/sigcomply-cli --source-digest "${commit:?cannot resolve ${tag}}" \

@@ -38,8 +38,9 @@ tracker. Don't import those assumptions from the Rails dashboard repo.
      provenance (`actions/attest-build-provenance`). Only then does it push the tag and publish
      the GitHub Release, as a prerelease, with notes from `gh release create --generate-notes`
      (`scripts/publish-release.sh`). The attestation bundle ships as the asset
-     `sigcomply_<version>_provenance.sigstore.json`; `install.sh`, the `init-ci` templates and
-     the E2E repos verify against it with a certificate identity that names
+     `sigcomply_<version>_provenance.sigstore.json`; `install.sh` and the `init-ci` templates
+     verify against it, and the E2E repos fetch the same attestation online; all pin a
+     certificate identity that names
      `auto-release-pipeline.yml` and `release.yml`. Renaming either workflow, or moving the build
      to another workflow, breaks every verifier: change `PROVENANCE_IDENTITY` in
      `scripts/install.sh`, the templates, `docs/guides/install.md` and the E2E repos together. A failed build leaves

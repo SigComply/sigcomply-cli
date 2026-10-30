@@ -11,7 +11,10 @@ Install the `sigcomply` binary on your machine and confirm it runs.
 - `sha256sum` or `shasum` (the install script checks the download with one of them).
 - Optional: the [GitHub CLI](https://cli.github.com/) (`gh`), to verify the build provenance.
   The script needs a `gh` whose `gh attestation verify --help` lists `--bundle`,
-  `--source-digest` and `--deny-self-hosted-runners`. It does not need you to be logged in.
+  `--source-digest` and `--deny-self-hosted-runners`. It does not need you to be logged in. With
+  `SIGCOMPLY_REQUIRE_PROVENANCE=1`, `gh` is required.
+- `git`, for the manual provenance check (step 3 of the manual steps). The script uses `git`
+  when it is installed and the GitHub API otherwise.
 
 ## Install with the script
 
@@ -28,7 +31,7 @@ Install the `sigcomply` binary on your machine and confirm it runs.
 
    ```bash
    curl -fsSL https://raw.githubusercontent.com/SigComply/sigcomply-cli/main/scripts/install.sh \
-     | SIGCOMPLY_VERSION=v0.88.4 SIGCOMPLY_INSTALL_DIR="$HOME/.local/bin" SIGCOMPLY_NO_SUDO=1 sh
+     | SIGCOMPLY_VERSION=v0.91.0 SIGCOMPLY_INSTALL_DIR="$HOME/.local/bin" SIGCOMPLY_NO_SUDO=1 sh
    ```
 
    | Variable | Default | Effect |
@@ -36,7 +39,7 @@ Install the `sigcomply` binary on your machine and confirm it runs.
    | `SIGCOMPLY_VERSION` | `latest` | Release tag to install, for example `v0.88.4`. The leading `v` is optional. A prerelease tag such as `v0.89.0-rc.1` works too; `latest` never picks a prerelease. |
    | `SIGCOMPLY_INSTALL_DIR` | `/usr/local/bin` | Directory the binary goes into. Must be on your `PATH`. |
    | `SIGCOMPLY_NO_SUDO` | `0` | Set to `1` to never call `sudo`. |
-   | `SIGCOMPLY_REQUIRE_PROVENANCE` | `0` | Set to `1` to stop the install unless the build provenance is verified: without `gh`, with a `gh` that lacks the flags, or for a release without a provenance bundle, the script exits with an error instead of a warning. |
+   | `SIGCOMPLY_REQUIRE_PROVENANCE` | `0` | Set to `1` to stop the install unless the build provenance is verified: without `gh`, with a `gh` that lacks the flags, or for a release before v0.91.0, the script exits with an error instead of a warning. |
 
 2. Check the install:
 
@@ -55,12 +58,13 @@ The script picks the archive from `uname -s` and `uname -m`. On 32-bit ARM, `arm
 installs `sigcomply.exe`. It stops with `Checksum mismatch` when the archive's SHA-256 differs
 from its entry in `checksums.txt`.
 
-With `gh` installed, the script then runs the check in step 3 of the manual steps below, offline,
+With `gh` installed, the script then runs the check in step 3 of
+[Install a release archive by hand](#install-a-release-archive-by-hand), without a GitHub token,
 against the release's provenance bundle. It stops with `Build provenance verification failed`
 when the archive was not built by SigComply's release workflow from the commit the tag points
-at. Without `gh`, with an older `gh`, or for a release that has no bundle (releases before
-v0.91.0), it prints `Build provenance not verified` and installs after the checksum check alone,
-unless `SIGCOMPLY_REQUIRE_PROVENANCE=1` is set.
+at, and with `Cannot download` when a release from v0.91.0 on has no bundle. Without `gh`, with
+an older `gh`, or for a release before v0.91.0, it prints `Build provenance not verified` and
+installs after the checksum check alone, unless `SIGCOMPLY_REQUIRE_PROVENANCE=1` is set.
 
 ## Install a release archive by hand
 
@@ -94,7 +98,8 @@ build provenance bundle, from v0.91.0):
 
 3. Optional: verify the build provenance with the [GitHub CLI](https://cli.github.com/). Every
    archive carries a GitHub build attestation, signed for the release workflow that built it.
-   Download the release's bundle, look up the commit the tag points at, and verify:
+   Download the release's bundle, look up the commit the tag points at (release tags are
+   annotated, so `^{}` resolves them to the commit), and verify:
 
    ```bash
    curl -fsSL -O "https://github.com/SigComply/sigcomply-cli/releases/download/${tag}/sigcomply_${ver}_provenance.sigstore.json"
@@ -111,7 +116,7 @@ build provenance bundle, from v0.91.0):
 
    | Flag | Checks |
    |---|---|
-   | `--bundle` | Verifies offline against the downloaded bundle. No GitHub login or token is needed. |
+   | `--bundle` | Verifies against the downloaded bundle. No GitHub login or token is needed; `gh` only fetches Sigstore's public trust root. |
    | `--cert-identity-regex` | The archive was signed by one of SigComply's two release workflows, run from `main` or a release tag. |
    | `--source-digest` | It was built from the commit the tag points at, so an archive from another release fails. |
    | `--deny-self-hosted-runners` | It was built on a GitHub-hosted runner. |

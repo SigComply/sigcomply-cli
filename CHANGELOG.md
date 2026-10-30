@@ -14,12 +14,11 @@ this file lists the changes a user notices.
 ### Added
 
 - Releases publish `sigcomply_<version>_provenance.sigstore.json`, the build provenance bundle,
-  so `gh attestation verify --bundle` checks an archive offline, without a GitHub login.
+  so `gh attestation verify --bundle` checks an archive without a GitHub login.
 - `install.sh` verifies the build provenance when a recent GitHub CLI (`gh`) is installed, and
   stops when it fails. `SIGCOMPLY_REQUIRE_PROVENANCE=1` makes a missing or old `gh` an error.
 - The GitHub workflows `sigcomply init-ci` writes verify the build provenance before
   extracting the CLI; the GitLab file carries the same check commented out.
-
 - A `not` operator in the `pass_when` DSL.
 - `sigcomply init` writes every `aws.*` source into `.sigcomply.yaml`, the core three active and
   the rest commented out, and prints a `.gitignore` hint for the local vault.

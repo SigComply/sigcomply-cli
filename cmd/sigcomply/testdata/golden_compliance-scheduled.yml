@@ -45,11 +45,12 @@ jobs:
           curl -fsSL "${base}/checksums.txt" -o /tmp/checksums.txt
           # Verify against the release's checksums before extracting anything.
           (cd /tmp && grep "  ${asset}\$" checksums.txt | sha256sum -c -)
-          # Verify the build provenance offline: the archive must have been
+          # Verify the build provenance (no token): the archive must have been
           # built by SigComply's release workflow on a GitHub-hosted runner,
           # from the commit the tag points at. A mismatch fails the job.
           bundle="sigcomply_${ver}_provenance.sigstore.json"
-          curl -fsSL "${base}/${bundle}" -o "/tmp/${bundle}"
+          curl -fsSL "${base}/${bundle}" -o "/tmp/${bundle}" \
+            || { echo "${tag} has no ${bundle}: pin v0.91.0 or later" >&2; exit 1; }
           commit=$(git ls-remote https://github.com/SigComply/sigcomply-cli "refs/tags/${tag}^{}" | cut -f1)
           gh attestation verify "/tmp/${asset}" --bundle "/tmp/${bundle}" \
             --repo SigComply/sigcomply-cli --source-digest "${commit:?cannot resolve ${tag}}" \

@@ -60,7 +60,9 @@ own version there (for example `v0.88.4`); a build from source writes `latest`. 
 so every run installs the same CLI, and bump it when you upgrade. The install step checks the
 downloaded archive against the release's `checksums.txt`, then verifies its build provenance
 with `gh attestation verify` against the release's provenance bundle, before extracting it. The
-job fails if either check fails. The provenance check needs a release from v0.91.0 on;
+job fails if either check fails. The provenance check needs `gh` and `git` on the runner
+(GitHub-hosted runners have both; add them to a self-hosted runner or container image) and a
+release from v0.91.0 on;
 [Install the SigComply CLI](install.md#install-a-release-archive-by-hand) (step 3) explains each
 flag.
 

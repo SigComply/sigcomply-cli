@@ -15,7 +15,7 @@
 #
 # Build provenance: the same GitHub attestation as auto-release-pipeline.yml,
 # published as the release asset sigcomply_<version>_provenance.sigstore.json
-# so it can be verified offline. Customer steps: docs/guides/install.md.
+# so it can be verified without a GitHub token. Customer steps: docs/guides/install.md.
 # Renaming this file breaks every verifier that pins the signing workflow.
 
 name: Release
@@ -161,7 +161,7 @@ jobs:
             dist/*.zip
 
       # Published as a release asset, so the provenance can be verified
-      # offline: gh attestation verify --bundle, no token, no API call.
+      # without a GitHub token: gh attestation verify --bundle.
       - name: Name the attestation bundle for the release
         env:
           BUNDLE: ${{ steps.attest.outputs.bundle-path }}

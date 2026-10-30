@@ -81,6 +81,14 @@ type provenanceCase struct {
 	apiSHA    string // commit SHA the API returns when git is absent
 	require   bool   // SIGCOMPLY_REQUIRE_PROVENANCE=1
 	inheritGH bool   // set GH_TOKEN in the environment
+	tag       string // release tag; v1.2.3 when empty
+}
+
+func (c *provenanceCase) releaseTag() string {
+	if c.tag == "" {
+		return "v1.2.3"
+	}
+	return c.tag
 }
 
 func annotatedLsRemote() string {
@@ -127,13 +135,14 @@ func runVerifyProvenance(t *testing.T, c *provenanceCase) provenanceRun {
 		t.Fatal(err)
 	}
 	logPath := filepath.Join(dir, "calls.log")
+	tag := c.releaseTag()
 	shell, err := exec.LookPath("sh")
 	if err != nil {
 		t.Fatal(err)
 	}
 	cmd := exec.CommandContext(t.Context(), shell, "-c", //nolint:gosec // fixed script; the arguments are positional parameters
 		`. ./install.sh && verify_provenance "$1" "$2" "$3" "$4"`, "sh",
-		archive, "https://github.com/SigComply/sigcomply-cli/releases/download/v1.2.3", "v1.2.3", work)
+		archive, "https://github.com/SigComply/sigcomply-cli/releases/download/"+tag, tag, work)
 	env := []string{
 		"PATH=" + bin, "SIGCOMPLY_INSTALL_LIB=1", "HOME=" + dir,
 		"FAKE_LOG=" + logPath, "FAKE_GH_HELP=" + c.help, "FAKE_GH_EXIT=" + c.ghExit,
@@ -220,9 +229,11 @@ func TestInstallScript_VerifyProvenance_MismatchFails(t *testing.T) {
 // with SIGCOMPLY_REQUIRE_PROVENANCE=1.
 func TestInstallScript_VerifyProvenance_Unavailable(t *testing.T) {
 	cases := map[string]func(*provenanceCase){
-		"no gh":         func(c *provenanceCase) { c.gh = false },
-		"old gh":        func(c *provenanceCase) { c.help = oldHelp },
-		"no bundle":     func(c *provenanceCase) { c.bundle = "missing" },
+		"no gh":  func(c *provenanceCase) { c.gh = false },
+		"old gh": func(c *provenanceCase) { c.help = oldHelp },
+		"release before bundles": func(c *provenanceCase) {
+			c.bundle, c.tag, c.lsRemote = "missing", "v0.90.5", peeledCommit+`\trefs/tags/v0.90.5\n`
+		},
 		"empty gh help": func(c *provenanceCase) { c.help = "" },
 	}
 	for name, mutate := range cases {
@@ -323,5 +334,24 @@ func TestInstallScript_ProvenanceIdentity(t *testing.T) {
 		if re.MatchString(bad) {
 			t.Errorf("accepts %s", bad)
 		}
+	}
+}
+
+// From v0.91.0 every release publishes its bundle, so a missing one (or a
+// download that fails for any reason) stops the install: a release made
+// outside the release workflow cannot skip the check by leaving it out.
+func TestInstallScript_VerifyProvenance_MissingBundleFailsFromV0910(t *testing.T) {
+	for _, tag := range []string{"v0.91.0", "v0.91.0-rc.1", "v1.2.3", "v0.100.0"} {
+		t.Run(tag, func(t *testing.T) {
+			c := verifiableCase()
+			c.bundle, c.tag = "missing", tag
+			r := runVerifyProvenance(t, &c)
+			if r.err == nil {
+				t.Fatalf("a %s release without its bundle was installed:\n%s", tag, r.out)
+			}
+			if !strings.Contains(r.out, "provenance.sigstore.json") {
+				t.Errorf("error does not name the bundle:\n%s", r.out)
+			}
+		})
 	}
 }

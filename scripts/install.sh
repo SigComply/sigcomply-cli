@@ -17,10 +17,12 @@
 #                       GitHub build provenance is verified. By default the
 #                       installer verifies it when a recent GitHub CLI (gh)
 #                       is installed, and warns and continues when gh is
-#                       missing or too old, or the release has no bundle.
+#                       missing or too old, or the release predates bundles
+#                       (before v0.91.0).
 #
 # Every download is checked against the release's checksums.txt. With gh,
-# the archive's build provenance is verified too, offline, against the
+# the archive's build provenance is verified too, without a GitHub token,
+# against the
 # release's sigcomply_<version>_provenance.sigstore.json bundle: the
 # archive must have been built by this repository's release workflow, on a
 # GitHub-hosted runner, from the commit the release tag points at. A failed
@@ -170,8 +172,19 @@ provenance_bundle_name() {
     echo "${BINARY_NAME}_${1}_provenance.sigstore.json"
 }
 
+# Succeed when a version without the v (prerelease suffix ignored) is
+# v0.91.0 or later: the first release that publishes a provenance bundle.
+has_provenance_bundle() {
+    _v="${1%%-*}"
+    _major="${_v%%.*}"; _rest="${_v#*.}"; _minor="${_rest%%.*}"
+    case "$_major$_minor" in
+        *[!0-9]*|"") return 1 ;;
+    esac
+    [ "$_major" -gt 0 ] || [ "$_minor" -ge 91 ]
+}
+
 # Succeed when gh is installed and its `attestation verify` has every flag
-# the offline verification needs. An older gh counts as no gh.
+# the bundle verification needs. An older gh counts as no gh.
 gh_can_verify() {
     command -v gh >/dev/null 2>&1 || return 1
     _help=$(gh attestation verify --help 2>&1) || return 1
@@ -215,7 +228,7 @@ provenance_unavailable() {
 }
 
 # verify_provenance <archive> <release-url> <tag> <work-dir>: verify the
-# archive's GitHub build provenance with gh, offline, against the
+# archive's GitHub build provenance with gh, without a token, against the
 # release's bundle. Stops the install when the verification fails.
 verify_provenance() {
     if ! gh_can_verify; then
@@ -223,16 +236,22 @@ verify_provenance() {
         return 0
     fi
     _bundle="$4/$(provenance_bundle_name "${3#v}")"
-    # Quiet: a 404 here is a release without a bundle, reported below.
+    # Quiet: the failure is reported below. From v0.91.0 every release
+    # has a bundle, so any failure to fetch it stops the install; leaving
+    # the bundle out must not skip the check.
     if ! curl -fsSL "$2/${_bundle##*/}" -o "$_bundle" 2>/dev/null; then
-        provenance_unavailable "release $3 has no ${_bundle##*/}"
+        if has_provenance_bundle "${3#v}"; then
+            error "Cannot download ${_bundle##*/} from release $3, so its build provenance cannot be verified"
+        fi
+        provenance_unavailable "release $3 predates provenance bundles (v0.91.0) and has no ${_bundle##*/}"
         return 0
     fi
     if ! _commit=$(tag_commit "$3"); then
         error "Cannot resolve the commit of $3 to verify its build provenance"
     fi
     # A throwaway gh config and no token: the bundle makes the check
-    # offline, and a caller's gh login or GH_HOST must not change it.
+    # check need no GitHub login, and a caller's login or GH_HOST must not
+    # change it.
     mkdir -p "$4/gh-config"
     if ! _out=$(env -u GH_TOKEN -u GITHUB_TOKEN -u GH_ENTERPRISE_TOKEN -u GITHUB_ENTERPRISE_TOKEN -u GH_HOST \
         GH_CONFIG_DIR="$4/gh-config" GH_PROMPT_DISABLED=1 \
