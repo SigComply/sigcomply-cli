@@ -44,8 +44,9 @@ to send one that does not include `DefaultAudience`, whichever provider produced
 a credential for the receiver it was minted for, so forwarding a foreign one would hand that
 credential to SigComply Cloud.
 
-The reverse also holds: SigComply Cloud receives every token minted for `DefaultAudience`, so no
-cloud role may trust that audience. `check` warns (`oidc:` prefix,
+The reverse also holds (AGENTS.md invariant 6): SigComply Cloud receives every token minted for
+`DefaultAudience`, so no cloud role may trust that audience. The `init-ci` templates give AWS its
+own token with `sts.amazonaws.com`. `check` warns (`oidc:` prefix,
 `submitter.AWSWebIdentityAudienceWarning`) when the file in `AWS_WEB_IDENTITY_TOKEN_FILE` holds
 such a token. It is a warning, not a refusal: the run still works, the role's trust is what is
 wrong, and the customer fixes it in IAM.

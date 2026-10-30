@@ -222,7 +222,7 @@ write-once storage. [How SigComply works](how-it-works.md#signing-and-verificati
 ## 7. Optional: add an AWS account
 
 To see automated checks, you need AWS credentials with read-only access to one account, for
-example a user or role with the AWS-managed `ReadOnlyAccess` policy. Sources only read:
+example a user or role with the AWS managed policies `SecurityAudit` and `ViewOnlyAccess`. Sources only read:
 SigComply makes read calls, plus `iam:GenerateCredentialReport`, which asks AWS to build the
 account's credential report. The [source reference](reference/sources.md) lists every API action.
 

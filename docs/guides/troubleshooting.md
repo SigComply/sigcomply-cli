@@ -49,9 +49,10 @@ to 3 attempts with 40 seconds of waits, and not at all on a plain `check`.
 ### GitLab job: AWS sources report no usable credentials
 
 The AWS SDK needs `AWS_ROLE_ARN` and `AWS_WEB_IDENTITY_TOKEN_FILE`. Re-scaffold with
-`sigcomply init-ci --ci gitlab --force`, or copy the `before_script` step that writes the ID token
-to a file from a fresh scaffold. Then check the IAM OIDC provider lists `https://api.sigcomply.com`
-as a client ID ([Run in GitLab CI](ci-gitlab.md#3-create-the-aws-oidc-provider-and-role)).
+`sigcomply init-ci --ci gitlab --force`, or copy the `AWS_ID_TOKEN` entry under `id_tokens:` and
+the `before_script` step that writes it to a file from a fresh scaffold. Then check that the job's
+role variable is set, and that the IAM OIDC provider lists `sts.amazonaws.com` as a client ID
+([Run in GitLab CI](ci-gitlab.md#3-create-the-aws-oidc-provider-and-roles)).
 
 ## Cloud submission
 
@@ -98,8 +99,8 @@ The job gives AWS a token minted for SigComply Cloud, so the AWS role trusts the
 `https://api.sigcomply.com`. SigComply Cloud receives tokens with that audience. Give AWS its own
 token with the audience `sts.amazonaws.com` and remove `https://api.sigcomply.com` from the role's
 trust policy and the IAM OIDC provider's client IDs:
-[Run in GitHub Actions](ci-github.md#3-create-the-aws-oidc-provider-and-role),
-[Run in GitLab CI](ci-gitlab.md#3-create-the-aws-oidc-provider-and-role).
+[Run in GitHub Actions](ci-github.md#3-create-the-aws-oidc-provider-and-roles),
+[Run in GitLab CI](ci-gitlab.md#3-create-the-aws-oidc-provider-and-roles).
 
 ### A `submit:` warning with an HTTP status
 

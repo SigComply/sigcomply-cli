@@ -18,6 +18,7 @@ permissions:
 env:
   SIGCOMPLY_VERSION: __SIGCOMPLY_VERSION__    # release tag to install (pin one for repeatable runs), or "latest"
   AWS_REGION: us-east-1
+  # The on-push role: trusts pull requests and main, can't write state/.
   AWS_ROLE_ARN: arn:aws:iam::000000000000:role/REPLACE_ME
 
 jobs:
@@ -58,10 +59,13 @@ jobs:
             --cert-identity-regex '^https://github\.com/SigComply/sigcomply-cli/\.github/workflows/(auto-release-pipeline|release)\.yml@refs/(heads/main|tags/v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?)$' \
             --deny-self-hosted-runners
           sudo tar -xzf "/tmp/${asset}" -C /usr/local/bin sigcomply
+      # AWS gets its own OIDC token, with AWS's audience. The CLI mints a
+      # separate token for SigComply Cloud (https://api.sigcomply.com);
+      # never let an AWS role trust that audience.
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-          audience: https://api.sigcomply.com
+          audience: sts.amazonaws.com
       - name: Run SigComply
         run: sigcomply check --pr

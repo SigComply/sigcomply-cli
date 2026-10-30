@@ -21,18 +21,21 @@
 # 2 execution error, 3 config error. Violations fail the job by default;
 # set `ci.fail_on_violation: false` in .sigcomply.yaml to keep it green.
 #
-# OIDC: `id_tokens` mints SIGCOMPLY_ID_TOKEN, a GitLab JWT with audience
-# `https://api.sigcomply.com`. It is used twice:
-#   - The CLI sends it to SigComply Cloud when `cloud.base_url:
+# OIDC: `id_tokens` mints two GitLab JWTs, one per receiver:
+#   - SIGCOMPLY_ID_TOKEN, audience `https://api.sigcomply.com`. The CLI
+#     sends it to SigComply Cloud when `cloud.base_url:
 #     https://sigcomply.com` is set in .sigcomply.yaml. Without that key
 #     nothing is submitted. Also set `cloud.project_id` (copy it from your
 #     project's page on the SigComply dashboard).
-#   - `before_script` writes it to a private temp file and exports
-#     AWS_WEB_IDENTITY_TOKEN_FILE. With AWS_ROLE_ARN, the AWS SDK then
-#     assumes that role with web identity. The IAM OIDC provider for your
-#     GitLab host and the role's trust policy must accept the audience
-#     `https://api.sigcomply.com`.
-# Replace the AWS_ROLE_ARN placeholder below.
+#   - AWS_ID_TOKEN, audience `sts.amazonaws.com`. `before_script` writes
+#     it to a private temp file and exports AWS_WEB_IDENTITY_TOKEN_FILE.
+#     With AWS_ROLE_ARN, the AWS SDK then assumes that role with web
+#     identity. The IAM OIDC provider for your GitLab host and the role's
+#     trust policy accept `sts.amazonaws.com` only: a role that trusts
+#     `https://api.sigcomply.com` trusts a token SigComply Cloud receives.
+# Each job assumes its own role. Replace both placeholders below: the
+# scheduled role trusts only the default branch; the on-push role runs on
+# merge requests from any branch, so it can't write the vault's state/.
 
 variables:
   # "latest" installs the newest release on every run. Pin a release tag
@@ -40,13 +43,18 @@ variables:
   # repeatable runs, and bump it when you upgrade.
   SIGCOMPLY_VERSION: "latest"
   AWS_REGION: "us-east-1"
-  AWS_ROLE_ARN: "arn:aws:iam::000000000000:role/REPLACE_ME"
+  SIGCOMPLY_SCHEDULED_ROLE_ARN: "arn:aws:iam::000000000000:role/REPLACE_ME"   # trusts the default branch only
+  SIGCOMPLY_ON_PUSH_ROLE_ARN: "arn:aws:iam::000000000000:role/REPLACE_ME"     # trusts every branch; no state/ writes
 
 .sigcomply_base:
   image: ubuntu:24.04
   id_tokens:
+    # For SigComply Cloud: the CLI submits with it.
     SIGCOMPLY_ID_TOKEN:
       aud: https://api.sigcomply.com
+    # For AWS: the role's trust policy accepts only this audience.
+    AWS_ID_TOKEN:
+      aud: sts.amazonaws.com
   before_script:
     - apt-get update -qq && apt-get install -y -qq curl jq ca-certificates
     - |
@@ -76,21 +84,24 @@ variables:
       #   --deny-self-hosted-runners
       tar -xzf "/tmp/${asset}" -C /usr/local/bin sigcomply
     # AWS web identity: the SDK's default credential chain assumes
-    # AWS_ROLE_ARN with the token in this file. before_script and script
-    # share one shell, so the export reaches `sigcomply`. Skipped when
-    # AWS_ROLE_ARN is empty: a set token file would override a runner's
-    # instance role. mktemp creates the file mode 0600 in the job's temp
-    # directory; the token is never printed.
+    # AWS_ROLE_ARN (each job sets it from its own role variable) with the
+    # AWS_ID_TOKEN in this file. before_script and script share one shell,
+    # so the export reaches `sigcomply`. Skipped when AWS_ROLE_ARN is
+    # empty: a set token file would override a runner's instance role.
+    # mktemp creates the file mode 0600 in the job's temp directory; the
+    # token is never printed.
     - |
       if [ -n "${AWS_ROLE_ARN:-}" ]; then
         AWS_WEB_IDENTITY_TOKEN_FILE="$(mktemp)"
-        printf '%s' "$SIGCOMPLY_ID_TOKEN" > "$AWS_WEB_IDENTITY_TOKEN_FILE"
+        printf '%s' "$AWS_ID_TOKEN" > "$AWS_WEB_IDENTITY_TOKEN_FILE"
         export AWS_WEB_IDENTITY_TOKEN_FILE
       fi
 
 compliance:on_push:
   extends: .sigcomply_base
   stage: test
+  variables:
+    AWS_ROLE_ARN: $SIGCOMPLY_ON_PUSH_ROLE_ARN
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
@@ -100,6 +111,8 @@ compliance:on_push:
 compliance:scheduled:
   extends: .sigcomply_base
   stage: test
+  variables:
+    AWS_ROLE_ARN: $SIGCOMPLY_SCHEDULED_ROLE_ARN
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
   script:

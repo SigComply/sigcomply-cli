@@ -170,6 +170,17 @@ run's start time by default; HEAD's commit time under `period.time_basis: commit
 cadence (`planner.CadencePeriod`); every run artifact keeps the run's period. Design:
 `docs/architecture/10-cadence-model.md`.
 
+### 6. OIDC audiences: one per receiver
+
+The SigComply Cloud audience (`submitter.DefaultAudience`) belongs to the submission token alone.
+An AWS (or any other cloud) token never carries it, and no template, example or doc tells a cloud
+role to trust it: SigComply Cloud receives every token with that audience, so a role that trusts it
+trusts a token that leaves the customer's CI. AWS tokens use `sts.amazonaws.com`. The reverse
+holds too: `submitter.Submit` sends only a token whose `aud` includes `DefaultAudience`. Guards:
+`cmd/sigcomply/oidc_audience_test.go`, `internal/submitter/audience_test.go`, and the `check`
+warning on an `AWS_WEB_IDENTITY_TOKEN_FILE` token with that audience. Design and reason:
+`docs/architecture/09-ci-execution-model.md` §Decision: one OIDC audience per receiver.
+
 ## Code smells to catch in review
 
 - An identifier reaching `internal/core/cloud.go` types or the submitter. (Inv 1)
@@ -192,6 +203,9 @@ cadence (`planner.CadencePeriod`); every run artifact keeps the run's period. De
 - Run paths in extended ISO 8601 (use `20260325T100000Z`, no colons), or `frameworks:` in config
   (the key is singular: `framework: soc2`).
 - A `Vault` field on `sources.Env` (it has `Config` and `FrameworkExtras` only).
+- A source reading `os.Getenv`, or a URL a credential goes to, outside `sources.ResolveToken` /
+  `sources.ResolveEndpoint` (forbidigo catches the first; the registry-wide tests in
+  `internal/sources/builtin` catch an endpoint key they don't know).
 - A source factory that builds a client without resolving credentials. A listed source with
   missing credentials is a config error (exit 3) before collection: see `awscfg.Load`,
   `azcommon.NewCredential` and the vault and manual-reader backends.

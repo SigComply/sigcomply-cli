@@ -254,7 +254,8 @@ evidence fails before it collects.
 
 | Actor | Needs | Why |
 |---|---|---|
-| CI runner | write and list on the vault prefix, read on `state/`; no delete | Writes run folders, reads state shards. Carry-forward stores a pointer to the prior envelope; it does not read the envelope. |
+| CI runner, scheduled role | write and list on the vault prefix, read and write on `state/`; no delete | Writes run folders, reads and advances state shards. Carry-forward stores a pointer to the prior envelope; it does not read the envelope. |
+| CI runner, on-push role | write and list on the vault prefix, no write on `state/`; no delete | A `--pr` run (or any run in a PR/MR pipeline) writes its run folder and never advances state. Its role is the one a branch can assume, so denying `state/` keeps a branch from choosing what the next scheduled run carries forward ([09-ci-execution-model.md](09-ci-execution-model.md)). |
 | `sigcomply report` | read and list on the vault prefix | Reads run folders. |
 
 Scope the CI role to the vault prefix only, and use the CI provider's OIDC federation instead of

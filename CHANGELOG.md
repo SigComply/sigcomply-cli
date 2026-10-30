@@ -42,6 +42,17 @@ this file lists the changes a user notices.
 
 ### Changed
 
+- `sigcomply init-ci` and the examples give AWS its own OIDC token with the audience
+  `sts.amazonaws.com`; only the token sent to SigComply Cloud has `https://api.sigcomply.com`.
+  An AWS role that trusted `https://api.sigcomply.com` trusted a token SigComply Cloud receives.
+  The scheduled job and the on-push job now assume separate AWS roles: the scheduled role trusts
+  only the default branch, and the on-push role can't write the vault's `state/`. On GitLab the
+  role variables are `SIGCOMPLY_SCHEDULED_ROLE_ARN` and `SIGCOMPLY_ON_PUSH_ROLE_ARN`. The CI
+  guides recommend `SecurityAudit` plus `ViewOnlyAccess` instead of `ReadOnlyAccess`. If you set
+  up the old trust: re-scaffold (`init-ci --force`), change the trust policies as the
+  [GitHub](docs/guides/ci-github.md#3-create-the-aws-oidc-provider-and-roles) and
+  [GitLab](docs/guides/ci-gitlab.md#3-create-the-aws-oidc-provider-and-roles) guides show, and
+  remove `https://api.sigcomply.com` from the IAM OIDC provider's client IDs.
 - The CLI is now licensed under the Elastic License 2.0 (source-available, not open source).
   Releases up to and including v0.90.2 remain available under Apache-2.0; see `NOTICE`.
 - `sigcomply --help` and the release notes describe the CLI as SOC 2 and ISO 27001 checks and

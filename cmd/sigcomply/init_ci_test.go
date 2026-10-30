@@ -530,7 +530,8 @@ func TestInitCI_GitLabWiresAWSWebIdentity(t *testing.T) {
 	for _, want := range []string{
 		"AWS_WEB_IDENTITY_TOKEN_FILE",
 		"AWS_ROLE_ARN",
-		`"$SIGCOMPLY_ID_TOKEN" >`,
+		`"$AWS_ID_TOKEN" >`,
+		"aud: sts.amazonaws.com",
 		"aud: https://api.sigcomply.com",
 	} {
 		if !strings.Contains(body, want) {
@@ -541,7 +542,7 @@ func TestInitCI_GitLabWiresAWSWebIdentity(t *testing.T) {
 		t.Error(".gitlab-ci.yml must export AWS_WEB_IDENTITY_TOKEN_FILE so the CLI process sees it")
 	}
 	// Keep the token out of the job log.
-	for _, bad := range []string{"echo $SIGCOMPLY_ID_TOKEN", `echo "$SIGCOMPLY_ID_TOKEN"`, "set -x", "cat \"$AWS_WEB_IDENTITY_TOKEN_FILE\""} {
+	for _, bad := range []string{"echo $SIGCOMPLY_ID_TOKEN", `echo "$SIGCOMPLY_ID_TOKEN"`, "echo $AWS_ID_TOKEN", `echo "$AWS_ID_TOKEN"`, "set -x", "cat \"$AWS_WEB_IDENTITY_TOKEN_FILE\""} {
 		if strings.Contains(body, bad) {
 			t.Errorf(".gitlab-ci.yml contains %q, which would print the token", bad)
 		}
@@ -641,7 +642,7 @@ func TestGitLabWebIdentity_ExportedOnlyWithRoleARN(t *testing.T) {
 		} {
 			cmd := exec.CommandContext(t.Context(), "sh", "-c", snippet+"\nprintf '%s' \"${AWS_WEB_IDENTITY_TOKEN_FILE:-}\"") //nolint:gosec // runs a snippet from our own committed template
 			cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "TMPDIR=" + t.TempDir(),
-				"SIGCOMPLY_ID_TOKEN=test-token", "AWS_ROLE_ARN=" + tc.roleARN}
+				"AWS_ID_TOKEN=test-token", "AWS_ROLE_ARN=" + tc.roleARN}
 			out, err := cmd.Output()
 			if err != nil {
 				t.Fatalf("%s: run snippet: %v", name, err)

@@ -101,9 +101,12 @@ sigcomply init-ci --ci gitlab
 `sigcomply init-ci --ci github --framework soc2`; the workflows read the framework from the
 config. Then:
 
-1. Replace the `AWS_ROLE_ARN` placeholder with the customer's role ARN.
-2. Tell the customer that the AWS IAM OIDC provider and the role's trust policy must accept the
-   audience `https://api.sigcomply.com`, which the workflows request.
+1. Replace the role placeholders with the customer's role ARNs: `AWS_ROLE_ARN` in each GitHub
+   workflow, or `SIGCOMPLY_SCHEDULED_ROLE_ARN` and `SIGCOMPLY_ON_PUSH_ROLE_ARN` on GitLab. The
+   scheduled role trusts only the default branch.
+2. Tell the customer that the AWS IAM OIDC provider and the roles' trust policies accept the
+   audience `sts.amazonaws.com`, never `https://api.sigcomply.com`: that audience belongs to the
+   token the CLI sends to SigComply Cloud.
 3. On GitLab, tell the customer to create one daily pipeline schedule (for example `0 2 * * *`);
    the scheduled job runs `sigcomply check --scheduled`.
 4. Tell the customer the vault must be a bucket: `--scheduled` keeps per-policy state there.

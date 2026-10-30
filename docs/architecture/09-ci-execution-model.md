@@ -108,7 +108,7 @@ Both workflows:
   (resolving the newest tag through the releases API when the value is `latest`), check it with
   `sha256sum -c` against the release's `checksums.txt`, and extract it with `sudo tar`;
 - get AWS credentials with `aws-actions/configure-aws-credentials` and
-  `audience: https://api.sigcomply.com`.
+  `audience: sts.amazonaws.com`, each workflow with its own `AWS_ROLE_ARN` (decision below).
 
 `init-ci` renders `SIGCOMPLY_VERSION` as the running binary's own release tag (`v<semver>`) when
 the binary is a clean semver build, and as `latest` otherwise (dev builds). Golden tests set the
@@ -117,19 +117,45 @@ operator edits the value.
 
 ### GitLab CI
 
-`--ci gitlab` writes one `.gitlab-ci.yml`. A shared hidden job installs the CLI and requests a
-GitLab ID token (`SIGCOMPLY_ID_TOKEN`, audience `https://api.sigcomply.com`) for cloud
-submission, and verifies the archive against `checksums.txt` the same way. Two jobs, gated by
-`rules:`:
+`--ci gitlab` writes one `.gitlab-ci.yml`. A shared hidden job installs the CLI, verifies the
+archive against `checksums.txt` the same way, and requests two GitLab ID tokens:
+`SIGCOMPLY_ID_TOKEN` (audience `https://api.sigcomply.com`) for cloud submission and
+`AWS_ID_TOKEN` (audience `sts.amazonaws.com`) for AWS. Two jobs, gated by `rules:`, each setting
+`AWS_ROLE_ARN` from its own variable (`SIGCOMPLY_SCHEDULED_ROLE_ARN`,
+`SIGCOMPLY_ON_PUSH_ROLE_ARN`):
 
 - `compliance:scheduled` runs `sigcomply check --scheduled` on any scheduled pipeline, then
   `sigcomply evidence due --within-days 30 || true`. The operator creates one daily schedule.
 - `compliance:on_push` runs `sigcomply check --pr` on merge requests and default-branch pushes.
 
-AWS credentials come from web identity: the template writes a GitLab ID token to a file and
+AWS credentials come from web identity: the template writes `AWS_ID_TOKEN` to a file and
 exports `AWS_WEB_IDENTITY_TOKEN_FILE` with `AWS_ROLE_ARN`, which the AWS SDK default credential
 chain uses to assume the role. The CLI itself performs no `AssumeRoleWithWebIdentity` call. There
 is no packaged GitLab CI component.
+
+### Decision: one OIDC audience per receiver, one AWS role per trust level (2026-10-30)
+
+The templates used to mint one token with the audience `https://api.sigcomply.com` and use it
+for AWS and for SigComply Cloud, so the customer's AWS role trusted that audience. SigComply
+Cloud receives every token with that audience on every submission, so anyone holding one (a
+compromised dashboard, its logs) could assume the customer's role until the token expired. Now
+AWS gets its own token with `sts.amazonaws.com` (the AWS default) and only the submission token
+carries `submitter.DefaultAudience`. AGENTS.md states it as an invariant, and three guards hold
+it: `TestCIFiles_GitHubAWSStepUsesItsOwnAudience` and
+`TestCIFiles_GitLabAWSTokenIsNotTheSubmissionToken` over every template, golden and example;
+`TestDocs_TrustPoliciesSeparateAudiencesAndPinTheScheduledRole` over the trust policies in the
+customer docs; and at run time `check` warns when `AWS_WEB_IDENTITY_TOKEN_FILE` holds a token with
+that audience (a warning, since the run still works and the fix is in IAM).
+
+The same review split the AWS role. The scheduled run writes cadence state and is the run Cloud
+receives, so its role trusts only the default branch. The on-push run executes a pull or merge
+request's branch, so its role is the only one such a branch can assume, and the documented
+policy denies it `state/` (it adds run folders; `--pr` never advances state). Both get
+`SecurityAudit` plus `ViewOnlyAccess` rather than `ReadOnlyAccess`, which also reads every object
+in every bucket. Pre-launch, so no migration shim: the CI guides carry a note for roles set up
+the old way. Rejected: one role with a wildcard `sub` (a branch could write state that the next
+scheduled run carries forward); keeping the shared audience with a narrower trust policy (the
+token still leaves CI).
 
 ### What the templates assume
 

@@ -42,13 +42,18 @@ updates the cadence state. A manual policy fails in every scheduled run until it
 current period has a file, so upload during the period.
 
 The base job installs the CLI release named in `SIGCOMPLY_VERSION`, after checking the archive
-against the release's `checksums.txt`, and mints an ID token with
-the audience `https://api.sigcomply.com`. The `ubuntu:24.04` image has no GitHub CLI, so the
+against the release's `checksums.txt`. The `ubuntu:24.04` image has no GitHub CLI, so the
 build provenance check ships commented out in the base job's install step. To turn it on,
 install `git` and a recent `gh` in the image and uncomment those lines. Step 3 of
-[Install a release archive by hand](install.md#install-a-release-archive-by-hand) explains it. It writes that token to a file and exports
-`AWS_WEB_IDENTITY_TOKEN_FILE`, so the AWS SDK inside the CLI assumes the role in `AWS_ROLE_ARN`.
-The CLI reads the same token from `SIGCOMPLY_ID_TOKEN` for cloud submission.
+[Install a release archive by hand](install.md#install-a-release-archive-by-hand) explains it.
+
+The base job also mints two ID tokens, one per receiver:
+
+- `AWS_ID_TOKEN`, with the audience `sts.amazonaws.com`. The job writes it to a file and exports
+  `AWS_WEB_IDENTITY_TOKEN_FILE`, so the AWS SDK inside the CLI assumes the role in
+  `AWS_ROLE_ARN`. Each job sets `AWS_ROLE_ARN` from its own variable (step 2).
+- `SIGCOMPLY_ID_TOKEN`, with the audience `https://api.sigcomply.com`. The CLI sends it to
+  SigComply Cloud and to nothing else.
 
 `init-ci` refuses to overwrite an existing file; pass `--force` to replace it. It accepts only
 `--framework soc2` and exits `3` for other values, including a config that sets
@@ -67,32 +72,48 @@ CI/CD variables:
 |---|---|
 | `SIGCOMPLY_VERSION` | A release tag. A release build of the CLI writes its own version here; a build from source writes `latest`. Bump it when you upgrade. |
 | `AWS_REGION` | The region of your AWS sources. |
-| `AWS_ROLE_ARN` | The role you create in step 3. |
+| `SIGCOMPLY_SCHEDULED_ROLE_ARN` | The scheduled role you create in step 3. `compliance:scheduled` assumes it. |
+| `SIGCOMPLY_ON_PUSH_ROLE_ARN` | The on-push role you create in step 3. `compliance:on_push` assumes it. |
 
-If you collect nothing from AWS, leave `AWS_ROLE_ARN` unset (delete the line) so the AWS SDK does
-not try to assume the placeholder role.
+If you collect nothing from AWS, set both role variables to `""`, so the AWS SDK does not try to
+assume the placeholder role.
 
-## 3. Create the AWS OIDC provider and role
+## 3. Create the AWS OIDC provider and roles
 
-The pipeline uses one ID token, with the audience `https://api.sigcomply.com`, for AWS and for
-SigComply Cloud. AWS accepts it only if the IAM OIDC provider lists that audience as a client ID. For self-managed GitLab, replace `gitlab.com` with your instance's host.
+AWS accepts `AWS_ID_TOKEN`, whose audience is `sts.amazonaws.com`. Never let an AWS role trust
+`https://api.sigcomply.com`: SigComply Cloud receives every token with that audience, so such a
+role would trust tokens that leave your CI. For self-managed GitLab, replace `gitlab.com` with
+your instance's host.
 
-1. Create the provider. If the account already has a provider for `https://gitlab.com`, add the
-   client ID to it instead (`aws iam add-client-id-to-open-id-connect-provider`).
+Each job assumes its own role, because they run different code:
+
+| Role | Used by | Trusts | Writes to the vault |
+|---|---|---|---|
+| Scheduled role | `compliance:scheduled` | the default branch only (`main` below) | run folders and the cadence state in `state/` |
+| On-push role | `compliance:on_push` | every branch, since merge requests run from theirs | run folders only, never `state/` |
+
+A merge request pipeline runs the branch's `.gitlab-ci.yml`, so anyone who can push a branch
+controls what the on-push role does. Keeping that role away from `state/` means a branch can't
+change which policies the next scheduled run carries forward.
+
+1. Create the provider. If the account already has a provider for `https://gitlab.com` with the
+   client ID `sts.amazonaws.com`, reuse it.
 
    ```bash
    aws iam create-open-id-connect-provider \
      --url https://gitlab.com \
-     --client-id-list https://api.sigcomply.com
+     --client-id-list sts.amazonaws.com
    ```
 
-2. Create a role with this trust policy. Replace the account ID and `my-group/my-project`:
+2. Create the scheduled role with this trust policy. Replace the account ID and
+   `my-group/my-project`:
 
    ```json
    {
      "Version": "2012-10-17",
      "Statement": [
        {
+         "Sid": "SigComplyScheduled",
          "Effect": "Allow",
          "Principal": {
            "Federated": "arn:aws:iam::111122223333:oidc-provider/gitlab.com"
@@ -100,7 +121,34 @@ SigComply Cloud. AWS accepts it only if the IAM OIDC provider lists that audienc
          "Action": "sts:AssumeRoleWithWebIdentity",
          "Condition": {
            "StringEquals": {
-             "gitlab.com:aud": "https://api.sigcomply.com"
+             "gitlab.com:aud": "sts.amazonaws.com",
+             "gitlab.com:sub": "project_path:my-group/my-project:ref_type:branch:ref:main"
+           }
+         }
+       }
+     ]
+   }
+   ```
+
+   Protect `main` (**Settings > Repository > Protected branches**), so only maintainers can push
+   to it and run pipelines on it with this role.
+
+3. Create the on-push role with this trust policy:
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Sid": "SigComplyOnPush",
+         "Effect": "Allow",
+         "Principal": {
+           "Federated": "arn:aws:iam::111122223333:oidc-provider/gitlab.com"
+         },
+         "Action": "sts:AssumeRoleWithWebIdentity",
+         "Condition": {
+           "StringEquals": {
+             "gitlab.com:aud": "sts.amazonaws.com"
            },
            "StringLike": {
              "gitlab.com:sub": "project_path:my-group/my-project:*"
@@ -111,12 +159,23 @@ SigComply Cloud. AWS accepts it only if the IAM OIDC provider lists that audienc
    }
    ```
 
-3. Attach read-only permissions: the AWS managed `ReadOnlyAccess` policy, or the per-source
-   permissions in the [sources reference](../reference/sources.md#aws). If the vault is in S3,
-   also allow `s3:PutObject` on the vault bucket. `ReadOnlyAccess` already covers listing and
-   reading the manual-evidence bucket.
+4. Attach permissions to both roles: the AWS managed policies `SecurityAudit` and
+   `ViewOnlyAccess`, or the per-source permissions in the
+   [sources reference](../reference/sources.md#aws). If the vault is in S3, add the inline bucket
+   policies from [Run in GitHub Actions](ci-github.md#3-create-the-aws-oidc-provider-and-roles),
+   step 4: the scheduled role reads the manual-evidence bucket and reads and writes the vault; the
+   on-push role adds run folders to the vault and is denied `state/`.
 
-4. Put the role's ARN in `AWS_ROLE_ARN`.
+5. Put the scheduled role's ARN in `SIGCOMPLY_SCHEDULED_ROLE_ARN` and the on-push role's ARN in
+   `SIGCOMPLY_ON_PUSH_ROLE_ARN`.
+
+If you set up a role before this guide changed, it trusted the audience `https://api.sigcomply.com`
+and the pipeline gave AWS `SIGCOMPLY_ID_TOKEN`. Re-scaffold with
+`sigcomply init-ci --ci gitlab --force` (or add the `AWS_ID_TOKEN` entry and write it, not
+`SIGCOMPLY_ID_TOKEN`, to the token file), change the trust policies as above, and remove the old
+client ID from the provider:
+`aws iam remove-client-id-from-open-id-connect-provider --open-id-connect-provider-arn <arn> --client-id https://api.sigcomply.com`.
+`sigcomply check` warns while the AWS token still carries that audience.
 
 ## 4. Create a daily pipeline schedule
 

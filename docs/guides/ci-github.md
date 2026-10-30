@@ -1,7 +1,8 @@
 # Run SigComply in GitHub Actions
 
-Add scheduled SigComply workflows to a GitHub repository. The jobs use GitHub OIDC to assume a
-read-only AWS role and, if you use the paid dashboard, to authenticate to SigComply Cloud.
+Add scheduled SigComply workflows to a GitHub repository. The jobs use GitHub OIDC to assume
+AWS roles and, if you use the paid dashboard, to authenticate to SigComply Cloud, with a separate
+token for each.
 AWS and SigComply Cloud need no long-lived secret. GitHub, GitLab, Okta and Active Directory
 sources do need a token: see
 [Supply credentials in CI](configure-sources.md#supply-github-gitlab-okta-and-active-directory-credentials-in-ci).
@@ -10,7 +11,7 @@ sources do need a token: see
 
 - A repository on GitHub with a working `.sigcomply.yaml` ([Add an evidence source](configure-sources.md)).
 - The CLI installed on your machine ([install guide](install.md)).
-- For AWS sources: permission to create an IAM OIDC identity provider and an IAM role in each AWS
+- For AWS sources: permission to create an IAM OIDC identity provider and IAM roles in each AWS
   account you collect from.
 - A `vault:` and a `manual.pdf` source that point at buckets, not local paths. A CI job's local
   folder disappears when the job ends. Keys: [configuration reference](../configuration.md) and
@@ -66,34 +67,47 @@ release from v0.91.0 on;
 [Install the SigComply CLI](install.md#install-a-release-archive-by-hand) (step 3) explains each
 flag.
 
-## 3. Create the AWS OIDC provider and role
+## 3. Create the AWS OIDC provider and roles
 
 Skip this step if you collect nothing from AWS, and delete the
 `aws-actions/configure-aws-credentials` step from each workflow. Otherwise that step fails on the
 placeholder role ARN.
 
-The workflows request a GitHub OIDC token with the audience `https://api.sigcomply.com` and pass
-it to `aws-actions/configure-aws-credentials`. The templates use this one audience for AWS and for
-SigComply Cloud, whether or not you use the dashboard. AWS accepts the token only if the IAM OIDC
-provider lists that audience as a client ID.
+`aws-actions/configure-aws-credentials` requests a GitHub OIDC token with the audience
+`sts.amazonaws.com` and exchanges it for AWS credentials. The CLI requests a separate token with
+the audience `https://api.sigcomply.com` for SigComply Cloud. Never let an AWS role trust
+`https://api.sigcomply.com`: SigComply Cloud receives every token with that audience, so such a
+role would trust tokens that leave your CI.
 
-1. Create the provider with the SigComply audience. If the account already has a provider for
-   `token.actions.githubusercontent.com`, add the client ID to it instead
-   (`aws iam add-client-id-to-open-id-connect-provider`).
+Each workflow assumes its own role, because they run different code:
+
+| Role | Used by | Trusts | Writes to the vault |
+|---|---|---|---|
+| Scheduled role | `compliance-scheduled.yml` | the `main` branch only | run folders and the cadence state in `state/` |
+| On-push role | `compliance-on-push.yml` | pull requests and `main` | run folders only, never `state/` |
+
+A pull request runs the branch's workflow file, so anyone who can push a branch controls what the
+on-push role does. Keeping that role away from `state/` means a branch can't change which
+policies the next scheduled run carries forward.
+
+1. Create the provider. If the account already has a provider for
+   `token.actions.githubusercontent.com` with the client ID `sts.amazonaws.com`, reuse it.
 
    ```bash
    aws iam create-open-id-connect-provider \
      --url https://token.actions.githubusercontent.com \
-     --client-id-list https://api.sigcomply.com
+     --client-id-list sts.amazonaws.com
    ```
 
-2. Create a role with this trust policy. Replace the account ID, `my-org` and `my-repo`:
+2. Create the scheduled role with this trust policy. Replace the account ID, `my-org` and
+   `my-repo`:
 
    ```json
    {
      "Version": "2012-10-17",
      "Statement": [
        {
+         "Sid": "SigComplyScheduled",
          "Effect": "Allow",
          "Principal": {
            "Federated": "arn:aws:iam::111122223333:oidc-provider/token.actions.githubusercontent.com"
@@ -101,10 +115,8 @@ provider lists that audience as a client ID.
          "Action": "sts:AssumeRoleWithWebIdentity",
          "Condition": {
            "StringEquals": {
-             "token.actions.githubusercontent.com:aud": "https://api.sigcomply.com"
-           },
-           "StringLike": {
-             "token.actions.githubusercontent.com:sub": "repo:my-org/my-repo:*"
+             "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+             "token.actions.githubusercontent.com:sub": "repo:my-org/my-repo:ref:refs/heads/main"
            }
          }
        }
@@ -112,13 +124,94 @@ provider lists that audience as a client ID.
    }
    ```
 
-3. Attach read-only permissions to the role: the AWS managed `ReadOnlyAccess` policy, or the
-   per-source permissions in the [sources reference](../reference/sources.md#aws). If the vault is
-   in S3, also allow `s3:PutObject` on the vault bucket. `ReadOnlyAccess` already covers listing
-   and reading the manual-evidence bucket.
+   Protect `main` with a branch rule, so only reviewed changes run with this role.
 
-4. In each workflow's `env:` block, set `AWS_ROLE_ARN` to the role's ARN and `AWS_REGION` to your
-   region.
+3. Create the on-push role with this trust policy:
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Sid": "SigComplyOnPush",
+         "Effect": "Allow",
+         "Principal": {
+           "Federated": "arn:aws:iam::111122223333:oidc-provider/token.actions.githubusercontent.com"
+         },
+         "Action": "sts:AssumeRoleWithWebIdentity",
+         "Condition": {
+           "StringEquals": {
+             "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+             "token.actions.githubusercontent.com:sub": [
+               "repo:my-org/my-repo:pull_request",
+               "repo:my-org/my-repo:ref:refs/heads/main"
+             ]
+           }
+         }
+       }
+     ]
+   }
+   ```
+
+4. Attach permissions to both roles: the AWS managed policies `SecurityAudit` and
+   `ViewOnlyAccess`, or the per-source permissions in the
+   [sources reference](../reference/sources.md#aws). If the vault is in S3, add an inline policy
+   for the buckets. Replace the bucket names:
+
+   - Scheduled role: read the manual-evidence bucket, and read and write the vault.
+
+     ```json
+     {
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Effect": "Allow",
+           "Action": ["s3:GetObject", "s3:ListBucket"],
+           "Resource": ["arn:aws:s3:::my-evidence-bucket", "arn:aws:s3:::my-evidence-bucket/*"]
+         },
+         {
+           "Effect": "Allow",
+           "Action": ["s3:GetObject", "s3:PutObject", "s3:ListBucket"],
+           "Resource": ["arn:aws:s3:::my-vault-bucket", "arn:aws:s3:::my-vault-bucket/*"]
+         }
+       ]
+     }
+     ```
+
+   - On-push role: add run folders to the vault, but not `state/`. A `--pr` run skips document
+     policies, so it needs no access to the manual-evidence bucket. If you set `vault.prefix`,
+     put it in front of `state/`.
+
+     ```json
+     {
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Effect": "Allow",
+           "Action": ["s3:PutObject", "s3:ListBucket"],
+           "Resource": ["arn:aws:s3:::my-vault-bucket", "arn:aws:s3:::my-vault-bucket/*"]
+         },
+         {
+           "Effect": "Deny",
+           "Action": "s3:PutObject",
+           "Resource": "arn:aws:s3:::my-vault-bucket/state/*"
+         }
+       ]
+     }
+     ```
+
+   If a bucket uses a customer managed KMS key, also allow `kms:Decrypt` (reads) and
+   `kms:GenerateDataKey` (writes) on that key.
+
+5. Set `AWS_ROLE_ARN` in `compliance-scheduled.yml` to the scheduled role's ARN, and in
+   `compliance-on-push.yml` to the on-push role's ARN. Set `AWS_REGION` in both to your region.
+
+If you set up a role before this guide changed, it trusted the audience `https://api.sigcomply.com`.
+Re-scaffold with `sigcomply init-ci --ci github --force` (or set `audience: sts.amazonaws.com` on
+each `configure-aws-credentials` step), change the trust policies as above, and remove the old
+client ID from the provider:
+`aws iam remove-client-id-from-open-id-connect-provider --open-id-connect-provider-arn <arn> --client-id https://api.sigcomply.com`.
+`sigcomply check` warns while the AWS token still carries that audience.
 
 ## 4. Optional: send results to SigComply Cloud
 
@@ -172,8 +265,9 @@ sigcomply init-ci --ci github --framework soc2
 The scaffolded set includes the `evidence due` step in the scheduled workflow. If you prefer a
 single workflow, copy [`examples/github-actions/basic.yml`](../../examples/github-actions/basic.yml)
 into `.github/workflows/` instead and apply steps 3 to 5 above to it. It runs a full
-`sigcomply check` on pushes to `main` and on its schedule, `--pr` on pull requests (skipping
-pull requests from forks), and has no `evidence due` step.
+`sigcomply check` on pushes to `main` and on its schedule with `AWS_ROLE_ARN` (the scheduled
+role), `--pr` on pull requests with `AWS_ON_PUSH_ROLE_ARN` (the on-push role), skips pull requests
+from forks, and has no `evidence due` step.
 
 ## Next steps
 

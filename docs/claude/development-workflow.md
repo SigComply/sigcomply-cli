@@ -230,7 +230,10 @@ Which tests to add:
   an intended verdict change, regenerate with `go test ./cmd/sigcomply/ -run TestBinaryE2E
   -update` and read the diff.
 - `init-ci` templates: `TestInitCITemplates_*` (`cmd/sigcomply/init_ci_contract_test.go`) check
-  the GitLab `id_tokens` name and audience against the submitter's constants, the download URL
+  the GitLab `id_tokens` name and audience against the submitter's constants; `TestCIFiles_*` and
+  `TestDocs_*` (`cmd/sigcomply/oidc_audience_test.go`) check that no AWS step, AWS token or
+  documented trust policy uses the SigComply Cloud audience and that the scheduled role trusts
+  only the main branch; the download URL
   against `.goreleaser.yml` and `install.sh`, the `checksums.txt` verification before extraction
   (run for real against a matching and a tampered archive, templates and `examples/`), and that
   the scaffold is one daily `check --scheduled` run plus `check --pr`.

@@ -291,9 +291,18 @@ func printSummary(stdout io.Writer, framework, ci, version string, written []str
 		fmt.Fprintf(&b, "  wrote %s\n", p)
 	}
 	b.WriteString("\nNext steps:\n")
-	b.WriteString("  1. Replace the AWS_ROLE_ARN placeholder with the IAM role CI assumes over\n")
-	b.WriteString("     OIDC. The IAM OIDC provider and the role's trust policy must accept the\n")
-	b.WriteString("     audience https://api.sigcomply.com.\n")
+	switch ci {
+	case ciGitLab:
+		b.WriteString("  1. Replace the SIGCOMPLY_SCHEDULED_ROLE_ARN and SIGCOMPLY_ON_PUSH_ROLE_ARN\n")
+		b.WriteString("     placeholders with the IAM roles each job assumes over OIDC. The\n")
+		b.WriteString("     scheduled role trusts only the default branch.\n")
+	default:
+		b.WriteString("  1. Replace the AWS_ROLE_ARN placeholder in each workflow with the IAM role it\n")
+		b.WriteString("     assumes over OIDC. The scheduled workflow's role trusts only main.\n")
+	}
+	b.WriteString("     The IAM OIDC provider and the roles' trust policies accept the audience\n")
+	b.WriteString("     sts.amazonaws.com, never https://api.sigcomply.com, which is SigComply\n")
+	b.WriteString("     Cloud's alone.\n")
 	if version == versionLatest {
 		b.WriteString("  2. SIGCOMPLY_VERSION is \"latest\" because this CLI is not a release build.\n")
 		b.WriteString("     Set it to a release tag (e.g. v1.2.3) to pin the version CI installs.\n")

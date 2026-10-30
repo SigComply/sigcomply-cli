@@ -39,7 +39,12 @@ env:
   # repeatable runs, and bump it when you upgrade.
   SIGCOMPLY_VERSION: latest
   AWS_REGION: us-east-1
+  # Pushes to main and the schedule: the scheduled role, which trusts only
+  # the main branch and writes the vault.
   AWS_ROLE_ARN: arn:aws:iam::000000000000:role/REPLACE_ME
+  # Pull requests: the on-push role, which trusts pull requests and can't
+  # write the vault's state/ (docs/guides/ci-github.md, step 3).
+  AWS_ON_PUSH_ROLE_ARN: arn:aws:iam::000000000000:role/REPLACE_ME
 
 jobs:
   check:
@@ -79,14 +84,14 @@ jobs:
             --cert-identity-regex '^https://github\.com/SigComply/sigcomply-cli/\.github/workflows/(auto-release-pipeline|release)\.yml@refs/(heads/main|tags/v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?)$' \
             --deny-self-hosted-runners
           sudo tar -xzf "/tmp/${asset}" -C /usr/local/bin sigcomply
-      # The token is minted with audience https://api.sigcomply.com, so the
-      # IAM OIDC provider for token.actions.githubusercontent.com and the
-      # role's trust policy must accept that audience.
+      # AWS gets its own OIDC token, with AWS's audience. The CLI mints a
+      # separate token for SigComply Cloud (https://api.sigcomply.com);
+      # never let an AWS role trust that audience.
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          role-to-assume: ${{ github.event_name == 'pull_request' && env.AWS_ON_PUSH_ROLE_ARN || env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-          audience: https://api.sigcomply.com
+          audience: sts.amazonaws.com
       - name: Run SigComply
         # Framework comes from `framework:` in .sigcomply.yaml (there is no
         # --framework flag on `check`). Exit code: 0 pass, 1 violations,

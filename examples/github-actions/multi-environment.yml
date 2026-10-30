@@ -86,14 +86,15 @@ jobs:
       # Each account's read-only audit role is assumed from there, via
       # the per-instance `role_arn` in .sigcomply.yaml. The spoke ARNs
       # are account identifiers, not secrets, so they live in the config
-      # in version control rather than in repo secrets. The hub role's
-      # trust policy and IAM OIDC provider must accept the audience
-      # https://api.sigcomply.com.
+      # in version control rather than in repo secrets. The hub role is a
+      # scheduled role: its trust policy accepts the audience
+      # sts.amazonaws.com (never https://api.sigcomply.com, which is
+      # SigComply Cloud's) and the main branch only.
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-          audience: https://api.sigcomply.com
+          audience: sts.amazonaws.com
 
       - name: Run SigComply
         run: sigcomply check

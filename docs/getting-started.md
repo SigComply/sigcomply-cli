@@ -78,7 +78,7 @@ and sends nothing.
      project_id: prj_7Xq2mKp9RtV4wNc8Bz3a   # your Project ID
    ```
 
-The base URL is `https://sigcomply.com`. The OIDC audience you meet in step 4,
+The base URL is `https://sigcomply.com`. The OIDC audience of the token the CLI sends,
 `https://api.sigcomply.com`, is a fixed identifier, not a web address, so the two differ on
 purpose.
 
@@ -112,22 +112,24 @@ create one daily pipeline schedule. See [CI on GitLab](guides/ci-gitlab.md).
 
 ## 4. Let CI assume an AWS role
 
-The workflows get AWS credentials through OIDC, not stored keys. Each workflow requests an OIDC
-token with the audience `https://api.sigcomply.com` and uses it for both AWS and SigComply
-Cloud. In AWS:
+The workflows get AWS credentials through OIDC, not stored keys. AWS gets its own OIDC token,
+with the audience `sts.amazonaws.com`; the token for SigComply Cloud has the audience
+`https://api.sigcomply.com`, and no AWS role may trust that one. In AWS:
 
 1. Create an IAM OIDC identity provider for your CI host (`token.actions.githubusercontent.com`
-   for GitHub Actions, your GitLab host such as `gitlab.com` for GitLab CI) and add
-   `https://api.sigcomply.com` as its audience. The AWS default
-   audience `sts.amazonaws.com` does not match the token the workflows request.
-2. Create a role that this provider can assume, limited to your repository, with read-only
-   access (for example `ReadOnlyAccess`) and write access to the evidence bucket.
-3. Replace the `AWS_ROLE_ARN` placeholder (`arn:aws:iam::000000000000:role/REPLACE_ME`) in each
-   scaffolded workflow with the role's ARN, and set `AWS_REGION` to your region. On GitLab, both
-   are in the `variables:` block of `.gitlab-ci.yml`.
+   for GitHub Actions, your GitLab host such as `gitlab.com` for GitLab CI) with the audience
+   `sts.amazonaws.com`.
+2. Create two roles that this provider can assume. The scheduled role trusts only your default
+   branch and writes the vault. The on-push role trusts pull or merge requests and can't write
+   the vault's `state/`. Give both the AWS managed policies `SecurityAudit` and `ViewOnlyAccess`,
+   plus access to the evidence buckets.
+3. Replace the role placeholders (`arn:aws:iam::000000000000:role/REPLACE_ME`) with the roles'
+   ARNs, and set `AWS_REGION` to your region. On GitHub, each workflow has its own
+   `AWS_ROLE_ARN`. On GitLab, they are `SIGCOMPLY_SCHEDULED_ROLE_ARN` and
+   `SIGCOMPLY_ON_PUSH_ROLE_ARN` in the `variables:` block of `.gitlab-ci.yml`.
 
 [CI on GitHub](guides/ci-github.md) and [CI on GitLab](guides/ci-gitlab.md) have the trust
-policy and the full setup.
+policies, the bucket permissions and the full setup.
 
 ## 5. Run it
 

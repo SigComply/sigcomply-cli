@@ -74,24 +74,20 @@ func TestInitCITemplates_GitLabIDTokenIsWhatTheSubmitterReads(t *testing.T) {
 	}
 	var found int
 	for job, j := range doc {
-		for name, tok := range j.IDTokens {
-			found++
-			if name != submitter.GitLabIDTokenEnv {
-				t.Errorf("%s: id_tokens declares %s; the submitter reads %s", job, name, submitter.GitLabIDTokenEnv)
-			}
-			// GitLab mints the token before the CLI runs, so the CLI
-			// cannot ask for its audience: the template must.
-			if tok.Aud != submitter.DefaultAudience {
-				t.Errorf("%s: id_tokens.%s.aud = %q; the dashboard validates %q", job, name, tok.Aud, submitter.DefaultAudience)
-			}
+		tok, ok := j.IDTokens[submitter.GitLabIDTokenEnv]
+		if !ok {
+			continue
+		}
+		found++
+		// GitLab mints the token before the CLI runs, so the CLI cannot
+		// ask for its audience: the template must. The AWS token is a
+		// separate entry (TestCIFiles_GitLabAWSTokenIsNotTheSubmissionToken).
+		if tok.Aud != submitter.DefaultAudience {
+			t.Errorf("%s: id_tokens.%s.aud = %q; the dashboard validates %q", job, submitter.GitLabIDTokenEnv, tok.Aud, submitter.DefaultAudience)
 		}
 	}
 	if found == 0 {
-		t.Fatal(".gitlab-ci.yml declares no id_tokens; GitLab runs could never submit")
-	}
-	// The AWS web-identity step must read the same variable.
-	if !strings.Contains(string(body), `"$`+submitter.GitLabIDTokenEnv+`"`) {
-		t.Errorf(".gitlab-ci.yml never reads $%s", submitter.GitLabIDTokenEnv)
+		t.Fatalf(".gitlab-ci.yml declares no id_tokens.%s; GitLab runs could never submit", submitter.GitLabIDTokenEnv)
 	}
 }
 
