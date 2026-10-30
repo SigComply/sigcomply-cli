@@ -4,7 +4,8 @@ In this tutorial you take a SigComply project into CI. It assumes you ran the
 [Quickstart](quickstart.md); you start again in your repository. By the end,
 SigComply runs on a schedule, stores signed evidence in a bucket you own, and, if you choose,
 sends counts to the SigComply Cloud dashboard. The examples use AWS and GitHub Actions; GitLab
-differences are noted where they apply.
+differences are noted where they apply. [How SigComply works](how-it-works.md) explains what
+each run does and what leaves your pipeline.
 
 ## Before you start
 
@@ -16,7 +17,14 @@ You need:
 - For the dashboard only: a SigComply Cloud account on the paid plan or in its free trial. The
   first submission from a new organization starts the trial.
 
+A run exits `1`, which fails the CI job, while any policy fails. On a new project that includes
+every manual policy until its document is on file. [Step 5](#5-run-it) shows how to keep the job
+green while you upload them.
+
 ## 1. Commit a config
+
+Create the S3 bucket for evidence first, in the AWS console or with
+`aws s3 mb s3://<your-evidence-bucket> --region us-east-1`.
 
 In the root of the repository, scaffold the config if you haven't already, then edit it:
 
@@ -115,7 +123,8 @@ Cloud. In AWS:
 2. Create a role that this provider can assume, limited to your repository, with read-only
    access (for example `ReadOnlyAccess`) and write access to the evidence bucket.
 3. Replace the `AWS_ROLE_ARN` placeholder (`arn:aws:iam::000000000000:role/REPLACE_ME`) in each
-   scaffolded workflow with the role's ARN.
+   scaffolded workflow with the role's ARN, and set `AWS_REGION` to your region. On GitLab, both
+   are in the `variables:` block of `.gitlab-ci.yml`.
 
 [CI on GitHub](guides/ci-github.md) and [CI on GitLab](guides/ci-gitlab.md) have the trust
 policy and the full setup.
