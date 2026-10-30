@@ -12,7 +12,7 @@ import (
 func TestPresencePolicies(t *testing.T) {
 	want := []string{
 		"soc2.a1.2.backup_plan_exists",
-		"soc2.cc6.1.password_min_length_14",
+		"soc2.cc6.1.password_min_length_14", // gitleaks:allow -- a policy ID, not a key
 		"soc2.cc6.8.macie_enabled",
 		"soc2.cc6.8.threat_detection_enabled",
 		"soc2.cc7.1.audit_logging_enabled",

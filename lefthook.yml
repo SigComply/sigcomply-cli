@@ -2,7 +2,7 @@
 # Git hooks for SigComply CLI
 #
 # Install:   lefthook install
-#   (brew install lefthook  or  go install github.com/evilmartians/lefthook@latest)
+#   (brew install lefthook  or  go install github.com/evilmartians/lefthook/v2@v2.2.2)
 #
 # Never skip the hooks to get a commit or push through: a failing hook
 # means something is wrong, so fix it.

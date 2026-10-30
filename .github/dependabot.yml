@@ -18,8 +18,14 @@ updates:
     labels:
       - "dependencies"
       - "go"
-    reviewers:
-      - "sigcomply/maintainers"
+    # A version is proposed only once it is 7 days old (30 for a major),
+    # so a compromised release has time to be caught first. Same cooldown
+    # as every SigComply repo.
+    cooldown:
+      default-days: 7
+      semver-major-days: 30
+      semver-minor-days: 7
+      semver-patch-days: 7
     # Group minor and patch updates together
     groups:
       aws-sdk:
@@ -71,4 +77,6 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
+    cooldown:
+      default-days: 7
 

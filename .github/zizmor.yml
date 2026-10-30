@@ -1,0 +1,10 @@
+# zizmor configuration (https://docs.zizmor.sh/configuration/). Findings
+# accepted on purpose; everything else is reported to code scanning by the
+# zizmor job in security.yml.
+rules:
+  # zizmor suggests `uses: $/...` for this repository's own reusable
+  # workflows. The build provenance identity pins the signing workflow's
+  # path and ref (docs/guides/install.md), so the `./` form stays until
+  # that syntax is shown to sign with the same identity.
+  self-repository:
+    disable: true

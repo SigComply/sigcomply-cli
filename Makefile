@@ -168,15 +168,16 @@ deps-update: ## Update dependencies
 	$(GOMOD) tidy
 
 .PHONY: tools
-# golangci-lint is installed at the version mise.toml pins (see GOLINT
-# above): an unpinned @latest can be a build that refuses to load this module.
+# Exact versions, never @latest: a fresh release is unvetted and may be
+# compromised. golangci-lint follows mise.toml (see GOLINT above);
+# govulncheck, gosec and syft match security.yml. Bump them together.
 tools: ## Install development tools
 	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v$(GOLANGCI_LINT_VERSION)
-	go install golang.org/x/vuln/cmd/govulncheck@latest
+	go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
 	go install github.com/sonatype-nexus-community/nancy/v2@v2.1.1
-	go install github.com/securego/gosec/v2/cmd/gosec@latest
-	go install github.com/anchore/syft/cmd/syft@latest
-	go install github.com/evilmartians/lefthook@latest
+	go install github.com/securego/gosec/v2/cmd/gosec@v2.30.0
+	go install github.com/anchore/syft/cmd/syft@v1.55.0
+	go install github.com/evilmartians/lefthook/v2@v2.2.2
 
 ##@ CI/CD
 

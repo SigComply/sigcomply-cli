@@ -1,0 +1,16 @@
+# Reviewed gitleaks false positives already in git history, by fingerprint
+# (commit:file:rule:line). New ones get an inline `gitleaks:allow` comment
+# instead; add a line here only for a commit that is already pushed.
+
+# A policy ID (password_min_length_14) read as a generic key.
+e18f0561aa2df91a6162f239080d12639b8219ac:internal/frameworks/soc2/presence_test.go:generic-api-key:15
+# Fake tokens and access key IDs the cassette redactor tests must scrub.
+7981e7ae0cf2eec3e84ab4559a612f66b87e04e9:internal/sources/sourcetest/cassette_test.go:stripe-access-token:85
+167e03e4dd3224d2522376b3cd85b78fe70324cb:internal/sources/sourcetest/cassette_test.go:stripe-access-token:82
+f9c7176f8ab2f14de157866e3334a47f92a8e582:internal/sources/sourcetest/cassette_test.go:stripe-access-token:82
+2800cbe2a335daa99481f1318bd19eb9b0c175cf:internal/sources/sourcetest/cassette_test.go:aws-access-token:229
+2800cbe2a335daa99481f1318bd19eb9b0c175cf:internal/sources/sourcetest/cassette_test.go:aws-access-token:230
+2800cbe2a335daa99481f1318bd19eb9b0c175cf:internal/sources/sourcetest/cassette_test.go:aws-access-token:234
+# Policy-table text (a resource type and a condition) in a removed plan.
+0a1d36f8bc3677ff964a8e9f8888cfb4f3209d4b:docs/claude/implementation-plan-policy-library.md:generic-api-key:838
+0a1d36f8bc3677ff964a8e9f8888cfb4f3209d4b:docs/claude/implementation-plan-policy-library.md:generic-api-key:841

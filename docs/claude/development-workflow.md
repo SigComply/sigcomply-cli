@@ -12,9 +12,18 @@ tracker. Don't import those assumptions from the Rails dashboard repo.
   (`COVERAGE_THRESHOLD` in `test.yml`), golangci-lint, and a cross-platform build matrix. On a
   push that also releases, it runs twice (directly and through `auto-release.yml`). On a
   docs-only push it still runs, so `TestDocFiguresMatchCode` gates docs pushes.
-- `security.yml` on every push, every pull request and weekly: dependency, code and secret
-  scanners. Several steps are warn-only (`continue-on-error`, `|| echo ::warning::`), so a green
-  run does not mean no findings. Read the logs when a change touches dependencies.
+- `security.yml` on every push, every pull request and weekly: dependency, code, secret and
+  workflow scanners. Blocking: `go mod verify`, the `go mod tidy` check, govulncheck (a
+  vulnerability the code reaches) and gitleaks over the full history. The rest are warn-only or
+  upload SARIF to code scanning (`continue-on-error`, `|| true`), so a green run does not mean
+  no findings. zizmor audits the workflows and `dependabot.yml` and reports to code scanning;
+  accepted findings live in `.github/zizmor.yml` or an inline `# zizmor: ignore[...]`.
+  - govulncheck red: upgrade the module (or the Go toolchain in `go.mod` and `mise.toml`, for a
+    standard-library finding). Never make the step warn-only again.
+  - gitleaks red: a real secret must be revoked first, then removed. A false positive gets an
+    inline `gitleaks:allow` comment; one already pushed gets its fingerprint (`commit:file:rule:line`,
+    from `gitleaks detect --report-path`) in `.gitleaksignore` with a comment. Never widen the
+    `paths` allowlist in `.gitleaks.toml`.
 - `auto-release.yml`, unless every file changed in the push matches its `paths-ignore`: root
   `*.md`, `docs/**`, `.claude/**`, `.vale/**`, `.vale.ini`, `LICENSE`, `.gitignore`,
   `.github/workflows/docs-lint.yml`. It calls `test.yml` and waits for it, then, unless the head
@@ -118,6 +127,8 @@ Add, when the change calls for it:
 | Coverage-sensitive change (new package, large deletion of tests) | `make test-coverage` and compare the total with `COVERAGE_THRESHOLD` in `test.yml` (CI enforces it, make does not) |
 | `.github/workflows/*` | `actionlint` (install it yourself; it is not in `mise.toml`) |
 | `go.mod` / `go.sum` | `go mod tidy` and commit the result |
+| `mise.toml` | `mise lock --platform linux-x64,macos-arm64` and commit `mise.lock` (versions stay exact) |
+| `.github/workflows/*`, `.github/dependabot.yml` | `zizmor .` (1.31.1, the version `security.yml` runs; `mise exec zizmor@1.31.1 -- zizmor .`): no new findings |
 | Customer-facing Markdown | `vale --minAlertLevel=error <files>` (Vale is pinned in `mise.toml`) |
 
 Lefthook (`lefthook.yml`, installed by `make hooks-install`) is a backstop, not the gate. Run the

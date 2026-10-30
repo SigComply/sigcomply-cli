@@ -33,6 +33,8 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       # Privacy gate: fail fast if any fixture/contract leaks real secrets or
       # identity instead of the §4 placeholders (docs/architecture/11-testing-strategy.md).
@@ -42,7 +44,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.27'
+          go-version-file: go.mod
           cache: true
 
       - name: Download dependencies
@@ -75,10 +77,12 @@ jobs:
       - name: Add coverage comment to PR
         if: github.event_name == 'pull_request'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          COVERAGE: ${{ steps.coverage.outputs.coverage }}
         with:
           script: |
-            const coverage = '${{ steps.coverage.outputs.coverage }}';
-            const threshold = '${{ env.COVERAGE_THRESHOLD }}';
+            const coverage = process.env.COVERAGE;
+            const threshold = process.env.COVERAGE_THRESHOLD;
             const emoji = parseFloat(coverage) >= parseFloat(threshold) ? '✅' : '❌';
             github.rest.issues.createComment({
               issue_number: context.issue.number,
@@ -98,11 +102,13 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.27'
+          go-version-file: go.mod
           cache: true
 
       - name: Run golangci-lint
@@ -129,11 +135,13 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.27'
+          go-version-file: go.mod
           cache: true
 
       - name: Build binary

@@ -7,11 +7,11 @@ This page is for anyone changing the CLI's code or docs. AI agents start at
 ## Set up
 
 1. Install [mise](https://mise.jdx.dev/), then run `mise install` in the repo root. It installs the
-   Go, golangci-lint and Vale versions pinned in `mise.toml`, the same versions CI uses.
+   Go, golangci-lint, Vale and gitleaks versions pinned in `mise.toml`, the same versions CI
+   uses, and checks each download against `mise.lock`.
 2. Install [lefthook](https://github.com/evilmartians/lefthook) and run `make hooks-install`. The
-   hooks run formatting, vet, lint, tests and a secret scan at commit and push.
-3. Install `gitleaks`, which the hooks call. Install `actionlint` if you edit
-   `.github/workflows/`.
+   hooks run formatting, vet, lint, tests and a secret scan (gitleaks) at commit and push.
+3. Install `actionlint` if you edit `.github/workflows/`.
 4. Build and run the CLI:
 
    ```sh

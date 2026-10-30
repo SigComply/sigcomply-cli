@@ -82,7 +82,7 @@ func TestRedactInteraction(t *testing.T) {
 		Request: cassette.Request{
 			Method:  http.MethodPost,
 			URL:     "https://api.example.com/q?token=Bearer%20abcDEF123456",
-			Headers: http.Header{"Authorization": {"Bearer sk_live_abcdef123456"}, "Private-Token": {"glpat-realsecrettoken1234"}, "Accept": {contentTypeJSON}},
+			Headers: http.Header{"Authorization": {"Bearer sk_live_abcdef123456"}, "Private-Token": {"glpat-realsecrettoken1234"}, "Accept": {contentTypeJSON}}, // gitleaks:allow -- fake tokens the redactor must scrub
 			Body:    `{"actor":"alice@acmecorp.com"}`,
 			Form:    map[string][]string{"AccessKeyId": {"AKIAIOSFODNN7EXAMPLE9"}},
 		},

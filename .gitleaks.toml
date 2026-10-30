@@ -22,7 +22,10 @@ regex = '''(?i)sigcomply[_-]?signing[_-]?key\s*[:=]\s*['"]?([a-zA-Z0-9+/]{32,}={
 secretGroup = 1
 keywords = ["sigcomply", "signing"]
 
-# Allow rules - files and patterns to ignore
+# Allow rules - files and patterns to ignore. Test files and Markdown are
+# scanned like everything else: allow a false positive with an inline
+# `gitleaks:allow` comment, or list the fingerprint of one already in
+# history in .gitleaksignore. CI fails on any finding (security.yml).
 [allowlist]
 description = "Global allowlist"
 
@@ -32,8 +35,6 @@ paths = [
     '''go\.mod$''',
     '''\.gitleaks\.toml$''',
     '''testdata/.*''',
-    '''.*_test\.go$''',
-    '''.*\.md$''',
     '''LICENSE''',
 ]
 

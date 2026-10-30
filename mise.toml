@@ -4,9 +4,22 @@
 # than the Go it was itself built with, which is what made the git hooks
 # fail on every push regardless of the code. go.mod targets 1.27, and
 # 2.13.x is the first golangci-lint line built with go1.27.
+#
+# Exact versions only, and mise.lock pins each download's checksum, so a
+# new or tampered tool build never reaches a developer machine unreviewed.
+# After changing a version, run
+# `mise lock --platform linux-x64,macos-arm64` and commit mise.lock.
 [tools]
-go = "1.27"
+# The toolchain go.mod names; CI reads go.mod (go-version-file).
+go = "1.27.3"
 golangci-lint = "2.15.0"
 # Same version .github/workflows/docs-lint.yml downloads, so a local
-# `vale --minAlertLevel=error` predicts the CI verdict.
-vale = "3.25.1"
+# `vale --minAlertLevel=error` predicts the CI verdict. The aqua backend,
+# not the asdf plugin, so mise.lock can pin its checksum.
+"aqua:vale-cli/vale" = "3.25.1"
+# Same version security.yml downloads, so the git hooks' gitleaks run
+# predicts the CI verdict.
+gitleaks = "8.30.1"
+
+[settings]
+lockfile = true
