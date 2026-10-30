@@ -62,7 +62,7 @@ has no `--framework` flag.
 Without `--cloud` or `--no-cloud`, the CLI submits only when all of these hold: a base URL is
 set, the run is in GitHub Actions or GitLab CI, and an OIDC token is available. A failed
 submission does not change the exit code. The base URL must be `https://` (plain `http://` only
-for `localhost`), or the run exits `3` before collecting. A run that would submit (unfiltered or
+to a loopback host (`localhost`, `127.0.0.1`, `::1`)), or the run exits `3` before collecting. A run that would submit (unfiltered or
 `--scheduled`, with or without `--cloud`) also exits `3` before collecting when
 `cloud.project_id` is not set in `.sigcomply.yaml`, even when the URL comes from `--cloud-url`.
 `--no-cloud`, `--capture-cloud-payload` and filtered runs don't need it.

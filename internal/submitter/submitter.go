@@ -199,7 +199,7 @@ func setHeaders(h http.Header, opts *Options, token, providerName string) {
 }
 
 // ValidateBaseURL applies endpoint.ValidateHTTPS to the cloud base URL:
-// https, or http to localhost only, so the OIDC bearer token never
+// https, or http to a loopback host only, so the OIDC bearer token never
 // crosses the network in cleartext.
 func ValidateBaseURL(raw string) error {
 	return endpoint.ValidateHTTPS("cloud base URL", raw)

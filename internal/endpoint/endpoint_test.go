@@ -28,6 +28,17 @@ func TestValidateHTTPS(t *testing.T) {
 	}
 }
 
+// The refusal of plain http names every loopback host it accepts, not
+// just localhost.
+func TestValidateHTTPS_ErrorNamesLoopbackHosts(t *testing.T) {
+	err := ValidateHTTPS("base URL", "http://sigcomply.com")
+	for _, host := range []string{"localhost", "127.0.0.1", "::1"} {
+		if err == nil || !strings.Contains(err.Error(), host) {
+			t.Errorf("error should name %s: %v", host, err)
+		}
+	}
+}
+
 // An Azure storage account name becomes the host of the request that
 // carries the job's Azure Storage token, so anything but the 3-24
 // lowercase letters and digits Azure allows is refused.

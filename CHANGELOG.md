@@ -108,7 +108,7 @@ this file lists the changes a user notices.
 - Unknown `--cadence` and `--cadences` values, an `evidence_mode: automated` override on a policy
   with no automated check, a non-https Okta `org_url`, and invalid custom period IDs (over 50
   characters, unsafe characters, duplicates or overlaps) are config errors (exit 3).
-- `cloud.base_url` must use `https://` (localhost excepted), and a redirect from it is an error.
+- `cloud.base_url` must use `https://` (loopback hosts excepted: `localhost`, `127.0.0.1`, `::1`), and a redirect from it is an error.
 - `report` exits 3 for a period with no runs or a missing local vault, and `--period` accepts the
   `framework/period` form `check` prints.
 - Rewrote the customer docs. To submit results to SigComply Cloud, set `cloud.base_url` in
@@ -126,7 +126,7 @@ this file lists the changes a user notices.
 ### Fixed
 
 - `github` and `gitlab` `base_url`, and the `s3` `endpoint` of the vault and of `manual.pdf`, must
-  be `https://` (`http://` only for `localhost`); a plaintext URL is a config error (exit 3). A
+  be `https://` (`http://` only to a loopback host (`localhost`, `127.0.0.1`, `::1`)); a plaintext URL is a config error (exit 3). A
   source's `token_env` can't name a CI or cloud credential variable (`AWS_*`, `ACTIONS_*`,
   `GOOGLE_*`, `AZURE_*`, `ARM_*`, `CLOUDSDK_*`, `CI_JOB_*`, names containing `ID_TOKEN`, GitLab's
   predefined passwords, `CI_REPOSITORY_URL`, `VAULT_TOKEN`),

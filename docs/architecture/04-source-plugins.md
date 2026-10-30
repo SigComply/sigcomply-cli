@@ -262,7 +262,7 @@ Plugin-side facts:
 
 - Code: `internal/sources/manual/` (`manual.go`: `scanFolder`, `validatePDF`; `factory.go`:
   `build`, `buildReader`; `fileconv`, `pdfmerge`). Default `prefix` is `manual/`.
-- Reader backends: `local` (registered in `factory.go`), `s3`, `gcs`, `azure_blob` (subpackages
+- Reader backends: `local` (registered in `factory.go`), `s3`, `gcs`, `azure_blob` (packages
   blank-imported by `manual/builtin`). `s3` with `endpoint` and `force_path_style` serves
   S3-compatible stores.
 - The catalog is generated in Go from each framework's `manualSpecs()`; the runtime catalog
@@ -309,10 +309,11 @@ sources:
   `ACTIONS_*`, `GOOGLE_*`, `AZURE_*`, `ARM_*`, `CLOUDSDK_*`, `CI_JOB_*`, `*ID_TOKEN*`, GitLab's
   predefined passwords, `CI_REPOSITORY_URL`, `VAULT_TOKEN`).
   A URL the credential is sent to goes through `sources.ResolveEndpoint` (or, for a vault
-  backend, `endpoint.ValidateHTTPS`): https, http only to localhost. The config file is
-  repository content anyone with push access edits, so without both a branch could point a
+  backend, `endpoint.ValidateHTTPS`): `https://`, or `http://` only to a loopback host
+  (`localhost`, `127.0.0.1`, `::1`). The config file is repository content anyone with push
+  access edits, so without both a branch could point a
   source at its own host with the job's AWS keys as the "token". Active Directory keeps its own
-  `ldaps://` or StartTLS rule. Guards: forbidigo (`os.Getenv` in `internal/sources`) and the
+  `ldaps://` or StartTLS rule. Guards: the `forbidigo` linter (`os.Getenv` in `internal/sources`) and the
   registry-wide tests in `internal/sources/builtin` and `internal/vault/builtin`.
 - A second region uses the same mechanism: regional `aws.*` plugins read only `region`
   (`awscfg.Load`), so per-region instances (`"aws.ec2[eu]"`) are how an estate with several

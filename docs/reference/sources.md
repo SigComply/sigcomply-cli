@@ -304,7 +304,7 @@ Source ID: `github`. Emits `git_repository`, `directory_user`, `source_control_o
 | `org` | yes | none | Organization to read. |
 | `token` | no | none | API token. Prefer `token_env` or `GITHUB_TOKEN` so the token stays out of the repository. |
 | `token_env` | no | none | Name of an environment variable holding the token. An empty or unset variable is an error, and so is a CI or cloud credential variable ([which ones](../configuration.md#environment-variables)). |
-| `base_url` | no | `https://api.github.com` | API URL for GitHub Enterprise Server. Must be `https://` (`http://` only for `localhost`). |
+| `base_url` | no | `https://api.github.com` | API URL for GitHub Enterprise Server. Must be `https://` (`http://` only to a loopback host (`localhost`, `127.0.0.1`, `::1`)). |
 
 Token lookup order: `token`, then `token_env`, then `GITHUB_TOKEN`.
 
@@ -354,7 +354,7 @@ Source ID: `gitlab`. Emits `git_repository`, `directory_user`, `pull_request`, `
 | `group` | yes | none | Group ID or full path (`my-group/sub-group`). Projects in subgroups are included; projects other groups share into it are not. |
 | `token` | no | none | Personal, group, or project access token. Prefer `token_env` or `GITLAB_TOKEN`. |
 | `token_env` | no | none | Name of an environment variable holding the token. An empty or unset variable is an error, and so is a CI or cloud credential variable ([which ones](../configuration.md#environment-variables)). |
-| `base_url` | no | `https://gitlab.com` | URL of a self-managed instance. Must be `https://` (`http://` only for `localhost`). |
+| `base_url` | no | `https://gitlab.com` | URL of a self-managed instance. Must be `https://` (`http://` only to a loopback host (`localhost`, `127.0.0.1`, `::1`)). |
 
 Token lookup order: `token`, then `token_env`, then `GITLAB_TOKEN`. The token needs the `read_api`
 scope, and its user needs Maintainer on each project to read the default branch's protection. If
@@ -460,7 +460,7 @@ policy to collect (all automated, carried forward, or excepted as a whole) does 
 | `path` | `local` | none | Directory that holds the evidence folders. |
 | `bucket` | `s3`, `gcs` | none | Bucket name. For `local`, defaults to `path`. |
 | `region` | `s3`, unless `vault.region` is set | `vault.region` | Bucket region. |
-| `endpoint` | no | none | `s3` only: URL of an S3-compatible store. Must be `https://` (`http://` only for `localhost`). |
+| `endpoint` | no | none | `s3` only: URL of an S3-compatible store. Must be `https://` (`http://` only to a loopback host (`localhost`, `127.0.0.1`, `::1`)). |
 | `force_path_style` | no | `false` | `s3` only: `true` or `false` (quoted or not), path-style addressing for S3-compatible stores. Any other value is a config error (exit `3`). |
 | `account` | `azure_blob` | none | Storage account name: 3 to 24 lowercase letters and digits. |
 | `container` | `azure_blob` | none | Container name. |

@@ -240,7 +240,7 @@ error.
 
 | Key | Type | Default | Effect |
 |---|---|---|---|
-| `cloud.base_url` | string | none | SigComply Cloud endpoint. Set `https://sigcomply.com` to submit. With no value and no `--cloud-url` flag, nothing is submitted. Must be `https://`; plain `http://` is accepted only for `localhost`, and anything else is a config error, exit `3`. |
+| `cloud.base_url` | string | none | SigComply Cloud endpoint. Set `https://sigcomply.com` to submit. With no value and no `--cloud-url` flag, nothing is submitted. Must be `https://`; plain `http://` is accepted only for a loopback host (`localhost`, `127.0.0.1`, `::1`), and anything else is a config error, exit `3`. |
 | `cloud.project_id` | string | none | The **Project ID** from your project's page on the SigComply dashboard: `prj_` followed by 20 base58 characters (letters and digits except 0, O, I and l). Sent in the `X-SigComply-Project` header, never in the payload. Any other shape is a config error, exit `3`. When an unfiltered or `--scheduled` `check` without `--no-cloud` has a cloud URL, from `cloud.base_url` or `--cloud-url`, and this key is not set, `check` stops with exit `3` before collecting. This applies locally too, where nothing would be submitted, so the mistake shows up before CI. Filtered runs never submit, so they don't need it. There is no flag or environment variable for it: the committed file is what shows the repository chose the project. |
 
 A run submits when `cloud.base_url` (or `--cloud-url`, which overrides it) is set, the run is in
@@ -387,7 +387,7 @@ storage block takes credential keys.
 | Backend | `vault` keys | `manual.pdf` keys |
 |---|---|---|
 | `local` | `path` (default `./.sigcomply/vault`) | `path` (required); `prefix` (default `manual/`); `bucket` (defaults to `path`; files are always read from under `path`) |
-| `s3` | `bucket`, `region` (required); `prefix` (default none); `endpoint` (`https://`, or `http://` for `localhost` only), `force_path_style` (`true` or `false`, quoted or not) for S3-compatible stores | `bucket`, `region` (required; `region` falls back to `vault.region`); `prefix` (default `manual/`); `endpoint`, `force_path_style` |
+| `s3` | `bucket`, `region` (required); `prefix` (default none); `endpoint` (`https://`, or `http://` to a loopback host (`localhost`, `127.0.0.1`, `::1`)), `force_path_style` (`true` or `false`, quoted or not) for S3-compatible stores | `bucket`, `region` (required; `region` falls back to `vault.region`); `prefix` (default `manual/`); `endpoint`, `force_path_style` |
 | `gcs` | `bucket` (required); `prefix` | `bucket` (required); `prefix` (default `manual/`) |
 | `azure_blob` | `account` (the storage account name: 3 to 24 lowercase letters and digits), `container` (required); `prefix` | `account`, `container` (required); `prefix` (default `manual/`) |
 

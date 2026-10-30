@@ -31,7 +31,7 @@ func ValidateHTTPS(name, raw string) error {
 		case "localhost", "127.0.0.1", "::1":
 			return nil
 		}
-		return fmt.Errorf("%s %q: must use https; plain http would send the credential unencrypted (http is accepted only for localhost)", name, raw)
+		return fmt.Errorf("%s %q: must use https; plain http would send the credential unencrypted (http is accepted only for a loopback host: localhost, 127.0.0.1, ::1)", name, raw)
 	default:
 		return fmt.Errorf("%s %q: want https://<host>", name, raw)
 	}
