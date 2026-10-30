@@ -164,8 +164,8 @@ protect against: [`SECURITY.md`](../../SECURITY.md).
 
 | Output | Contents | Identifiers |
 |---|---|---|
-| stdout | `check` run summary; `report` views (text, JSON, CSV) | Reports can include policy IDs and violation reasons; never credentials. `check` prints each reason through `log.Sanitize`; CSV cells go through `report.safeCSVWriter`, which prefixes a formula-starting cell with `'` |
-| stderr | `internal/log` lines; `-v` adds debug lines | Passed through `log.Redact` (email, ARN, UUID, AWS key ID, JWT, GitHub `ghp_`/`gho_`/`ghu_`/`ghs_`/`ghr_`/`github_pat_`, GitLab `glpat-` and Okta `SSWS` tokens become `<redacted:type>`). Every interpolated value also goes through `log.Sanitize`. No flag disables either |
+| stdout | `check` run summary; `report` views (text, JSON, CSV) | Reports can include policy IDs and violation reasons; never credentials. `check` prints each reason through `log.Sanitize`. The text and CSV `report` views sanitize every field of the snapshot (`report.sanitizedSnapshot`, and `report.safeCSVWriter` per cell, which also prefixes a formula-starting cell with `'`) |
+| stderr | `internal/log` lines; `-v` adds debug lines | Passed through `log.Redact` (email, ARN, UUID, AWS key ID, JWT, GitHub `ghp_`/`gho_`/`ghu_`/`ghs_`/`ghr_`/`github_pat_`, GitLab `glpat-` and Okta `SSWS` tokens become `<redacted:type>`). Every interpolated value is redacted, then passed through `log.Sanitize`. No flag disables either |
 | vault | Envelopes, results, manifest | Kept: the vault is the customer's |
 | cloud | `SubmissionPayload` | Counts only |
 
@@ -173,7 +173,9 @@ protect against: [`SECURITY.md`](../../SECURITY.md).
 names, and CI runners parse their own log: a newline followed by `::add-mask::`, `::error::` or
 `::stop-commands::` is a GitHub Actions workflow command. It turns newlines, carriage returns and
 tabs into spaces, other control characters (ANSI escapes), line separators and bidirectional
-overrides into U+FFFD, and breaks up `::` and `##[`.
+overrides into U+FFFD, and breaks up `##[` and every `::` except the one in an ARN header
+(`arn:aws:iam::`), so an ARN in a reason stays copyable. Redact before sanitizing: a broken-up
+ARN no longer matches the ARN pattern.
 
 Source plugins don't import `internal/log` and no lint rule checks their output. Rule for new
 plugin code: return errors instead of printing, and never print credentials or payloads.

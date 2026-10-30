@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"text/tabwriter"
+
+	"github.com/sigcomply/sigcomply-cli/internal/log"
 )
 
 // FormatText writes a human-readable text rendering of snap to w.
@@ -20,6 +22,7 @@ func FormatText(w io.Writer, snap *Snapshot) error {
 	if snap == nil {
 		return fmt.Errorf("format text: nil Snapshot")
 	}
+	snap = sanitizedSnapshot(snap)
 	header := fmt.Sprintf("# sigcomply report — framework=%s period=%s view=%s\n\n",
 		snap.Framework, snap.PeriodID, snap.View)
 	if _, err := io.WriteString(w, header); err != nil {
@@ -135,9 +138,10 @@ func dash(s string) string {
 }
 
 // oneLine collapses newlines into spaces so a multi-line Reason fits
-// in a single tabwriter row.
+// in a single tabwriter row, and removes escapes and workflow commands
+// (log.Sanitize).
 func oneLine(s string) string {
-	return strings.NewReplacer("\n", " ", "\r", " ", "\t", " ").Replace(s)
+	return log.Sanitize(s)
 }
 
 func formatTextScope(w io.Writer, v *ScopeView) error {

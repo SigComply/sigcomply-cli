@@ -4,6 +4,8 @@ import (
 	"encoding/csv"
 	"io"
 	"strings"
+
+	"github.com/sigcomply/sigcomply-cli/internal/log"
 )
 
 // csvRows is what every CSV rendering writes to: one record at a time.
@@ -17,7 +19,9 @@ type csvRows interface {
 // Excel, LibreOffice or Google Sheets, and report cells carry text from
 // resource names, API responses and the project's config. Such a cell
 // is prefixed with a single quote, which spreadsheets show as text and
-// which keeps the original characters readable.
+// which keeps the original characters readable. Each cell then goes
+// through log.Sanitize, so an export printed into a CI log carries no
+// newline, escape sequence or workflow command.
 type safeCSVWriter struct {
 	w *csv.Writer
 }
@@ -31,7 +35,7 @@ func newSafeCSVWriter(w io.Writer) *safeCSVWriter {
 func (s *safeCSVWriter) Write(record []string) error {
 	out := make([]string, len(record))
 	for i, cell := range record {
-		out[i] = neutralizeCSVCell(cell)
+		out[i] = log.Sanitize(neutralizeCSVCell(cell))
 	}
 	return s.w.Write(out)
 }

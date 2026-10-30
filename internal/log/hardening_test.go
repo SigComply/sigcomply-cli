@@ -72,3 +72,53 @@ func TestLogger_SanitizesArguments(t *testing.T) {
 		t.Errorf("format-string newline lost: %q", out)
 	}
 }
+
+// Redaction must see an argument before Sanitize breaks up "::", or a
+// global or S3 ARN ("arn:aws:iam::123456789012:role/Foo") no longer
+// matches the ARN pattern and the account ID reaches the CI log.
+func TestLogger_RedactsARNsInArguments(t *testing.T) {
+	for _, arn := range []string{
+		"arn:aws:iam::123456789012:role/Foo",
+		"arn:aws:s3:::my-evidence-bucket",
+		"arn:aws:sts::123456789012:assumed-role/Deploy/session",
+	} {
+		var b strings.Builder
+		l := New(&b, false)
+		l.Errorf("collector: %v", errors.New("AccessDenied: "+arn+" is not authorized"))
+		l.Warnf("resource %s", arn)
+		out := b.String()
+		for _, leak := range []string{"123456789012", "my-evidence-bucket", "role/Foo"} {
+			if strings.Contains(arn, leak) && strings.Contains(out, leak) {
+				t.Errorf("logged %q unredacted: %q", leak, out)
+			}
+		}
+		if strings.Count(out, "<redacted:arn>") != 2 {
+			t.Errorf("want two <redacted:arn> tags for %s: %q", arn, out)
+		}
+	}
+}
+
+// `check` prints violation reasons that name ARNs; Sanitize keeps the
+// "::" of an ARN header so the reader can copy the ARN, while still
+// breaking every other "::".
+func TestSanitize_KeepsARNsCopyable(t *testing.T) {
+	for _, arn := range []string{
+		"arn:aws:iam::123456789012:role/Foo",
+		"arn:aws:s3:::my-evidence-bucket",
+		"arn:aws-us-gov:sts::123456789012:assumed-role/Deploy/s",
+	} {
+		if got := Sanitize("role " + arn + " has no MFA"); got != "role "+arn+" has no MFA" {
+			t.Errorf("Sanitize(%q) = %q; want the ARN unchanged", arn, got)
+		}
+	}
+	for _, hostile := range []string{"::error::x", "arn:aws:iam::x ::add-mask::y", "x::arn:aws:s3:::b", "arn:a:b:::::::stop-commands::t"} {
+		got := Sanitize(hostile)
+		if strings.HasPrefix(strings.TrimSpace(got), "::") {
+			t.Errorf("Sanitize(%q) = %q starts a workflow command", hostile, got)
+		}
+		rest := arnHeaderRE.ReplaceAllString(got, "")
+		if strings.Contains(rest, "::") {
+			t.Errorf("Sanitize(%q) = %q left a \"::\" outside an ARN header", hostile, got)
+		}
+	}
+}

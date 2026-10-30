@@ -106,7 +106,10 @@ var (
 	arnRE    = regexp.MustCompile(`arn:[a-z0-9-]+:[a-z0-9-]+:[a-z0-9-]*:[0-9]*:[a-zA-Z0-9:/_.-]+`)
 	uuidRE   = regexp.MustCompile(`\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b`)
 	awsKeyRE = regexp.MustCompile(`\b(?:AKIA|ASIA)[A-Z0-9]{16}\b`)
-	jwtRE    = regexp.MustCompile(`\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+`)
+	// arnHeaderRE matches the "arn:<partition>:<service>::" start of a
+	// global or S3 ARN, whose "::" Sanitize leaves intact.
+	arnHeaderRE = regexp.MustCompile(`\barn:[a-z0-9-]+:[a-z0-9-]+::+`)
+	jwtRE       = regexp.MustCompile(`\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+`)
 	// Source credentials an API error body or a wrapped request can echo
 	// back: GitHub classic (ghp_, gho_, ghu_, ghs_, ghr_) and fine-grained
 	// (github_pat_) tokens, GitLab personal access tokens (glpat-), and
@@ -132,8 +135,9 @@ func Redact(s string) string {
 // cannot start a line of its own; other control characters (ANSI
 // escapes, C1 controls), Unicode line separators and bidirectional
 // overrides become U+FFFD, so it cannot rewrite or hide what the reader
-// sees; and "::" and "##[" are broken up, so it cannot form a GitHub
-// Actions workflow command (::add-mask::, ::error::, ::stop-commands::).
+// sees; and "::" (except in an ARN header) and "##[" are broken up, so
+// it cannot form a GitHub Actions workflow command (::add-mask::,
+// ::error::, ::stop-commands::). Redact before Sanitize, never after.
 // The logger applies it to every interpolated value; `check` applies it
 // to the reasons it prints.
 func Sanitize(s string) string {
@@ -150,25 +154,44 @@ func Sanitize(s string) string {
 		}
 	}
 	out := b.String()
-	for strings.Contains(out, "::") {
-		out = strings.ReplaceAll(out, "::", ": :")
+	// Break up every "::" except the one in an ARN header
+	// ("arn:aws:iam::", "arn:aws:s3:::"), so an ARN in a reason stays
+	// copyable. A header starts with "arn", never at "::", so keeping
+	// it cannot start a workflow command.
+	var o strings.Builder
+	o.Grow(len(out))
+	last := 0
+	for _, m := range arnHeaderRE.FindAllStringIndex(out, -1) {
+		o.WriteString(breakColons(out[last:m[0]]))
+		o.WriteString(out[m[0]:m[1]])
+		last = m[1]
 	}
-	return strings.ReplaceAll(out, "##[", "# #[")
+	o.WriteString(breakColons(out[last:]))
+	return strings.ReplaceAll(o.String(), "##[", "# #[")
 }
 
-// sanitizeArgs applies Sanitize to every string-like value about to be
-// interpolated into a log line. The format string itself is the
+func breakColons(s string) string {
+	for strings.Contains(s, "::") {
+		s = strings.ReplaceAll(s, "::", ": :")
+	}
+	return s
+}
+
+// sanitizeArgs redacts, then sanitizes, every string-like value about
+// to be interpolated into a log line. Redaction runs first: Sanitize
+// breaks up "::" outside ARN headers and could otherwise split an ARN
+// out of the shape Redact matches. The format string itself is the
 // caller's and keeps its newlines.
 func sanitizeArgs(args []any) []any {
 	out := make([]any, len(args))
 	for i, a := range args {
 		switch v := a.(type) {
 		case string:
-			out[i] = Sanitize(v)
+			out[i] = Sanitize(Redact(v))
 		case error:
-			out[i] = Sanitize(v.Error())
+			out[i] = Sanitize(Redact(v.Error()))
 		case fmt.Stringer:
-			out[i] = Sanitize(v.String())
+			out[i] = Sanitize(Redact(v.String()))
 		default:
 			out[i] = a
 		}
