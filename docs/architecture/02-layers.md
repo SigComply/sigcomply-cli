@@ -164,7 +164,7 @@ protect against: [`SECURITY.md`](../../SECURITY.md).
 
 | Output | Contents | Identifiers |
 |---|---|---|
-| stdout | `check` run summary; `report` views (text, JSON, CSV) | Reports can include policy IDs and violation reasons; never credentials. `check` prints each reason through `log.Sanitize` |
+| stdout | `check` run summary; `report` views (text, JSON, CSV) | Reports can include policy IDs and violation reasons; never credentials. `check` prints each reason through `log.Sanitize`; CSV cells go through `report.safeCSVWriter`, which prefixes a formula-starting cell with `'` |
 | stderr | `internal/log` lines; `-v` adds debug lines | Passed through `log.Redact` (email, ARN, UUID, AWS key ID, JWT, GitHub `ghp_`/`gho_`/`ghu_`/`ghs_`/`ghr_`/`github_pat_`, GitLab `glpat-` and Okta `SSWS` tokens become `<redacted:type>`). Every interpolated value also goes through `log.Sanitize`. No flag disables either |
 | vault | Envelopes, results, manifest | Kept: the vault is the customer's |
 | cloud | `SubmissionPayload` | Counts only |

@@ -228,7 +228,8 @@ This period
 
 `--format json`, like `result.json` in the vault, uses Go field names as keys (`PolicyID`,
 `Status`); some nested objects use `snake_case`. `--format csv` uses `snake_case` column names
-throughout.
+throughout. A CSV cell that would start with `=`, `+`, `-`, `@`, a tab or a carriage return gets a
+leading `'`, so a spreadsheet shows it as text instead of running it as a formula.
 
 `--view soa` needs the project config, because applicability decisions exist only in
 `.sigcomply.yaml`. If you pass both `--vault` and `--framework`, the config is read only when you

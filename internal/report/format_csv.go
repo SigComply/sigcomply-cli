@@ -1,7 +1,6 @@
 package report
 
 import (
-	"encoding/csv"
 	"fmt"
 	"io"
 	"strconv"
@@ -24,13 +23,18 @@ const (
 //
 // The header row is the first record. CSV escaping is the standard
 // encoding/csv behavior (RFC 4180): fields containing commas,
-// quotes, or newlines are quoted.
-func FormatCSV(w io.Writer, snap *Snapshot) error {
+// quotes, or newlines are quoted. Every cell goes through
+// safeCSVWriter, which defuses spreadsheet formulas.
+func FormatCSV(w io.Writer, snap *Snapshot) (err error) {
 	if snap == nil {
 		return fmt.Errorf("format csv: nil Snapshot")
 	}
-	cw := csv.NewWriter(w)
-	defer cw.Flush()
+	cw := newSafeCSVWriter(w)
+	defer func() {
+		if flushErr := cw.Flush(); err == nil {
+			err = flushErr
+		}
+	}()
 
 	switch snap.View {
 	case ViewLatest:
@@ -50,7 +54,7 @@ func FormatCSV(w io.Writer, snap *Snapshot) error {
 	}
 }
 
-func formatCSVLatest(cw *csv.Writer, v *LatestView) error {
+func formatCSVLatest(cw csvRows, v *LatestView) error {
 	header := []string{"policy_id", csvColControlID, csvColStatus, "severity", "category", "last_evaluated", csvColRunID, "exception_id", "reason"}
 	if err := cw.Write(header); err != nil {
 		return err
@@ -78,7 +82,7 @@ func formatCSVLatest(cw *csv.Writer, v *LatestView) error {
 	return nil
 }
 
-func formatCSVExceptions(cw *csv.Writer, v *ExceptionsView) error {
+func formatCSVExceptions(cw csvRows, v *ExceptionsView) error {
 	header := []string{"policy_id", "scope", "state", "approved_by", "approved_at", "expires_at", "reason", "first_seen_run_id", "last_seen_run_id"}
 	if err := cw.Write(header); err != nil {
 		return err
@@ -106,7 +110,7 @@ func formatCSVExceptions(cw *csv.Writer, v *ExceptionsView) error {
 	return nil
 }
 
-func formatCSVIntegrity(cw *csv.Writer, v *IntegrityView) error {
+func formatCSVIntegrity(cw csvRows, v *IntegrityView) error {
 	header := []string{"run_path", csvColRunID, "completed_at", csvColStatus, "signature_valid", "files_verified", "files_total", "first_mismatch_path", "error", "problems"}
 	if err := cw.Write(header); err != nil {
 		return err
@@ -138,7 +142,7 @@ func formatCSVIntegrity(cw *csv.Writer, v *IntegrityView) error {
 // formatCSVScope emits one flat table covering both halves of the view:
 // declared-source rows and skipped-control rows, distinguished by the
 // "kind" column so the file stays a single rectangular CSV.
-func formatCSVScope(cw *csv.Writer, v *ScopeView) error {
+func formatCSVScope(cw csvRows, v *ScopeView) error {
 	if err := cw.Write([]string{"kind", "id", "state_or_reason", csvColStatus, "declared_by", "declared_at", csvColRunID}); err != nil {
 		return err
 	}
@@ -164,7 +168,7 @@ func formatCSVScope(cw *csv.Writer, v *ScopeView) error {
 
 // formatCSVCoverage emits one row per declared control. Header first, so
 // a nil view still yields a well-formed header-only file.
-func formatCSVCoverage(cw *csv.Writer, v *CoverageView) error {
+func formatCSVCoverage(cw csvRows, v *CoverageView) error {
 	if err := cw.Write([]string{
 		csvColControlID, "kind", "assurance", "automated_policies", "manual_policies",
 		"evaluated", "policies", csvColStatus, "overridden", "note",
@@ -195,7 +199,7 @@ func formatCSVCoverage(cw *csv.Writer, v *CoverageView) error {
 // formatCSVSoA emits one row per catalog control — the spreadsheet an
 // auditor asks for. Header first, so a nil view still yields a
 // well-formed header-only file.
-func formatCSVSoA(cw *csv.Writer, v *SoAView) error {
+func formatCSVSoA(cw csvRows, v *SoAView) error {
 	if err := cw.Write([]string{
 		csvColControlID, "name", "applicable", "justification", "justification_derived",
 		csvColStatus, "assurance", "evaluated", "policies", "approved_by",
