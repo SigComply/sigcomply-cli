@@ -164,10 +164,16 @@ protect against: [`SECURITY.md`](../../SECURITY.md).
 
 | Output | Contents | Identifiers |
 |---|---|---|
-| stdout | `check` run summary; `report` views (text, JSON, CSV) | Reports can include policy IDs and violation reasons; never credentials |
-| stderr | `internal/log` lines; `-v` adds debug lines | Passed through `log.Redact` (email, ARN, UUID, AWS key ID, JWT become `<redacted:type>`). No flag disables it |
+| stdout | `check` run summary; `report` views (text, JSON, CSV) | Reports can include policy IDs and violation reasons; never credentials. `check` prints each reason through `log.Sanitize` |
+| stderr | `internal/log` lines; `-v` adds debug lines | Passed through `log.Redact` (email, ARN, UUID, AWS key ID, JWT, GitHub `ghp_`/`gho_`/`ghu_`/`ghs_`/`ghr_`/`github_pat_`, GitLab `glpat-` and Okta `SSWS` tokens become `<redacted:type>`). Every interpolated value also goes through `log.Sanitize`. No flag disables either |
 | vault | Envelopes, results, manifest | Kept: the vault is the customer's |
 | cloud | `SubmissionPayload` | Counts only |
+
+`log.Sanitize` exists because reasons and errors carry text from API responses and resource
+names, and CI runners parse their own log: a newline followed by `::add-mask::`, `::error::` or
+`::stop-commands::` is a GitHub Actions workflow command. It turns newlines, carriage returns and
+tabs into spaces, other control characters (ANSI escapes), line separators and bidirectional
+overrides into U+FFFD, and breaks up `::` and `##[`.
 
 Source plugins don't import `internal/log` and no lint rule checks their output. Rule for new
 plugin code: return errors instead of printing, and never print credentials or payloads.

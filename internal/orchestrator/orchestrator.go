@@ -1016,9 +1016,11 @@ func renderAndExitCode(stdout io.Writer, plan *planner.RunPlan, results []core.P
 		// non-expert knows what to fix (e.g. which files to upload) without
 		// digging into the vault result.json. This is local stdout in the
 		// operator's own environment — identifiers here are fine; only the
-		// cloud payload is counts-only.
+		// cloud payload is counts-only. The reason can carry text from an
+		// API response or a resource name, so it is printed through
+		// log.Sanitize (no newlines, workflow commands or escapes).
 		if reason := core.ResultReason(r); reason != "" {
-			_, _ = fmt.Fprintf(stdout, "      ↳ %s\n", reason) //nolint:errcheck // status output
+			_, _ = fmt.Fprintf(stdout, "      ↳ %s\n", log.Sanitize(reason)) //nolint:errcheck // status output
 		}
 	}
 	if c.skipped > 0 {
@@ -1081,7 +1083,7 @@ func renderSkipExplanations(stdout io.Writer, plan *planner.RunPlan, sortedResul
 
 	_, _ = fmt.Fprintf(stdout, "\n%d policies were SKIPPED and are NOT counted in the compliance score:\n", len(lines)) //nolint:errcheck // status output
 	for _, l := range lines {
-		_, _ = fmt.Fprintf(stdout, "  %s — %s\n", l.policyID, l.detail) //nolint:errcheck // status output
+		_, _ = fmt.Fprintf(stdout, "  %s — %s\n", l.policyID, log.Sanitize(l.detail)) //nolint:errcheck // status output
 	}
 	const skipFooter = "Configure a source that emits the listed evidence types (or add an explicit\n" +
 		"binding) so these controls are actually evaluated. A green run that skips\n" +
