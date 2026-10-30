@@ -2,10 +2,10 @@ package sources
 
 import (
 	"context"
-	"regexp"
 	"strings"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/vaultkey"
 )
 
 // IDPattern is the grammar for a source key in `sources:`.
@@ -27,7 +27,10 @@ import (
 // want the config loader to be stricter than the registry. ':' is
 // excluded because the binding syntax already uses it to separate a
 // source from a catalog entry (`manual.pdf:entry_id`).
-var IDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*(\[[A-Za-z0-9._-]{1,64}\])?$`)
+//
+// It is vaultkey.IDPattern, shared with the config loader and with
+// project-local policy IDs.
+var IDPattern = vaultkey.IDPattern
 
 // ValidID reports whether id is a well-formed source key.
 func ValidID(id string) bool { return IDPattern.MatchString(id) }

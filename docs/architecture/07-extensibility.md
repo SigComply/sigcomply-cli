@@ -40,7 +40,9 @@ plugin axes in [`00-three-plugin-axes.md`](00-three-plugin-axes.md).
 ## Project-local policies
 
 Every policy needs `id`, `control`, `description`, `evidence_mode`, `severity` and `cadence`
-(`internal/spec/policy.go`), and its `id` must not clash with a shipped one. `control` is the
+(`internal/spec/policy.go`), and its `id` must not clash with a shipped one. The `id` names a
+folder in every run and the policy's state file, so it uses the source-key grammar
+(`vaultkey.IDPattern`): letters, digits, `.`, `_` and `-`, starting with a letter or digit. `control` is the
 active framework's control ID (`CC6.1`, not `SOC2.CC6.1`); a project has one framework, so a
 project-local policy belongs to it. An ID not in that framework's control catalog is a config
 error, exit 3. Field reference and the `pass_when:` DSL:

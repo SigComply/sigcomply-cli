@@ -74,13 +74,19 @@ func (v *inMemVault) List(_ context.Context, _ string) ([]string, error) {
 }
 
 func TestBuildRunRoot_FormatsBasicISO8601(t *testing.T) {
-	got := buildRunRoot(testFramework, testPeriodID, time.Date(2026, 2, 15, 14, 0, 0, 0, time.UTC), "a3f8b2c1-9d4e-4b23-8f7a-1e5c2d8a9b0f")
+	got, err := buildRunRoot(testFramework, testPeriodID, time.Date(2026, 2, 15, 14, 0, 0, 0, time.UTC), "a3f8b2c1-9d4e-4b23-8f7a-1e5c2d8a9b0f")
+	if err != nil {
+		t.Fatal(err)
+	}
 	want := "soc2/2026-Q1/run_20260215T140000Z_a3f8b2c1"
 	if got != want {
 		t.Errorf("got %q; want %q", got, want)
 	}
 	// Short run IDs are accepted verbatim.
-	got = buildRunRoot(testFramework, testPeriodID, time.Date(2026, 2, 15, 14, 0, 0, 0, time.UTC), "abc")
+	got, err = buildRunRoot(testFramework, testPeriodID, time.Date(2026, 2, 15, 14, 0, 0, 0, time.UTC), "abc")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !strings.HasSuffix(got, "_abc") {
 		t.Errorf("short id suffix: %q", got)
 	}

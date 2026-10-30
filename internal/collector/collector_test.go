@@ -292,14 +292,14 @@ func TestCollect_PassesSlotParamsAndExtras(t *testing.T) {
 }
 
 func TestEnvelopePath_FormatsConsistently(t *testing.T) {
-	got := envelopePath("soc2/2026-Q1/run_x", "p1", testTypeDirectoryUser, testSourceAWSIAM, "")
+	got, err := envelopePath("soc2/2026-Q1/run_x", "p1", testTypeDirectoryUser, testSourceAWSIAM, "")
 	want := "soc2/2026-Q1/run_x/policies/p1/envelopes/directory_user__aws.iam.json"
-	if got != want {
+	if err != nil || got != want {
 		t.Errorf("envelopePath = %q; want %q", got, want)
 	}
-	got = envelopePath("r", "p1", testTypeSignedDoc, testSourceManualPDF, "access_review_quarterly")
+	got, err = envelopePath("r", "p1", testTypeSignedDoc, testSourceManualPDF, "access_review_quarterly")
 	want = "r/policies/p1/envelopes/signed_document__manual.pdf_access_review_quarterly.json"
-	if got != want {
+	if err != nil || got != want {
 		t.Errorf("envelopePath catalog = %q; want %q", got, want)
 	}
 }
@@ -476,5 +476,27 @@ func TestCollect_AutomatedBindingKeepsRunPeriod(t *testing.T) {
 	}
 	if got := src.lastReq.Params[testParamPeriodID]; got != testRunPeriodQ4 {
 		t.Errorf("period_id = %v; want the run's 2026-Q4", got)
+	}
+}
+
+// TestVaultKeyBuilders_RejectUnsafeSegments feeds a path-escaping value
+// to every argument of the collector's vault-key builders. Each must
+// fail rather than return a key outside the run folder.
+func TestVaultKeyBuilders_RejectUnsafeSegments(t *testing.T) {
+	const bad = "../../escape"
+	builders := map[string]func() error{
+		"envelope runRoot":   func() error { _, err := envelopePath(bad, "p1", "t", "s", ""); return err },
+		"envelope policy":    func() error { _, err := envelopePath("r", bad, "t", "s", ""); return err },
+		"envelope type":      func() error { _, err := envelopePath("r", "p1", "a/b", "s", ""); return err },
+		"envelope source":    func() error { _, err := envelopePath("r", "p1", "t", "a/b", ""); return err },
+		"envelope catalog":   func() error { _, err := envelopePath("r", "p1", "t", "s", "a/b"); return err },
+		"attachment runRoot": func() error { _, err := AttachmentPath(bad, "p1", "x.pdf"); return err },
+		"attachment policy":  func() error { _, err := AttachmentPath("r", bad, "x.pdf"); return err },
+		"attachment name":    func() error { _, err := AttachmentPath("r", "p1", ".."); return err },
+	}
+	for name, build := range builders {
+		if build() == nil {
+			t.Errorf("%s: unsafe segment accepted", name)
+		}
 	}
 }

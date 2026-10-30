@@ -35,6 +35,14 @@ None of these is written by the code. Don't assume one exists when reading a vau
 
 - `orchestrator.buildRunRoot` builds the run folder name: ISO 8601 basic UTC (no colons, for
   S3-compatible tools) plus the first 8 characters of the run ID.
+- Every key above is built with `vaultkey.Join` or `vaultkey.JoinUnder`
+  (`internal/vaultkey`), which refuse a segment that is empty, `.` or `..`, or holds anything but
+  letters, digits, `.`, `_`, `-`, `[` and `]`. Only the local backend rejects path escapes on its
+  own; S3, GCS and Azure would write a `../` key outside the run folder. A refused key fails that
+  write (the binding, or the run for `result.json`, `summary.json`, `manifest.json`). Identifiers
+  from config and project files (source keys, catalog entries, project-local policy IDs) are
+  checked earlier against `vaultkey.IDPattern`. `TestNoHandBuiltVaultKeys` fails on a key built
+  with `fmt.Sprintf`.
 - The `{period_id}` in a vault path is always the run's period. A manual entry's own cadence
   window appears only inside its `signed_document` record; see
   [`10-cadence-model.md`](10-cadence-model.md) §Manual evidence periods.
@@ -130,7 +138,7 @@ every member's verdict.
 A record can carry binary `Attachments` (`core.Attachment`, never serialized into the envelope).
 The collector writes each one with `PutBinary` to `policies/{policy_id}/attachments/{name}`, after
 the record's envelope, so the manifest's `file_hashes` lists it. Names must be a single path
-segment (`collector.safeAttachmentName`); a failed write errors the policy.
+segment (`vaultkey.Join` via `collector.AttachmentPath`); a failed write errors the policy.
 
 Today the only attachment is the merged manual PDF:
 

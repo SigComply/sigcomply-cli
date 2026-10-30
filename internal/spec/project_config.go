@@ -11,6 +11,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/vaultkey"
 )
 
 // projectConfigSchemaVersion is the only schema_version this loader
@@ -554,17 +555,10 @@ var bracketedManualPDF = regexp.MustCompile(`^manual\.pdf\[.*\]$`)
 // vaultSafeID is the grammar for any operator-supplied identifier that
 // ends up inside a vault object key — a source key and a catalog entry
 // both land in an evidence envelope's filename (see
-// collector.envelopePath).
-//
-// The restriction exists because only the local vault backend rejects
-// path escapes; the S3, GCS and Azure backends concatenate the key
-// directly, so a `/` or `..` here would write outside the run folder.
-// Constraining the input is simpler and harder to get wrong than
-// sanitizing at every write site.
-//
-// Kept in lockstep with sources.IDPattern — registering a plugin ID that
-// could not then be configured would be its own kind of bug.
-var vaultSafeID = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*(\[[A-Za-z0-9._-]{1,64}\])?$`)
+// collector.envelopePath). It is vaultkey.IDPattern, the one grammar
+// shared with sources.IDPattern and project-local policy IDs; the vault
+// key builders validate every segment again when they join it.
+var vaultSafeID = vaultkey.IDPattern
 
 func validateSources(sources map[string]map[string]any) error {
 	ids := make([]string, 0, len(sources))

@@ -65,7 +65,7 @@ func TestLoadPolicyStates_FutureShardForcesEvaluation(t *testing.T) {
 			v := newListVault()
 			s := passingShard(now.Add(-time.Hour))
 			set(s, now.Add(ahead))
-			if err := v.PutJSON(context.Background(), PolicyStatePath(testFramework, "p1"), s); err != nil {
+			if err := v.PutJSON(context.Background(), statePath("p1"), s); err != nil {
 				t.Fatal(err)
 			}
 			got, logs := loadOne(t, v, now)
@@ -91,7 +91,7 @@ func TestLoadPolicyStates_ShardWithinSkewIsKept(t *testing.T) {
 	now := time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)
 	v := newListVault()
 	s := passingShard(now.Add(stateClockSkew))
-	if err := v.PutJSON(context.Background(), PolicyStatePath(testFramework, "p1"), s); err != nil {
+	if err := v.PutJSON(context.Background(), statePath("p1"), s); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := loadOne(t, v, now)
@@ -108,7 +108,7 @@ func TestLoadPolicyStates_ShardWithinSkewIsKept(t *testing.T) {
 func TestWritePolicyState_ReplacesFutureDatedShard(t *testing.T) {
 	now := time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)
 	v := newListVault()
-	if err := v.PutJSON(context.Background(), PolicyStatePath(testFramework, "p1"),
+	if err := v.PutJSON(context.Background(), statePath("p1"),
 		passingShard(time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC))); err != nil {
 		t.Fatal(err)
 	}

@@ -13,7 +13,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
@@ -21,6 +20,7 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/planner"
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
 	"github.com/sigcomply/sigcomply-cli/internal/sign"
+	"github.com/sigcomply/sigcomply-cli/internal/vaultkey"
 )
 
 // EnvelopeFormatVersion is stamped on every envelope produced by the
@@ -183,10 +183,10 @@ func collectBinding(ctx context.Context, pp *planner.PlannedPolicy, slotName str
 func writeAttachments(ctx context.Context, in *Input, policyID string, records []core.EvidenceRecord) error {
 	for i := range records {
 		for _, a := range records[i].Attachments {
-			if !safeAttachmentName(a.Name) {
-				return fmt.Errorf("collector: record %q: attachment name %q is not a single path segment", records[i].ID, a.Name)
+			path, err := AttachmentPath(in.RunRoot, policyID, a.Name)
+			if err != nil {
+				return fmt.Errorf("collector: record %q: attachment %q: %w", records[i].ID, a.Name, err)
 			}
-			path := AttachmentPath(in.RunRoot, policyID, a.Name)
 			if err := in.Vault.PutBinary(ctx, path, a.Data, nil); err != nil {
 				return fmt.Errorf("collector: write attachment %s: %w", path, err)
 			}
@@ -195,15 +195,11 @@ func writeAttachments(ctx context.Context, in *Input, policyID string, records [
 	return nil
 }
 
-// AttachmentPath is where a record attachment lands in the vault.
-func AttachmentPath(runRoot, policyID, name string) string {
-	return fmt.Sprintf("%s/policies/%s/attachments/%s", runRoot, policyID, name)
-}
-
-// safeAttachmentName keeps a plugin-chosen name inside the policy's
-// attachments folder on every vault backend.
-func safeAttachmentName(name string) bool {
-	return name != "" && name != "." && name != ".." && !strings.ContainsAny(name, `/\`)
+// AttachmentPath is where a record attachment lands in the vault. The
+// plugin-chosen name must be a single safe path segment, like every
+// other segment (vaultkey.Join).
+func AttachmentPath(runRoot, policyID, name string) (string, error) {
+	return vaultkey.JoinUnder(runRoot, "policies", policyID, "attachments", name)
 }
 
 func writeEnvelope(ctx context.Context, in *Input, pp *planner.PlannedPolicy, slotName string, b *planner.Binding, group typeGroup, out *Output) error {
@@ -215,7 +211,10 @@ func writeEnvelope(ctx context.Context, in *Input, pp *planner.PlannedPolicy, sl
 	if err := sign.Envelope(env); err != nil {
 		return fmt.Errorf("collector: sign envelope for %q/%s/%s/%s: %w", pp.Spec.ID, slotName, b.SourceID, group.evidenceType, err)
 	}
-	path := envelopePath(in.RunRoot, pp.Spec.ID, group.evidenceType, b.SourceID, b.CatalogID)
+	path, err := envelopePath(in.RunRoot, pp.Spec.ID, group.evidenceType, b.SourceID, b.CatalogID)
+	if err != nil {
+		return fmt.Errorf("collector: envelope for %q/%s: %w", pp.Spec.ID, slotName, err)
+	}
 	if err := in.Vault.PutEnvelope(ctx, path, env); err != nil {
 		return fmt.Errorf("collector: write envelope %s: %w", path, err)
 	}
@@ -304,12 +303,23 @@ func checkAcceptedTypes(records []core.EvidenceRecord, acceptedTypes []string) e
 	return nil
 }
 
-func envelopePath(runRoot, policyID, evidenceType, sourceID, catalogID string) string {
+func envelopePath(runRoot, policyID, evidenceType, sourceID, catalogID string) (string, error) {
+	// Each part must be a valid segment on its own too: ".." as a
+	// source or catalog ID would be harmless inside the joined file
+	// name, but it is never a legitimate identifier.
+	for _, part := range []string{evidenceType, sourceID} {
+		if _, err := vaultkey.Join(part); err != nil {
+			return "", err
+		}
+	}
 	suffix := sourceID
 	if catalogID != "" {
+		if _, err := vaultkey.Join(catalogID); err != nil {
+			return "", err
+		}
 		suffix = sourceID + "_" + catalogID
 	}
-	return fmt.Sprintf("%s/policies/%s/envelopes/%s__%s.json", runRoot, policyID, evidenceType, suffix)
+	return vaultkey.JoinUnder(runRoot, "policies", policyID, "envelopes", evidenceType+"__"+suffix+".json")
 }
 
 // validateRecords checks every record's payload against the schema

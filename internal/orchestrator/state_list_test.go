@@ -75,7 +75,7 @@ func seedState(t *testing.T, v *listVault, framework, policyID string, at time.T
 }
 
 func TestPolicyStatePrefix_Shape(t *testing.T) {
-	if got := PolicyStatePrefix(testFramework); got != "state/soc2/policies/" {
+	if got, err := PolicyStatePrefix(testFramework); err != nil || got != "state/soc2/policies/" {
 		t.Errorf("PolicyStatePrefix = %q", got)
 	}
 }

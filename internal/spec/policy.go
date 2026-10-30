@@ -10,6 +10,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/vaultkey"
 )
 
 // policySchemaVersion is the only schema_version this loader accepts.
@@ -210,6 +211,9 @@ func validatePolicy(raw *policySpecRaw) error {
 func validatePolicyRequiredScalars(raw *policySpecRaw) error {
 	if raw.ID == "" {
 		return fmt.Errorf("policy spec: missing required field \"id\"")
+	}
+	if !vaultkey.ValidID(raw.ID) {
+		return fmt.Errorf("policy spec: invalid id %q: letters, digits, dot, dash and underscore only, starting with a letter or digit (the id becomes a folder name in your vault)", raw.ID)
 	}
 	if raw.Control == "" {
 		return fmt.Errorf("policy spec %q: missing required field \"control\"", raw.ID)

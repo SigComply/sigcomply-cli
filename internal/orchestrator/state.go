@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"path"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/vaultkey"
 )
 
 // stateBulkReadConcurrency is the worker-pool size used by
@@ -26,15 +26,20 @@ const stateBulkReadConcurrency = 8
 // signed, never an audit deliverable. See docs/architecture/05-
 // vault-layout.md §State.
 //
-// Path scheme: state/{framework}/policies/{policy_id}.json
-func PolicyStatePath(framework, policyID string) string {
-	return fmt.Sprintf("state/%s/policies/%s.json", framework, policyID)
+// Path scheme: state/{framework}/policies/{policy_id}.json. Every
+// segment is validated (vaultkey.Join).
+func PolicyStatePath(framework, policyID string) (string, error) {
+	return vaultkey.Join("state", framework, "policies", policyID+".json")
 }
 
 // PolicyStatePrefix returns the directory prefix that holds every
 // state shard for a framework. Useful for List operations.
-func PolicyStatePrefix(framework string) string {
-	return fmt.Sprintf("state/%s/policies/", framework)
+func PolicyStatePrefix(framework string) (string, error) {
+	p, err := vaultkey.Join("state", framework, "policies")
+	if err != nil {
+		return "", err
+	}
+	return p + "/", nil
 }
 
 // errCorruptShard marks a shard that was read but could not be parsed,
@@ -82,7 +87,11 @@ func ReadPolicyState(ctx context.Context, vault core.Vault, framework, policyID 
 	if framework == "" || policyID == "" {
 		return nil, fmt.Errorf("policy-state: empty framework or policy_id")
 	}
-	body, err := vault.GetBinary(ctx, PolicyStatePath(framework, policyID))
+	key, err := PolicyStatePath(framework, policyID)
+	if err != nil {
+		return nil, fmt.Errorf("policy-state: %w", err)
+	}
+	body, err := vault.GetBinary(ctx, key)
 	if err != nil {
 		if isVaultNotFound(err) {
 			return nil, nil //nolint:nilnil // missing shard is "first run", a real case
@@ -154,7 +163,11 @@ func WritePolicyState(ctx context.Context, vault core.Vault, ps *core.PolicyStat
 	if !shouldAcceptWrite(existing, ps) {
 		return nil
 	}
-	return vault.PutJSON(ctx, PolicyStatePath(ps.Framework, ps.PolicyID), ps)
+	key, err := PolicyStatePath(ps.Framework, ps.PolicyID)
+	if err != nil {
+		return fmt.Errorf("policy-state: %w", err)
+	}
+	return vault.PutJSON(ctx, key, ps)
 }
 
 // shouldAcceptWrite implements the monotonic write rule. Exported
@@ -232,7 +245,10 @@ func ListPolicyStates(ctx context.Context, vault core.Vault, framework string) (
 	if vault == nil {
 		return nil, fmt.Errorf("policy-state: nil vault")
 	}
-	prefix := PolicyStatePrefix(framework)
+	prefix, err := PolicyStatePrefix(framework)
+	if err != nil {
+		return nil, fmt.Errorf("policy-state: %w", err)
+	}
 	keys, err := vault.List(ctx, prefix)
 	if err != nil {
 		return nil, fmt.Errorf("policy-state: list %s: %w", prefix, err)
@@ -322,15 +338,3 @@ func isVaultNotFound(err error) bool {
 	}
 	return strings.Contains(err.Error(), "not found")
 }
-
-// joinVaultPath is a thin alias for path.Join, exported here to keep
-// callers from importing both stdlib path and this package's
-// path-shaping helpers. Used by orchestrator code that composes
-// state prefixes with policy IDs at runtime.
-func joinVaultPath(parts ...string) string {
-	return path.Join(parts...)
-}
-
-// ensure path.Join stays linked even when no caller uses
-// joinVaultPath yet (keeps `go vet` quiet during phased rollout).
-var _ = joinVaultPath

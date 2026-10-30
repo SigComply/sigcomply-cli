@@ -31,7 +31,7 @@ func TestReadPolicyState_ReadErrorPropagates(t *testing.T) {
 
 func TestReadPolicyState_CorruptShardReturnsError(t *testing.T) {
 	v := newInMem()
-	v.bins[PolicyStatePath(testFramework, "p1")] = []byte("not json at all")
+	v.bins[statePath("p1")] = []byte("not json at all")
 	_, err := ReadPolicyState(context.Background(), v, testFramework, "p1")
 	if err == nil {
 		t.Fatal("expected parse error; got nil")
@@ -55,7 +55,7 @@ func TestWritePolicyState_WritesAndRoundTrips(t *testing.T) {
 		t.Fatalf("Write: %v", err)
 	}
 	// Mirror the JSON write so subsequent GetBinary can find it.
-	v.bins[PolicyStatePath(testFramework, testPolicyID)] = v.jsons[PolicyStatePath(testFramework, testPolicyID)]
+	v.bins[statePath(testPolicyID)] = v.jsons[statePath(testPolicyID)]
 
 	got, err := ReadPolicyState(context.Background(), v, testFramework, testPolicyID)
 	if err != nil {
@@ -89,7 +89,7 @@ func TestWritePolicyState_MonotonicGuardRejectsOlderRun(t *testing.T) {
 	if err := WritePolicyState(context.Background(), v, late, time.Now()); err != nil {
 		t.Fatalf("write late: %v", err)
 	}
-	v.bins[PolicyStatePath(testFramework, "p1")] = v.jsons[PolicyStatePath(testFramework, "p1")]
+	v.bins[statePath("p1")] = v.jsons[statePath("p1")]
 
 	// Try to write the EARLY state — should be rejected silently.
 	early := &core.PolicyState{
@@ -101,7 +101,7 @@ func TestWritePolicyState_MonotonicGuardRejectsOlderRun(t *testing.T) {
 		t.Fatalf("write early returned error (should be silently rejected): %v", err)
 	}
 	// Re-read: must still see LATE.
-	v.bins[PolicyStatePath(testFramework, "p1")] = v.jsons[PolicyStatePath(testFramework, "p1")]
+	v.bins[statePath("p1")] = v.jsons[statePath("p1")]
 	got, err := ReadPolicyState(context.Background(), v, testFramework, "p1")
 	if err != nil {
 		t.Fatalf("read after rejected write: %v", err)
@@ -121,7 +121,7 @@ func TestWritePolicyState_RunIDTiebreakOnExactTimestamp(t *testing.T) {
 	if err := WritePolicyState(context.Background(), v, a, time.Now()); err != nil {
 		t.Fatalf("write A: %v", err)
 	}
-	v.bins[PolicyStatePath(testFramework, "p1")] = v.jsons[PolicyStatePath(testFramework, "p1")]
+	v.bins[statePath("p1")] = v.jsons[statePath("p1")]
 
 	// run-ZZZ with same timestamp sorts higher → wins.
 	z := &core.PolicyState{Framework: testFramework, PolicyID: "p1",
@@ -129,7 +129,7 @@ func TestWritePolicyState_RunIDTiebreakOnExactTimestamp(t *testing.T) {
 	if err := WritePolicyState(context.Background(), v, z, time.Now()); err != nil {
 		t.Fatalf("write Z: %v", err)
 	}
-	v.bins[PolicyStatePath(testFramework, "p1")] = v.jsons[PolicyStatePath(testFramework, "p1")]
+	v.bins[statePath("p1")] = v.jsons[statePath("p1")]
 	got, err := ReadPolicyState(context.Background(), v, testFramework, "p1")
 	if err != nil {
 		t.Fatalf("read after tiebreaker: %v", err)
@@ -154,7 +154,7 @@ func TestBulkReadPolicyStates_HandlesMixedPresence(t *testing.T) {
 	if err := WritePolicyState(context.Background(), v, ps, time.Now()); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
-	v.bins[PolicyStatePath(testFramework, "have")] = v.jsons[PolicyStatePath(testFramework, "have")]
+	v.bins[statePath("have")] = v.jsons[statePath("have")]
 
 	got, errs := BulkReadPolicyStates(context.Background(), v, testFramework,
 		[]string{"have", "missing"})
@@ -199,7 +199,7 @@ func TestAdvancePolicyState_FailSetsLastFailAndNoNextDue(t *testing.T) {
 }
 
 func TestPolicyStatePath_Shape(t *testing.T) {
-	got := PolicyStatePath(testFramework, "soc2.cc6.1.mfa_enforced")
+	got := statePath("soc2.cc6.1.mfa_enforced")
 	want := "state/soc2/policies/soc2.cc6.1.mfa_enforced.json"
 	if got != want {
 		t.Errorf("got %q; want %q", got, want)
@@ -211,7 +211,7 @@ func TestPolicyStatePath_Shape(t *testing.T) {
 // warn and never record state for the policy.
 func TestWritePolicyState_OverwritesCorruptShard(t *testing.T) {
 	v := newInMem()
-	path := PolicyStatePath(testFramework, testPolicyID)
+	path := statePath(testPolicyID)
 	v.bins[path] = []byte(`{"broken`)
 	ps := &core.PolicyState{
 		Framework: testFramework, PolicyID: testPolicyID,
@@ -235,7 +235,7 @@ func TestWritePolicyState_ReadErrorStillBlocksWrite(t *testing.T) {
 	if err := WritePolicyState(context.Background(), v, ps, time.Now()); err == nil {
 		t.Fatal("want the read error")
 	}
-	if _, ok := v.jsons[PolicyStatePath(testFramework, testPolicyID)]; ok {
+	if _, ok := v.jsons[statePath(testPolicyID)]; ok {
 		t.Error("wrote despite an unreadable existing shard")
 	}
 }

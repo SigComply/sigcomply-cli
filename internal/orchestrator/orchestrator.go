@@ -35,6 +35,7 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/sign"
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 	"github.com/sigcomply/sigcomply-cli/internal/submitter"
+	"github.com/sigcomply/sigcomply-cli/internal/vaultkey"
 )
 
 // Exit codes match docs/architecture/02-layers.md §Layered errors.
@@ -161,7 +162,10 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 	emitVendorWarnings(opts.Logger, opts.Config)
 	emitRiskWarnings(opts.Logger, opts.Config, opts.Registries, plan)
 
-	runRoot := buildRunRoot(plan.Framework, plan.Period.ID, startedAt, runID)
+	runRoot, err := buildRunRoot(plan.Framework, plan.Period.ID, startedAt, runID)
+	if err != nil {
+		return Result{ExitCode: ExitExecution}, err
+	}
 	rec := newRecordingVault(opts.Vault)
 
 	collectOut, err := runCollect(ctx, opts, plan, rec, runRoot, startedAt, retryPolicy)
@@ -620,13 +624,19 @@ func runCollect(ctx context.Context, opts *Options, plan *planner.RunPlan, rec *
 func persistResults(ctx context.Context, rec *recordingVault, runRoot string, results []core.PolicyResult, runID string, plan *planner.RunPlan, completedAt time.Time, scopeReport *scope.Report) error {
 	for i := range results {
 		r := &results[i]
-		path := fmt.Sprintf("%s/policies/%s/result.json", runRoot, r.PolicyID)
+		path, err := policyResultPath(runRoot, r.PolicyID)
+		if err != nil {
+			return fmt.Errorf("vault: result.json for %s: %w", r.PolicyID, err)
+		}
 		if err := rec.PutJSON(ctx, path, r); err != nil {
 			return fmt.Errorf("vault: write result.json for %s at %s: %w", r.PolicyID, path, err)
 		}
 	}
 	summary := summaryFromResults(results, runID, plan, completedAt, scopeReport)
-	path := fmt.Sprintf("%s/summary.json", runRoot)
+	path, err := runFilePath(runRoot, "summary.json")
+	if err != nil {
+		return err
+	}
 	if err := rec.PutJSON(ctx, path, summary); err != nil {
 		return fmt.Errorf("vault: write summary.json at %s: %w", path, err)
 	}
@@ -649,7 +659,10 @@ func writeManifest(ctx context.Context, rec *recordingVault, runRoot, runID stri
 	}
 	// Don't include manifest.json in its own file_hashes — the signature
 	// covers the table, and the table covers every other file.
-	path := fmt.Sprintf("%s/manifest.json", runRoot)
+	path, err := runFilePath(runRoot, "manifest.json")
+	if err != nil {
+		return err
+	}
 	if err := rec.PutJSON(ctx, path, manifest); err != nil {
 		return fmt.Errorf("vault: write manifest.json at %s: %w", path, err)
 	}
@@ -770,13 +783,26 @@ func handleSubmission(ctx context.Context, opts *Options, payload *core.Submissi
 	return false, time.Time{}, nil
 }
 
-func buildRunRoot(framework, periodID string, now time.Time, runID string) string {
+// buildRunRoot is the run folder, {framework}/{period}/run_{stamp}_{id8}.
+// It and the builders below go through vaultkey, which validates every
+// segment, so no identifier can place a file outside the run folder.
+func buildRunRoot(framework, periodID string, now time.Time, runID string) (string, error) {
 	stamp := now.UTC().Format("20060102T150405Z")
 	short := runID
 	if len(short) > 8 {
 		short = short[:8]
 	}
-	return fmt.Sprintf("%s/%s/run_%s_%s", framework, periodID, stamp, short)
+	return vaultkey.Join(framework, periodID, "run_"+stamp+"_"+short)
+}
+
+// policyResultPath is where a policy's result.json lands in the run.
+func policyResultPath(runRoot, policyID string) (string, error) {
+	return vaultkey.JoinUnder(runRoot, "policies", policyID, "result.json")
+}
+
+// runFilePath is a run-level file such as manifest.json or summary.json.
+func runFilePath(runRoot, name string) (string, error) {
+	return vaultkey.JoinUnder(runRoot, name)
 }
 
 // recordingVault wraps a core.Vault and captures SHA-256 hashes of every
