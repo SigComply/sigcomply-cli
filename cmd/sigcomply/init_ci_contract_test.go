@@ -493,3 +493,84 @@ func TestInitCITemplates_PullRequestJobsSkipForks(t *testing.T) {
 		t.Fatal("no pull_request job found; the template set changed")
 	}
 }
+
+// installScriptVar runs a snippet with scripts/install.sh's functions
+// loaded and returns its output.
+func installScriptVar(t *testing.T, snippet string, args ...string) string {
+	t.Helper()
+	if runtime.GOOS == goosWindows {
+		t.Skip("install.sh needs a POSIX shell")
+	}
+	cmd := exec.CommandContext(t.Context(), "sh", append([]string{"-c", ". ./install.sh && " + snippet, "sh"}, args...)...) //nolint:gosec // #nosec G204 -- fixed snippets from this test; the arguments are positional parameters
+	cmd.Dir = filepath.Join("..", "..", "scripts")
+	cmd.Env = append(os.Environ(), "SIGCOMPLY_INSTALL_LIB=1")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("install.sh %s: %v\n%s", snippet, err, out)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// releaseWorkflows are the two workflows that publish a release.
+var releaseWorkflows = []string{"auto-release-pipeline.yml", "release.yml"}
+
+// The GitHub workflows verify the archive's build provenance before
+// extracting it, the way install.sh does: offline against the release's
+// bundle, with the same certificate identity, the commit the tag peels
+// to, and no self-hosted runner. The GitLab files, whose image has no gh,
+// carry the same check commented out. The release workflows publish the
+// bundle under the name they download.
+func TestInitCITemplates_VerifyProvenanceBeforeExtracting(t *testing.T) {
+	identity := installScriptVar(t, `printf '%s' "$PROVENANCE_IDENTITY"`)
+	bundle := installScriptVar(t, `provenance_bundle_name "$1"`, "1.2.3")
+	if bundle != "sigcomply_1.2.3_provenance.sigstore.json" {
+		t.Fatalf("install.sh bundle name = %q", bundle)
+	}
+	for _, wf := range releaseWorkflows {
+		b, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", wf)) //nolint:gosec // #nosec G304 -- repository workflow files
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(b), `provenance/sigcomply_${TAG#v}_provenance.sigstore.json`) {
+			t.Errorf("%s does not publish the bundle as sigcomply_<version>_provenance.sigstore.json", wf)
+		}
+	}
+
+	bodies := shippedTemplates(t)
+	for _, p := range []string{"github-actions/basic.yml", "github-actions/multi-environment.yml", "gitlab-ci.yml"} {
+		b, err := os.ReadFile(filepath.Join("..", "..", "examples", filepath.FromSlash(p)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		bodies["examples/"+p] = string(b)
+	}
+	for path, body := range bodies {
+		step := strings.Join(installStep(t, path, body), "\n")
+		gitlab := strings.Contains(path, "gitlab")
+		if gitlab {
+			// Commented out: strip the comment markers and check the same
+			// command is there.
+			var lines []string
+			for _, l := range strings.Split(step, "\n") {
+				if rest, ok := strings.CutPrefix(l, "# "); ok {
+					lines = append(lines, rest)
+				}
+			}
+			step = strings.Join(lines, "\n")
+		}
+		for _, want := range []string{
+			`bundle="sigcomply_${ver}_provenance.sigstore.json"`,
+			`curl -fsSL "${base}/${bundle}" -o "/tmp/${bundle}"`,
+			`git ls-remote https://github.com/SigComply/sigcomply-cli "refs/tags/${tag}^{}"`,
+			`gh attestation verify "/tmp/${asset}" --bundle "/tmp/${bundle}"`,
+			`--repo SigComply/sigcomply-cli`,
+			`--source-digest "${commit:?`,
+			`--cert-identity-regex '` + identity + `'`,
+			`--deny-self-hosted-runners`,
+		} {
+			if !strings.Contains(step, want) {
+				t.Errorf("%s: install step (before tar) lacks %s", path, want)
+			}
+		}
+	}
+}

@@ -13,6 +13,18 @@
 #                       resolves to a prerelease). The leading v is optional.
 #   SIGCOMPLY_INSTALL_DIR - Installation directory (default: /usr/local/bin)
 #   SIGCOMPLY_NO_SUDO - Set to 1 to skip sudo (for non-root installs)
+#   SIGCOMPLY_REQUIRE_PROVENANCE - Set to 1 to stop unless the download's
+#                       GitHub build provenance is verified. By default the
+#                       installer verifies it when a recent GitHub CLI (gh)
+#                       is installed, and warns and continues when gh is
+#                       missing or too old, or the release has no bundle.
+#
+# Every download is checked against the release's checksums.txt. With gh,
+# the archive's build provenance is verified too, offline, against the
+# release's sigcomply_<version>_provenance.sigstore.json bundle: the
+# archive must have been built by this repository's release workflow, on a
+# GitHub-hosted runner, from the commit the release tag points at. A failed
+# verification always stops the install.
 
 set -e
 
@@ -37,6 +49,12 @@ BINARY_NAME="sigcomply"
 VERSION="${SIGCOMPLY_VERSION:-latest}"
 INSTALL_DIR="${SIGCOMPLY_INSTALL_DIR:-/usr/local/bin}"
 USE_SUDO="${SIGCOMPLY_NO_SUDO:-0}"
+REQUIRE_PROVENANCE="${SIGCOMPLY_REQUIRE_PROVENANCE:-0}"
+
+# The certificate identity of a genuine release: one of the two release
+# workflows of this repository, run from main or from a release tag.
+# Renaming either workflow breaks every verifier that pins this pattern.
+PROVENANCE_IDENTITY='^https://github\.com/SigComply/sigcomply-cli/\.github/workflows/(auto-release-pipeline|release)\.yml@refs/(heads/main|tags/v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?)$'
 
 # Helper functions
 info() {
@@ -147,6 +165,86 @@ verify_checksum() {
     fi
 }
 
+# Print the provenance bundle's asset name for a version without the v.
+provenance_bundle_name() {
+    echo "${BINARY_NAME}_${1}_provenance.sigstore.json"
+}
+
+# Succeed when gh is installed and its `attestation verify` has every flag
+# the offline verification needs. An older gh counts as no gh.
+gh_can_verify() {
+    command -v gh >/dev/null 2>&1 || return 1
+    _help=$(gh attestation verify --help 2>&1) || return 1
+    for _flag in --bundle --source-digest --deny-self-hosted-runners; do
+        case "$_help" in
+            *"$_flag"*) ;;
+            *) return 1 ;;
+        esac
+    done
+}
+
+# Print the commit a release tag points at. Auto releases are built from
+# main, so the attestation names a commit, not the tag: the tag must be
+# resolved to compare them. Annotated tags peel with ^{}. Without git, the
+# GitHub API answers (rate-limited to 60 requests an hour per IP).
+tag_commit() {
+    if command -v git >/dev/null 2>&1; then
+        _refs=$(git ls-remote "https://github.com/${GITHUB_REPO}" "refs/tags/$1" "refs/tags/$1^{}") || return 1
+        _sha=$(printf '%s\n' "$_refs" | awk -v r="refs/tags/$1^{}" '$2 == r {print $1}')
+        if [ -z "$_sha" ]; then
+            _sha=$(printf '%s\n' "$_refs" | awk -v r="refs/tags/$1" '$2 == r {print $1}')
+        fi
+    else
+        _sha=$(curl -fsSL -H "Accept: application/vnd.github.sha" \
+            "https://api.github.com/repos/${GITHUB_REPO}/commits/$1") || return 1
+    fi
+    case "$_sha" in
+        *[!0-9a-f]*|"") return 1 ;;
+    esac
+    [ "${#_sha}" -eq 40 ] || return 1
+    echo "$_sha"
+}
+
+# Called when the build provenance cannot be checked at all: a warning,
+# or an error with SIGCOMPLY_REQUIRE_PROVENANCE=1.
+provenance_unavailable() {
+    if [ "$REQUIRE_PROVENANCE" = "1" ]; then
+        error "SIGCOMPLY_REQUIRE_PROVENANCE=1, but the build provenance cannot be verified: $1"
+    fi
+    warn "Build provenance not verified: $1. The checksum was verified; set SIGCOMPLY_REQUIRE_PROVENANCE=1 to require provenance."
+}
+
+# verify_provenance <archive> <release-url> <tag> <work-dir>: verify the
+# archive's GitHub build provenance with gh, offline, against the
+# release's bundle. Stops the install when the verification fails.
+verify_provenance() {
+    if ! gh_can_verify; then
+        provenance_unavailable "the GitHub CLI (gh) is not installed, or its 'gh attestation verify' lacks --bundle, --source-digest or --deny-self-hosted-runners"
+        return 0
+    fi
+    _bundle="$4/$(provenance_bundle_name "${3#v}")"
+    # Quiet: a 404 here is a release without a bundle, reported below.
+    if ! curl -fsSL "$2/${_bundle##*/}" -o "$_bundle" 2>/dev/null; then
+        provenance_unavailable "release $3 has no ${_bundle##*/}"
+        return 0
+    fi
+    if ! _commit=$(tag_commit "$3"); then
+        error "Cannot resolve the commit of $3 to verify its build provenance"
+    fi
+    # A throwaway gh config and no token: the bundle makes the check
+    # offline, and a caller's gh login or GH_HOST must not change it.
+    mkdir -p "$4/gh-config"
+    if ! _out=$(env -u GH_TOKEN -u GITHUB_TOKEN -u GH_ENTERPRISE_TOKEN -u GITHUB_ENTERPRISE_TOKEN -u GH_HOST \
+        GH_CONFIG_DIR="$4/gh-config" GH_PROMPT_DISABLED=1 \
+        gh attestation verify "$1" --bundle "$_bundle" --repo "$GITHUB_REPO" \
+        --cert-identity-regex "$PROVENANCE_IDENTITY" --source-digest "$_commit" \
+        --deny-self-hosted-runners 2>&1); then
+        printf '%s\n' "$_out" >&2
+        error "Build provenance verification failed for ${1##*/}: it is not an archive built by ${GITHUB_REPO}'s release workflow from $3 ($_commit)"
+    fi
+    success "Build provenance verified: built by ${GITHUB_REPO}'s release workflow from $3 ($_commit)"
+}
+
 # Get latest version from GitHub API
 get_latest_version() {
     curl -s "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" | \
@@ -194,6 +292,7 @@ install() {
     fi
     verify_checksum "$TMP_DIR/$FILENAME" "$TMP_DIR/checksums.txt"
     success "Checksum verified"
+    verify_provenance "$TMP_DIR/$FILENAME" "$RELEASE_URL" "$VERSION" "$TMP_DIR"
 
     # Extract
     info "Extracting..."

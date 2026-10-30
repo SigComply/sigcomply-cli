@@ -46,6 +46,16 @@ jobs:
           curl -fsSL "${base}/checksums.txt" -o /tmp/checksums.txt
           # Verify against the release's checksums before extracting anything.
           (cd /tmp && grep "  ${asset}\$" checksums.txt | sha256sum -c -)
+          # Verify the build provenance offline: the archive must have been
+          # built by SigComply's release workflow on a GitHub-hosted runner,
+          # from the commit the tag points at. A mismatch fails the job.
+          bundle="sigcomply_${ver}_provenance.sigstore.json"
+          curl -fsSL "${base}/${bundle}" -o "/tmp/${bundle}"
+          commit=$(git ls-remote https://github.com/SigComply/sigcomply-cli "refs/tags/${tag}^{}" | cut -f1)
+          gh attestation verify "/tmp/${asset}" --bundle "/tmp/${bundle}" \
+            --repo SigComply/sigcomply-cli --source-digest "${commit:?cannot resolve ${tag}}" \
+            --cert-identity-regex '^https://github\.com/SigComply/sigcomply-cli/\.github/workflows/(auto-release-pipeline|release)\.yml@refs/(heads/main|tags/v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?)$' \
+            --deny-self-hosted-runners
           sudo tar -xzf "/tmp/${asset}" -C /usr/local/bin sigcomply
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:

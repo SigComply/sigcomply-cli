@@ -43,7 +43,10 @@ current period has a file, so upload during the period.
 
 The base job installs the CLI release named in `SIGCOMPLY_VERSION`, after checking the archive
 against the release's `checksums.txt`, and mints an ID token with
-the audience `https://api.sigcomply.com`. It writes that token to a file and exports
+the audience `https://api.sigcomply.com`. The `ubuntu:24.04` image has no GitHub CLI, so the
+build provenance check ships commented out in the base job's install step. To turn it on,
+install `git` and a recent `gh` in the image and uncomment those lines. Step 3 of
+[Install a release archive by hand](install.md#install-a-release-archive-by-hand) explains it. It writes that token to a file and exports
 `AWS_WEB_IDENTITY_TOKEN_FILE`, so the AWS SDK inside the CLI assumes the role in `AWS_ROLE_ARN`.
 The CLI reads the same token from `SIGCOMPLY_ID_TOKEN` for cloud submission.
 
