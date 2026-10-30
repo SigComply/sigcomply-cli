@@ -52,7 +52,8 @@ this file lists the changes a user notices.
   up the old trust: re-scaffold (`init-ci --force`), change the trust policies as the
   [GitHub](docs/guides/ci-github.md#3-create-the-aws-oidc-provider-and-roles) and
   [GitLab](docs/guides/ci-gitlab.md#3-create-the-aws-oidc-provider-and-roles) guides show, and
-  remove `https://api.sigcomply.com` from the IAM OIDC provider's client IDs.
+  remove `https://api.sigcomply.com` from the IAM OIDC provider's client IDs. On GitLab, also
+  delete a project or group CI/CD variable named `AWS_ROLE_ARN`: it outranks each job's own.
 - The CLI is now licensed under the Elastic License 2.0 (source-available, not open source).
   Releases up to and including v0.90.2 remain available under Apache-2.0; see `NOTICE`.
 - `sigcomply --help` and the release notes describe the CLI as SOC 2 and ISO 27001 checks and
@@ -117,7 +118,8 @@ this file lists the changes a user notices.
 
 - GitLab CI: the CLI no longer reads an OIDC token from `ID_TOKEN`. Name the `id_tokens:` entry
   `SIGCOMPLY_ID_TOKEN`, as `sigcomply init-ci` does. A generic `ID_TOKEN` often holds a token
-  minted for another service, and the CLI would have sent it to SigComply Cloud.
+  minted for another service, and the CLI would have sent it to SigComply Cloud. A GitLab job that
+  sets only `ID_TOKEN` gets an `oidc:` warning.
 - `soc2.cc6.7.kms_customer_managed_keys`, which could never pass on a real AWS account.
 - The duplicate SOC 2 and ISO 27001 policies merged into their twins (see Changed).
 
@@ -126,11 +128,14 @@ this file lists the changes a user notices.
 - `github` and `gitlab` `base_url`, and the `s3` `endpoint` of the vault and of `manual.pdf`, must
   be `https://` (`http://` only for `localhost`); a plaintext URL is a config error (exit 3). A
   source's `token_env` can't name a CI or cloud credential variable (`AWS_*`, `ACTIONS_*`,
-  `GOOGLE_*`, `AZURE_*`, `CI_JOB_*`, names containing `ID_TOKEN`, GitLab's predefined passwords),
+  `GOOGLE_*`, `AZURE_*`, `ARM_*`, `CLOUDSDK_*`, `CI_JOB_*`, names containing `ID_TOKEN`, GitLab's
+  predefined passwords, `CI_REPOSITORY_URL`, `VAULT_TOKEN`),
   so a config change can't send the job's own credentials to a source's host.
 - A run in a pull request or merge request pipeline never submits to SigComply Cloud, whatever
   its flags, and prints `cloud submission skipped: this run is in a pull request or merge request
-  pipeline`. The pull request's branch produced it, so it is not the project's result.
+  pipeline`. The pull request's branch produced it, so it is not the project's result. This
+  covers GitHub `pull_request*` and `merge_group` events and GitLab merge request and external
+  pull request pipelines, and such a run no longer needs `cloud.project_id`.
 - `check` refuses to send SigComply Cloud an OIDC token whose audience does not include
   `https://api.sigcomply.com`, and warns when `AWS_WEB_IDENTITY_TOKEN_FILE` holds a token with
   that audience: an AWS role that trusts it accepts tokens SigComply Cloud receives.

@@ -94,7 +94,7 @@ Every mode except `--pr` advances state after evaluation (`advancePolicyStates`)
 `--on-push` run on the default branch sets `LastPassAt` and a later `--scheduled` run can carry the
 policy forward. A `--pr` run evaluates a pull request's branch and config, so it neither advances
 state nor submits to Cloud. Any run in a pull-request or merge-request pipeline skips the state
-advance too, whatever its flags (`inPullRequestPipeline`). A failed state write is
+advance too, whatever its flags (`InPullRequestPipeline`). A failed state write is
 logged as a warning; the policy stays due and re-evaluates next time.
 
 ## The decision rule

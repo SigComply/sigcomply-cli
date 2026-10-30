@@ -470,9 +470,21 @@ func TestMissingProjectIDError(t *testing.T) {
 		{"--pr never submits", noID, url, checkFlags{pr: true}, false},
 		{"--pr --cloud never submits", noID, url, checkFlags{pr: true, cloudOn: true}, false},
 		{"--scheduled --cadence never submits", noID, url, checkFlags{scheduled: true, cadence: "hourly"}, false},
+		{"pull request pipeline never submits", noID, url, checkFlags{}, false},
+		{"merge request pipeline never submits", noID, url, checkFlags{scheduled: true}, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			// The suite may itself run in a pull request pipeline.
+			t.Setenv("GITHUB_EVENT_NAME", "push")
+			t.Setenv("CI_MERGE_REQUEST_IID", "")
+			t.Setenv("CI_EXTERNAL_PULL_REQUEST_IID", "")
+			switch tc.name {
+			case "pull request pipeline never submits":
+				t.Setenv("GITHUB_EVENT_NAME", "pull_request")
+			case "merge request pipeline never submits":
+				t.Setenv("CI_MERGE_REQUEST_IID", "7")
+			}
 			err := missingProjectIDError(tc.cfg, &tc.flags, tc.cloudBase)
 			if (err != nil) != tc.want {
 				t.Fatalf("error = %v; want error=%v", err, tc.want)

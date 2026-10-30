@@ -413,3 +413,14 @@ const (
 	providerGitHub = "github"
 	providerGitLab = "gitlab"
 )
+
+// LegacyIDTokenWarning returns a warning when a GitLab job sets
+// ID_TOKEN but not SIGCOMPLY_ID_TOKEN: the CLI used to read ID_TOKEN, so
+// such a job submitted before and now skips without a word.
+func LegacyIDTokenWarning() string {
+	if os.Getenv("GITLAB_CI") == "" || os.Getenv("ID_TOKEN") == "" || os.Getenv(GitLabIDTokenEnv) != "" {
+		return ""
+	}
+	return "ID_TOKEN is set but " + GitLabIDTokenEnv + " is not; the CLI reads only " + GitLabIDTokenEnv +
+		", so this run cannot submit to SigComply Cloud. Rename the id_tokens entry to " + GitLabIDTokenEnv
+}

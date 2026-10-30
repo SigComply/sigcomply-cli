@@ -1160,23 +1160,26 @@ var ErrBootstrapAlreadyInitialized = errors.New("orchestrator: already initializ
 // merge request's branch: --pr, or a PR/MR pipeline whatever the flags.
 // Such a run never advances cadence state and never submits.
 func isPullRequestRun(opts *Options) bool {
-	return opts.Mode == ModePR || inPullRequestPipeline()
+	return opts.Mode == ModePR || InPullRequestPipeline()
 }
 
-// inPullRequestPipeline reports whether CI says this job runs for a pull
-// request (GitHub Actions pull_request or pull_request_target) or a merge
-// request (GitLab sets CI_MERGE_REQUEST_IID only in merge request
-// pipelines).
-func inPullRequestPipeline() bool {
+// InPullRequestPipeline reports whether CI says this job runs code from a
+// pull request or merge request: a GitHub Actions pull_request,
+// pull_request_target, pull_request_review(_comment) or merge_group
+// (merge queue) event, or a GitLab merge request or external pull
+// request pipeline (GitLab sets CI_MERGE_REQUEST_IID or
+// CI_EXTERNAL_PULL_REQUEST_IID only there).
+func InPullRequestPipeline() bool {
 	switch os.Getenv(envGitHubEventName) {
-	case "pull_request", "pull_request_target":
+	case "pull_request", "pull_request_target", "pull_request_review", "pull_request_review_comment", "merge_group":
 		return true
 	}
-	return os.Getenv(envMergeRequestIID) != ""
+	return os.Getenv(envMergeRequestIID) != "" || os.Getenv(envExternalPullRequestIID) != ""
 }
 
-// The CI variables inPullRequestPipeline reads.
+// The CI variables InPullRequestPipeline reads.
 const (
-	envGitHubEventName = "GITHUB_EVENT_NAME"
-	envMergeRequestIID = "CI_MERGE_REQUEST_IID"
+	envGitHubEventName        = "GITHUB_EVENT_NAME"
+	envMergeRequestIID        = "CI_MERGE_REQUEST_IID"
+	envExternalPullRequestIID = "CI_EXTERNAL_PULL_REQUEST_IID"
 )

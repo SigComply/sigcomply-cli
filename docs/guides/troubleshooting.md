@@ -95,12 +95,17 @@ it. Set `aud: https://api.sigcomply.com` on that entry. The run itself is unaffe
 
 ### `oidc: AWS_WEB_IDENTITY_TOKEN_FILE holds a token with the SigComply Cloud audience`
 
-The job gives AWS a token minted for SigComply Cloud, so the AWS role trusts the audience
+GitLab only (the GitHub step exchanges its token itself, so the CLI can't see it). The job gives
+AWS a token minted for SigComply Cloud, so the AWS role trusts the audience
 `https://api.sigcomply.com`. SigComply Cloud receives tokens with that audience. Give AWS its own
 token with the audience `sts.amazonaws.com` and remove `https://api.sigcomply.com` from the role's
 trust policy and the IAM OIDC provider's client IDs:
-[Run in GitHub Actions](ci-github.md#3-create-the-aws-oidc-provider-and-roles),
 [Run in GitLab CI](ci-gitlab.md#3-create-the-aws-oidc-provider-and-roles).
+
+### `oidc: ID_TOKEN is set but SIGCOMPLY_ID_TOKEN is not`
+
+The CLI reads its GitLab token only from `SIGCOMPLY_ID_TOKEN`, so the run can't submit. Rename the
+`id_tokens:` entry to `SIGCOMPLY_ID_TOKEN`, with `aud: https://api.sigcomply.com`.
 
 ### A `submit:` warning with an HTTP status
 

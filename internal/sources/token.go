@@ -92,9 +92,11 @@ func ResolveEndpoint(cfg map[string]any, sourceID, key string) (string, error) {
 // a base_url someone controls would hand them the job's credentials.
 // Matching is case-insensitive (Windows env names are).
 var (
-	deniedTokenEnvPrefixes = []string{"AWS_", "ACTIONS_", "GOOGLE_", "AZURE_", "CI_JOB_"}
+	deniedTokenEnvPrefixes = []string{"AWS_", "ACTIONS_", "GOOGLE_", "AZURE_", "ARM_", "CLOUDSDK_", "CI_JOB_"}
 	deniedTokenEnvMarkers  = []string{"ID_TOKEN"}
-	deniedTokenEnvExact    = []string{"CI_REGISTRY_PASSWORD", "CI_DEPLOY_PASSWORD", "CI_DEPENDENCY_PROXY_PASSWORD"}
+	// CI_REPOSITORY_URL embeds the GitLab job token in its userinfo.
+	deniedTokenEnvExact = []string{"CI_REGISTRY_PASSWORD", "CI_DEPLOY_PASSWORD", "CI_DEPENDENCY_PROXY_PASSWORD",
+		"CI_REPOSITORY_URL", "VAULT_TOKEN"}
 )
 
 // deniedTokenEnv reports whether token_env may not read name.

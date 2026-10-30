@@ -361,7 +361,7 @@ one account aliased to two emails. Alias and `non_human` entries that match no a
 | `GITHUB_TOKEN` | `github`, when the config sets neither `token` nor `token_env` |
 | `GITLAB_TOKEN` | `gitlab`, when the config sets neither `token` nor `token_env` |
 | `OKTA_API_TOKEN` | `okta`, when the config sets neither `api_token` nor `token_env` |
-| Any name in `token_env` | the source that names it; an empty or unset variable is an error. A CI or cloud credential variable is refused (exit 3): names starting with `AWS_`, `ACTIONS_`, `GOOGLE_`, `AZURE_` or `CI_JOB_`, names containing `ID_TOKEN`, and `CI_REGISTRY_PASSWORD`, `CI_DEPLOY_PASSWORD`, `CI_DEPENDENCY_PROXY_PASSWORD`. |
+| Any name in `token_env` | the source that names it; an empty or unset variable is an error. A CI or cloud credential variable is refused (exit 3): names starting with `AWS_`, `ACTIONS_`, `GOOGLE_`, `AZURE_`, `ARM_`, `CLOUDSDK_` or `CI_JOB_`, names containing `ID_TOKEN`, and `CI_REGISTRY_PASSWORD`, `CI_DEPLOY_PASSWORD`, `CI_DEPENDENCY_PROXY_PASSWORD`, `CI_REPOSITORY_URL`, `VAULT_TOKEN`. |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_PROFILE`, `AWS_REGION`, `AWS_ROLE_ARN`, `AWS_WEB_IDENTITY_TOKEN_FILE` | `aws.*` sources, `s3` vault and `manual.pdf` backend, through the AWS SDK credential chain |
 | `GOOGLE_APPLICATION_CREDENTIALS` | `gcp.*` sources, `gcs` vault and `manual.pdf` backend, through Application Default Credentials |
 | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_FEDERATED_TOKEN_FILE` | `azure.*` sources, `azure_blob` vault and `manual.pdf` backend, through `DefaultAzureCredential` |

@@ -377,11 +377,14 @@ func TestRun_PRPipelineNeverSubmits(t *testing.T) {
 		{"github pull_request, check", map[string]string{envGitHubEventName: "pull_request"}, ModeManual, false, false},
 		{"github pull_request_target, --scheduled", map[string]string{envGitHubEventName: "pull_request_target"}, ModeScheduled, false, false},
 		{"gitlab merge request, --cloud", map[string]string{envMergeRequestIID: "7"}, ModeManual, true, false},
+		{"github pull_request_review", map[string]string{envGitHubEventName: "pull_request_review"}, ModeManual, false, false},
+		{"github merge_group", map[string]string{envGitHubEventName: "merge_group"}, ModeManual, false, false},
+		{"gitlab external pull request", map[string]string{envExternalPullRequestIID: "3"}, ModeManual, false, false},
 		{"control: github push", map[string]string{envGitHubEventName: "push"}, ModeManual, false, true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			for _, k := range []string{envGitHubEventName, envMergeRequestIID} {
+			for _, k := range pullRequestEnvVars {
 				t.Setenv(k, tc.env[k])
 			}
 			var calls atomic.Int32

@@ -120,3 +120,32 @@ func TestAWSWebIdentityAudienceWarning(t *testing.T) {
 		})
 	}
 }
+
+// A GitLab job that still names its token ID_TOKEN no longer submits;
+// the run says why instead of skipping silently.
+func TestLegacyIDTokenWarning(t *testing.T) {
+	const on = "true"
+	for _, tc := range []struct {
+		name               string
+		gitlab, id, scoped string
+		wantWarn           bool
+	}{
+		{"gitlab with only ID_TOKEN", on, "x", "", true},
+		{"gitlab with SIGCOMPLY_ID_TOKEN too", on, "x", "y", false},
+		{"not gitlab", "", "x", "", false},
+		{"gitlab without ID_TOKEN", on, "", "", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("GITLAB_CI", tc.gitlab)
+			t.Setenv("ID_TOKEN", tc.id)
+			t.Setenv(GitLabIDTokenEnv, tc.scoped)
+			got := LegacyIDTokenWarning()
+			if (got != "") != tc.wantWarn {
+				t.Fatalf("warning = %q; want warning: %v", got, tc.wantWarn)
+			}
+			if tc.wantWarn && !strings.Contains(got, GitLabIDTokenEnv) {
+				t.Errorf("the warning should name %s: %q", GitLabIDTokenEnv, got)
+			}
+		})
+	}
+}

@@ -203,6 +203,9 @@ func emitConfigWarnings(logger *log.Logger, cfg *spec.ProjectConfig) {
 	if w := submitter.AWSWebIdentityAudienceWarning(); w != "" {
 		logger.Warnf("oidc: %s", w)
 	}
+	if w := submitter.LegacyIDTokenWarning(); w != "" {
+		logger.Warnf("oidc: %s", w)
+	}
 }
 
 // resolveCloudBase picks the cloud URL (--cloud-url over cloud.base_url)
@@ -228,12 +231,15 @@ func resolveCloudBase(cfg *spec.ProjectConfig, flags *checkFlags) (string, error
 // covers every policy (unfiltered or --scheduled); a filtered run never
 // submits (orchestrator.handleSubmission), so it is unaffected. --cloud
 // only forces a submission that would otherwise be skipped, so it needs
-// the ID too. It applies outside CI as well, so the operator hears about
+// the ID too. A run in a pull or merge request pipeline never submits
+// (orchestrator.InPullRequestPipeline), so it is unaffected too. It
+// applies outside CI as well, so the operator hears about
 // it before CI does. Only the committed file may set the ID, never a
 // flag or an env var: the commit is what shows the repository chose the
 // project.
 func missingProjectIDError(cfg *spec.ProjectConfig, flags *checkFlags, cloudBase string) error {
-	if cloudBase == "" || flags.cloudOff || cfg.Cloud.ProjectID != "" || flags.capturePayloadPath != "" || filteredRun(flags) {
+	if cloudBase == "" || flags.cloudOff || cfg.Cloud.ProjectID != "" || flags.capturePayloadPath != "" || filteredRun(flags) ||
+		orchestrator.InPullRequestPipeline() {
 		return nil
 	}
 	return errors.New("cloud.project_id is not set in .sigcomply.yaml, and SigComply Cloud refuses runs without it: " +

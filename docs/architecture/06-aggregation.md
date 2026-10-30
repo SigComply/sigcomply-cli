@@ -97,8 +97,8 @@ prints `cloud submission skipped: this run evaluates a subset of policies (use `
 or `--scheduled`)` to stdout; with no cloud configured it stays quiet.
 
 A run in a pull-request or merge-request pipeline never POSTs either, whatever its flags
-(`isPullRequestRun`: `--pr`, `GITHUB_EVENT_NAME` `pull_request`/`pull_request_target`, or
-`CI_MERGE_REQUEST_IID` set; the same helper stops it advancing cadence state). The branch's code
+(`isPullRequestRun`: `--pr`, or `InPullRequestPipeline`: a GitHub `pull_request*` or
+`merge_group` event, or GitLab's `CI_MERGE_REQUEST_IID` / `CI_EXTERNAL_PULL_REQUEST_IID` set; the same helper stops it advancing cadence state). The branch's code
 and config produced it, so it is not the project's result. It prints `cloud submission skipped:
 this run is in a pull request or merge request pipeline; ...` under the same condition as the
 filtered notice. Rails enforces the same rule from the verified token claims (it accepts only

@@ -72,6 +72,7 @@ func TestResolveToken_RefusesCredentialVariables(t *testing.T) {
 		"SIGCOMPLY_ID_TOKEN", "AWS_ID_TOKEN", "VAULT_ID_TOKEN",
 		"GOOGLE_APPLICATION_CREDENTIALS", "GOOGLE_OAUTH_ACCESS_TOKEN",
 		"AZURE_CLIENT_SECRET", "AZURE_FEDERATED_TOKEN_FILE",
+		"CI_REPOSITORY_URL", "ARM_CLIENT_SECRET", "ARM_OIDC_TOKEN", "VAULT_TOKEN", "CLOUDSDK_AUTH_ACCESS_TOKEN",
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Setenv(name, "a-secret-value")

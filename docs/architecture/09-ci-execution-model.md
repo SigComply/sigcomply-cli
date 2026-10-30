@@ -65,8 +65,8 @@ Rules that follow from `planner.filterAccepts`:
 - A `--cadence` or `--cadences` value that is not a cadence is a planner error, exit 3
   (`planner.validateFilter`).
 - Any filter (and `--pr`) means the run never submits to Cloud. A run in a pull-request or
-  merge-request pipeline (`inPullRequestPipeline`: `GITHUB_EVENT_NAME`
-  `pull_request`/`pull_request_target`, or `CI_MERGE_REQUEST_IID` set) never submits either,
+  merge-request pipeline (`InPullRequestPipeline`: a GitHub `pull_request*` or
+  `merge_group` event, or `CI_MERGE_REQUEST_IID` / `CI_EXTERNAL_PULL_REQUEST_IID` set) never submits either,
   whatever its flags. Neither it nor `--pr` advances cadence state. One helper,
   `isPullRequestRun`, decides both.
 - Effective cadence is the project override if set, else the framework default.
@@ -145,7 +145,9 @@ it: `TestCIFiles_GitHubAWSStepUsesItsOwnAudience` and
 `TestCIFiles_GitLabAWSTokenIsNotTheSubmissionToken` over every template, golden and example;
 `TestDocs_TrustPoliciesSeparateAudiencesAndPinTheScheduledRole` over the trust policies in the
 customer docs; and at run time `check` warns when `AWS_WEB_IDENTITY_TOKEN_FILE` holds a token with
-that audience (a warning, since the run still works and the fix is in IAM).
+that audience (a warning, since the run still works and the fix is in IAM). The warning only
+covers token-file setups such as GitLab's: `configure-aws-credentials` exchanges the token inside
+the action, so on GitHub the template and doc tests are the only guard.
 
 The same review split the AWS role. The scheduled run writes cadence state and is the run Cloud
 receives, so its role trusts only the default branch. The on-push run executes a pull or merge

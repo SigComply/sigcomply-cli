@@ -211,7 +211,8 @@ Re-scaffold with `sigcomply init-ci --ci github --force` (or set `audience: sts.
 each `configure-aws-credentials` step), change the trust policies as above, and remove the old
 client ID from the provider:
 `aws iam remove-client-id-from-open-id-connect-provider --open-id-connect-provider-arn <arn> --client-id https://api.sigcomply.com`.
-`sigcomply check` warns while the AWS token still carries that audience.
+On GitHub, `sigcomply check` can't see which audience the AWS step used, so it gives no warning:
+check each workflow's `audience:` line and each role's trust policy yourself.
 
 ## 4. Optional: send results to SigComply Cloud
 
