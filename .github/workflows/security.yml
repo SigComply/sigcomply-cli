@@ -385,6 +385,79 @@ jobs:
           echo "zizmor: no findings"
 
   # ===========================================
+  # FUZZING
+  # ===========================================
+
+  # Go native fuzzing of the parsers that read customer-supplied files and
+  # config: manual evidence conversion and merge, project config, policies,
+  # and envelope decode and verify. Two minutes per target on each push to
+  # main and weekly; not on pull requests (cost). A crasher fails the job
+  # and is uploaded as an artifact; reproduce it with the steps in
+  # docs/claude/development-workflow.md.
+  fuzz:
+    name: Fuzz (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: FuzzToPDF
+            package: ./internal/sources/manual/fileconv
+          - target: FuzzMerge
+            package: ./internal/sources/manual/pdfmerge
+          - target: FuzzLoadProjectConfig
+            package: ./internal/spec
+          - target: FuzzLoadPolicy
+            package: ./internal/spec
+          - target: FuzzVerifyEnvelope
+            package: ./internal/sign
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # A renamed or deleted target would otherwise fuzz nothing and pass.
+      - name: Check the target exists
+        env:
+          TARGET: ${{ matrix.target }}
+          PKG: ${{ matrix.package }}
+        run: |
+          if ! go test -list "^${TARGET}\$" "$PKG" | grep -qx "$TARGET"; then
+            echo "::error::$TARGET not found in $PKG; update the fuzz matrix in security.yml"
+            exit 1
+          fi
+
+      - name: Fuzz
+        env:
+          TARGET: ${{ matrix.target }}
+          PKG: ${{ matrix.package }}
+        run: go test -run '^$' -fuzz "^${TARGET}\$" -fuzztime 2m "$PKG"
+
+      # go test writes the failing input to <package>/testdata/fuzz/<target>/.
+      - name: Upload crashers
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fuzz-crashers-${{ matrix.target }}
+          path: ${{ matrix.package }}/testdata/fuzz/${{ matrix.target }}/
+          if-no-files-found: warn
+          retention-days: 30
+
+  # ===========================================
   # SBOM & LICENSE COMPLIANCE
   # ===========================================
 
@@ -472,7 +545,7 @@ jobs:
   security-summary:
     name: Security Summary
     runs-on: ubuntu-latest
-    needs: [supply-chain, codeql, gosec, semgrep, trivy, osv-scan, secret-scan, zizmor]
+    needs: [supply-chain, codeql, gosec, semgrep, trivy, osv-scan, secret-scan, zizmor, fuzz]
     if: always()
     steps:
       - name: Harden runner
@@ -490,6 +563,7 @@ jobs:
           OSV: ${{ needs.osv-scan.result }}
           SECRETS: ${{ needs.secret-scan.result }}
           ZIZMOR: ${{ needs.zizmor.result }}
+          FUZZ: ${{ needs.fuzz.result }}
         run: |
           {
             echo "## Security Scan Summary"
@@ -504,11 +578,12 @@ jobs:
             echo "| OSV Scanner | $OSV |"
             echo "| Secret Scan | $SECRETS |"
             echo "| zizmor | $ZIZMOR |"
+            echo "| Fuzz | $FUZZ |"
           } >> "$GITHUB_STEP_SUMMARY"
 
           # Fail if any blocking check failed
           if [[ "$SUPPLY_CHAIN" == "failure" ]] || [[ "$SECRETS" == "failure" ]] || \
-             [[ "$SEMGREP" == "failure" ]] || [[ "$ZIZMOR" == "failure" ]]; then
+             [[ "$SEMGREP" == "failure" ]] || [[ "$ZIZMOR" == "failure" ]] || [[ "$FUZZ" == "failure" ]]; then
             echo "❌ Critical security checks failed!" >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
