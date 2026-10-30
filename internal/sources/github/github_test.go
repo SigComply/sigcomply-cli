@@ -884,7 +884,7 @@ func TestHTTPAPI_ListRepos_Pagination(t *testing.T) {
 		case strings.HasSuffix(r.URL.Path, "/vulnerability-alerts"):
 			w.WriteHeader(http.StatusNoContent)
 		case r.URL.Query().Get("page") == "1":
-			w.Header().Set("Link", `<http://x?page=2>; rel="next"`)
+			w.Header().Set("Link", "<http://"+r.Host+"/orgs/acme/repos?page=2>; rel=\"next\"")
 			_, _ = w.Write([]byte(`[{"name":"r1","default_branch":"main"}]`)) //nolint:errcheck // test handler
 		case r.URL.Query().Get("page") == "2":
 			_, _ = w.Write([]byte(`[{"name":"r2","default_branch":"main"}]`)) //nolint:errcheck // test handler

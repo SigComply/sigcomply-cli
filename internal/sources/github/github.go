@@ -1920,7 +1920,30 @@ func (h *httpAPI) getJSONURL(ctx context.Context, fullURL string, out any) (next
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
 		return "", fmt.Errorf("github: decode %s: %w", fullURL, err)
 	}
-	return nextLink(resp.Header.Get("Link")), nil
+	return h.followableLink(nextLink(resp.Header.Get("Link")))
+}
+
+// followableLink checks a rel="next" URL before it is requested with the
+// token: it must use the configured API base's scheme and host and lie
+// under its path. A Link header pointing anywhere else (a misbehaving
+// GHES proxy, a hostile mock) would otherwise receive the token.
+// getJSONURL, the only place a Link header is read, returns next through
+// here, so every caller that follows it is covered.
+func (h *httpAPI) followableLink(next string) (string, error) {
+	if next == "" {
+		return "", nil
+	}
+	base, err := url.Parse(h.base)
+	if err != nil {
+		return "", fmt.Errorf("github: parse API base %q: %w", h.base, err)
+	}
+	u, err := url.Parse(next)
+	basePath := strings.TrimSuffix(base.Path, "/")
+	if err != nil || u.Scheme != base.Scheme || u.Host != base.Host || u.User != nil ||
+		(basePath != "" && u.Path != basePath && !strings.HasPrefix(u.Path, basePath+"/")) {
+		return "", fmt.Errorf("github: pagination link %q leaves the API base %q; refusing to follow it", next, h.base)
+	}
+	return next, nil
 }
 
 // nextLink returns the rel="next" URL from a Link header, or "" when there is
