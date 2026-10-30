@@ -103,12 +103,13 @@ this file lists the changes a user notices.
   Applicability.
 - The all-users MFA policies cover users who can sign in interactively; programmatic-only IAM
   users no longer fail them. `aws.iam` checks console access with `iam:GetLoginProfile` when the
-  cached credential report shows no password, so add that permission if you don't use
-  `ReadOnlyAccess`.
+  cached credential report shows no password. `SecurityAudit`, which the CI guides recommend,
+  includes it; a custom policy needs it added.
 - Unknown `--cadence` and `--cadences` values, an `evidence_mode: automated` override on a policy
   with no automated check, a non-https Okta `org_url`, and invalid custom period IDs (over 50
   characters, unsafe characters, duplicates or overlaps) are config errors (exit 3).
-- `cloud.base_url` must use `https://` (loopback hosts excepted: `localhost`, `127.0.0.1`, `::1`), and a redirect from it is an error.
+- `cloud.base_url` must use `https://` (loopback hosts excepted: `localhost`, `127.0.0.1`,
+  `::1`), and a redirect from it is an error.
 - `report` exits 3 for a period with no runs or a missing local vault, and `--period` accepts the
   `framework/period` form `check` prints.
 - Rewrote the customer docs. To submit results to SigComply Cloud, set `cloud.base_url` in
@@ -126,11 +127,17 @@ this file lists the changes a user notices.
 ### Fixed
 
 - `github` and `gitlab` `base_url`, and the `s3` `endpoint` of the vault and of `manual.pdf`, must
-  be `https://` (`http://` only to a loopback host (`localhost`, `127.0.0.1`, `::1`)); a plaintext URL is a config error (exit 3). A
-  source's `token_env` can't name a CI or cloud credential variable (`AWS_*`, `ACTIONS_*`,
-  `GOOGLE_*`, `AZURE_*`, `ARM_*`, `CLOUDSDK_*`, `CI_JOB_*`, names containing `ID_TOKEN`, GitLab's
-  predefined passwords, `CI_REPOSITORY_URL`, `VAULT_TOKEN`),
-  so a config change can't send the job's own credentials to a source's host.
+  be `https://` (`http://` only to a loopback host: `localhost`, `127.0.0.1`, `::1`); a plaintext
+  URL is a config error (exit 3). A source's `token_env` can't name a CI or cloud credential
+  variable (`AWS_*`, `ACTIONS_*`, `GOOGLE_*`, `AZURE_*`, `ARM_*`, `CLOUDSDK_*`, `CI_JOB_*`, names
+  containing `ID_TOKEN`, `OIDC` or `JWT`, GitLab's predefined passwords, `CI_REPOSITORY_URL`,
+  `VAULT_TOKEN`), so a config change can't send the job's own credentials to a source's host.
+- An Azure storage `account` in the `azure_blob` vault or `manual.pdf` backend must be 3 to 24
+  lowercase letters and digits, so a crafted value can't send the job's Azure
+  Storage token to another host.
+- SigComply Cloud records runs only from GitHub `push`, `schedule` and `workflow_dispatch` events
+  and GitLab `push`, `schedule`, `web`, `api` and `trigger` pipelines. A run from another event is
+  refused; `check` prints the refusal as a submission warning and its exit code doesn't change.
 - A run in a pull request or merge request pipeline never submits to SigComply Cloud, whatever
   its flags, and prints `cloud submission skipped: this run is in a pull request or merge request
   pipeline`. The pull request's branch produced it, so it is not the project's result. This
@@ -150,19 +157,20 @@ this file lists the changes a user notices.
   shard can't carry a pass forward or block later writes.
 - Project-local policy IDs may use only letters, digits, `.`, `_` and `-`, and every vault key
   segment is validated, so no ID can write outside its run folder.
-- The local manual-evidence folder and the local vault read and write regular files only; symlinks
-  are ignored.
-- GitHub pagination links that leave the configured API host are refused, so the token never goes
-  to another host.
-- `check` output and logs neutralize newlines, GitHub workflow commands and terminal escapes in
-  text from sources and from SigComply Cloud's error replies, and redact GitHub, GitLab and Okta
-  tokens. A SigComply Cloud error reply is read up to 1 MiB and quoted up to 512 bytes.
+- The local manual-evidence folder ignores symlinks, and the local vault refuses to follow one.
+- GitHub, Okta and Microsoft Entra ID (`azure.entra`) pagination links that leave the configured
+  API host are refused, so the token never goes to another host.
+- Project-local policy IDs can't carry a `[name]` suffix; only letters, digits, `.`, `_` and `-`.
+- A PNG upload is decoded with a bounded reader before conversion, so a small PNG whose data
+  decompresses to gigabytes fails its policy (`conversion_failed`) instead of exhausting memory.
+- `check` output, `report` text and CSV output, and logs neutralize newlines, GitHub workflow
+  commands and terminal escapes in text from sources, the vault and SigComply Cloud's error
+  replies, and logs redact GitHub, GitLab and Okta tokens and every ARN shape, including IAM, STS
+  and S3 ARNs. ARNs in `check` reasons stay copyable. A SigComply Cloud error reply is read up to 1 MiB and quoted up to 512 bytes.
 - CSV reports prefix cells that start with `=`, `+`, `-`, `@`, tab or carriage return with `'`, so
   a spreadsheet doesn't run them as formulas.
 - Releases are promoted to latest only after `install.sh` installs them with build provenance
   required, and the release workflows run only from `main` or a `v*` tag.
-- The nightly live SaaS drift issue lists only failing test names and the run link, never raw
-  test output.
 - Unversioned S3, GCS and Azure storage buckets fail the versioning policies instead of making
   them error (exit 2).
 - `aws.s3` reads each bucket in its own region; a bucket outside the configured region no longer

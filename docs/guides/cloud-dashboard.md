@@ -86,6 +86,15 @@ sends nothing. A run in a pull request or merge request pipeline never submits e
 its flags: it prints `cloud submission skipped: this run is in a pull request or merge request
 pipeline`. In the workflows `init-ci` writes, only the daily scheduled run submits.
 
+SigComply Cloud records a run only when the pipeline was started by one of these events, read
+from the OIDC token:
+
+- GitHub Actions: `push`, `schedule` or `workflow_dispatch`;
+- GitLab CI: `push`, `schedule`, `web`, `api` or `trigger` pipelines.
+
+It refuses a run from any other event. The CLI prints the refusal as a submission warning, and
+the exit code does not change.
+
 ## 4. Run and check the result
 
 Start a CI run (the scheduled workflow, with **Run workflow** on GitHub or **Run pipeline

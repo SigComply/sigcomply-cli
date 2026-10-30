@@ -172,10 +172,9 @@ change which policies the next scheduled run carries forward.
 If you set up a role before this guide changed, it trusted the audience `https://api.sigcomply.com`
 and the pipeline gave AWS `SIGCOMPLY_ID_TOKEN`. Re-scaffold with
 `sigcomply init-ci --ci gitlab --force` (or add the `AWS_ID_TOKEN` entry and write it, not
-`SIGCOMPLY_ID_TOKEN`, to the token file), change the trust policies as above, and remove the old
-client ID from the provider. If you set `AWS_ROLE_ARN` as a project or group CI/CD variable,
-delete it: GitLab ranks it above the job's own `AWS_ROLE_ARN`, so both jobs would keep assuming
-the old role. Then remove the old client ID:
+`SIGCOMPLY_ID_TOKEN`, to the token file) and change the trust policies as above. If you set
+`AWS_ROLE_ARN` as a project or group CI/CD variable, delete it: GitLab ranks it above the job's
+own `AWS_ROLE_ARN`, so both jobs would keep assuming the old role. Then remove the old client ID:
 `aws iam remove-client-id-from-open-id-connect-provider --open-id-connect-provider-arn <arn> --client-id https://api.sigcomply.com`.
 `sigcomply check` warns while the AWS token still carries that audience.
 
