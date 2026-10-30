@@ -86,7 +86,7 @@ func TestSubmit_PostsPayloadWithHeaders(t *testing.T) {
 	resp, err := Submit(context.Background(), &Options{
 		BaseURL:       srv.URL,
 		HTTPClient:    srv.Client(),
-		TokenProvider: &stubProvider{token: "jwt-x", provider: providerGitHub},
+		TokenProvider: &stubProvider{token: validToken, provider: providerGitHub},
 		CLIVersion:    "1.0.0",
 	}, payload)
 	if err != nil {
@@ -101,7 +101,7 @@ func TestSubmit_PostsPayloadWithHeaders(t *testing.T) {
 	if gotMethod != "POST" {
 		t.Errorf("method = %q", gotMethod)
 	}
-	if gotAuth != "Bearer jwt-x" {
+	if gotAuth != "Bearer "+validToken {
 		t.Errorf("auth header = %q", gotAuth)
 	}
 	if gotOIDCHdr != providerGitHub {
@@ -141,7 +141,7 @@ func TestSubmit_ServerError(t *testing.T) {
 	_, err := Submit(context.Background(), &Options{
 		BaseURL:       srv.URL,
 		HTTPClient:    srv.Client(),
-		TokenProvider: &stubProvider{token: "x", provider: providerGitHub},
+		TokenProvider: &stubProvider{token: validToken, provider: providerGitHub},
 	}, &core.SubmissionPayload{})
 	if err == nil || !strings.Contains(err.Error(), "500") {
 		t.Errorf("want 5xx error; got %v", err)
@@ -196,29 +196,15 @@ func TestGitHubActionsProvider_BadStatus(t *testing.T) {
 	}
 }
 
-func TestGitLabCIProvider_ReadsSigComplyVarFirst(t *testing.T) {
-	t.Setenv("SIGCOMPLY_ID_TOKEN", "first")
-	t.Setenv("ID_TOKEN", "fallback")
+func TestGitLabCIProvider_ReadsSigComplyVar(t *testing.T) {
+	t.Setenv("SIGCOMPLY_ID_TOKEN", validToken)
 	p := &gitlabCIProvider{}
-	tok, name, err := p.Token(context.Background(), "")
+	tok, name, err := p.Token(context.Background(), DefaultAudience)
 	if err != nil {
 		t.Fatalf("Token: %v", err)
 	}
-	if tok != "first" || name != providerGitLab {
+	if tok != validToken || name != providerGitLab {
 		t.Errorf("got token=%q provider=%q", tok, name)
-	}
-}
-
-func TestGitLabCIProvider_FallsBackToIDTOKEN(t *testing.T) {
-	t.Setenv("SIGCOMPLY_ID_TOKEN", "")
-	t.Setenv("ID_TOKEN", "fallback")
-	p := &gitlabCIProvider{}
-	tok, _, err := p.Token(context.Background(), "")
-	if err != nil {
-		t.Fatalf("Token: %v", err)
-	}
-	if tok != "fallback" {
-		t.Errorf("got token=%q", tok)
 	}
 }
 
@@ -268,7 +254,7 @@ func TestHasOIDC(t *testing.T) {
 	}{
 		{map[string]string{}, false},
 		{map[string]string{"SIGCOMPLY_ID_TOKEN": "x"}, true},
-		{map[string]string{"ID_TOKEN": "x"}, true},
+		{map[string]string{"ID_TOKEN": "x"}, false},
 		{map[string]string{testEnvActionsTokenURL: "u", "ACTIONS_ID_TOKEN_REQUEST_TOKEN": "t"}, true},
 		{map[string]string{testEnvActionsTokenURL: "u"}, false},
 	}
@@ -315,7 +301,7 @@ func TestSubmit_NetworkFailure(t *testing.T) {
 	_, err := Submit(context.Background(), &Options{
 		BaseURL:       url,
 		HTTPClient:    &http.Client{},
-		TokenProvider: &stubProvider{token: "x", provider: providerGitHub},
+		TokenProvider: &stubProvider{token: validToken, provider: providerGitHub},
 	}, &core.SubmissionPayload{})
 	if err == nil || !strings.Contains(err.Error(), "post ") {
 		t.Errorf("want post/network error; got %v", err)
@@ -332,7 +318,7 @@ func TestSubmit_TrimsTrailingSlashInBaseURL(t *testing.T) {
 	_, err := Submit(context.Background(), &Options{
 		BaseURL:       srv.URL + "/",
 		HTTPClient:    srv.Client(),
-		TokenProvider: &stubProvider{token: "x", provider: providerGitHub},
+		TokenProvider: &stubProvider{token: validToken, provider: providerGitHub},
 	}, &core.SubmissionPayload{})
 	if err != nil {
 		t.Fatalf("Submit: %v", err)
@@ -351,7 +337,7 @@ func TestSubmit_SuccessReturnsResponseBody(t *testing.T) {
 	resp, err := Submit(context.Background(), &Options{
 		BaseURL:       srv.URL,
 		HTTPClient:    srv.Client(),
-		TokenProvider: &stubProvider{token: "x", provider: providerGitLab},
+		TokenProvider: &stubProvider{token: validToken, provider: providerGitLab},
 	}, &core.SubmissionPayload{})
 	if err != nil {
 		t.Fatalf("Submit: %v", err)
@@ -376,7 +362,7 @@ func TestSubmit_NoCLIVersionHeaderWhenUnset(t *testing.T) {
 	_, err := Submit(context.Background(), &Options{
 		BaseURL:       srv.URL,
 		HTTPClient:    srv.Client(),
-		TokenProvider: &stubProvider{token: "x", provider: providerGitHub},
+		TokenProvider: &stubProvider{token: validToken, provider: providerGitHub},
 	}, &core.SubmissionPayload{})
 	if err != nil {
 		t.Fatalf("Submit: %v", err)
@@ -404,7 +390,7 @@ func TestSubmit_SendsProjectHeader(t *testing.T) {
 	_, err := Submit(context.Background(), &Options{
 		BaseURL:       srv.URL,
 		HTTPClient:    srv.Client(),
-		TokenProvider: &stubProvider{token: "x", provider: providerGitHub},
+		TokenProvider: &stubProvider{token: validToken, provider: providerGitHub},
 		ProjectID:     id,
 	}, &core.SubmissionPayload{RunID: "r1"})
 	if err != nil {
@@ -433,7 +419,7 @@ func TestSubmit_NoProjectHeaderWhenUnset(t *testing.T) {
 	_, err := Submit(context.Background(), &Options{
 		BaseURL:       srv.URL,
 		HTTPClient:    srv.Client(),
-		TokenProvider: &stubProvider{token: "x", provider: providerGitHub},
+		TokenProvider: &stubProvider{token: validToken, provider: providerGitHub},
 	}, &core.SubmissionPayload{})
 	if err != nil {
 		t.Fatalf("Submit: %v", err)
@@ -473,7 +459,7 @@ func TestSubmit_BodyIsCountsOnly(t *testing.T) {
 	_, err := Submit(context.Background(), &Options{
 		BaseURL:       srv.URL,
 		HTTPClient:    srv.Client(),
-		TokenProvider: &stubProvider{token: "x", provider: providerGitHub},
+		TokenProvider: &stubProvider{token: validToken, provider: providerGitHub},
 	}, payload)
 	if err != nil {
 		t.Fatalf("Submit: %v", err)

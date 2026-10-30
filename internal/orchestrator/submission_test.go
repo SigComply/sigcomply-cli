@@ -16,6 +16,7 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/log"
 	"github.com/sigcomply/sigcomply-cli/internal/planner"
 	"github.com/sigcomply/sigcomply-cli/internal/submitter"
+	"github.com/sigcomply/sigcomply-cli/internal/submitter/oidctest"
 )
 
 // stubTokenProvider hands back a canned token so Submit never touches a
@@ -23,14 +24,14 @@ import (
 type stubTokenProvider struct{}
 
 func (stubTokenProvider) Token(context.Context, string) (token, providerName string, err error) {
-	return "test-token", "test-provider", nil
+	return oidctest.JWT(submitter.DefaultAudience), "test-provider", nil
 }
 
 // handleSubmission's DecisionSubmit branch: with Force + an injected
 // token provider + an OIDC env hint, the payload is POSTed and the run
 // reports Submitted=true.
 func TestHandleSubmission_SubmitsSuccessfully(t *testing.T) {
-	t.Setenv("SIGCOMPLY_ID_TOKEN", "present") // makes submitter.HasOIDC() true
+	t.Setenv("SIGCOMPLY_ID_TOKEN", oidctest.JWT(submitter.DefaultAudience)) // makes submitter.HasOIDC() true
 
 	var gotBody []byte
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -74,7 +75,7 @@ func TestHandleSubmission_SubmitsSuccessfully(t *testing.T) {
 // A 4xx from the cloud is non-fatal: handleSubmission logs and returns
 // submitted=false without panicking.
 func TestHandleSubmission_ServerErrorIsNonFatal(t *testing.T) {
-	t.Setenv("SIGCOMPLY_ID_TOKEN", "present")
+	t.Setenv("SIGCOMPLY_ID_TOKEN", oidctest.JWT(submitter.DefaultAudience))
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 	}))
@@ -171,7 +172,7 @@ func setSubmittingCI(t *testing.T) {
 	t.Setenv("GITHUB_ACTIONS", "true")
 	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_URL", "")
 	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "")
-	t.Setenv("SIGCOMPLY_ID_TOKEN", "test-oidc-token")
+	t.Setenv("SIGCOMPLY_ID_TOKEN", oidctest.JWT(submitter.DefaultAudience))
 }
 
 // Every submitted run is a full snapshot: the dashboard reads the latest

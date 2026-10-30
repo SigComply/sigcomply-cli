@@ -10,6 +10,7 @@ package submitter
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"net/http"
 	neturl "net/url"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -25,8 +27,10 @@ import (
 
 // DefaultAudience is the OIDC token audience the CLI requests when
 // running in CI. It is an identifier, not a host: Rails checks it
-// (Oidc::TokenValidator) and AWS IAM OIDC providers must list it as a
-// client ID when the same token assumes an AWS role. Not configurable.
+// (Oidc::TokenValidator). Not configurable. It belongs to SigComply
+// Cloud alone: an AWS role (or any other cloud) must never trust it,
+// because SigComply Cloud receives every token minted for it
+// (AGENTS.md, "OIDC audiences"); AWS uses sts.amazonaws.com.
 const DefaultAudience = "https://api.sigcomply.com"
 
 // Path is the cloud endpoint relative to base_url.
@@ -38,13 +42,15 @@ const Path = "/api/v1/runs"
 const ProjectHeader = "X-SigComply-Project"
 
 // GitLabIDTokenEnv is the variable a GitLab job's `id_tokens:` block
-// must name for the CLI to find its OIDC token; GitLabIDTokenFallbackEnv
-// is read when it is unset. The init-ci GitLab template declares
-// GitLabIDTokenEnv, and a test in cmd/sigcomply checks the two agree.
-const (
-	GitLabIDTokenEnv         = "SIGCOMPLY_ID_TOKEN"
-	GitLabIDTokenFallbackEnv = "ID_TOKEN"
-)
+// must name for the CLI to find its OIDC token. It is the only one read:
+// a generic name such as ID_TOKEN often holds a token minted for another
+// receiver. The init-ci GitLab template declares it, and a test in
+// cmd/sigcomply checks the two agree.
+const GitLabIDTokenEnv = "SIGCOMPLY_ID_TOKEN"
+
+// awsWebIdentityTokenFileEnv names the file the AWS SDKs read a web
+// identity token from.
+const awsWebIdentityTokenFileEnv = "AWS_WEB_IDENTITY_TOKEN_FILE"
 
 // Decision is the result of evaluating whether to submit.
 type Decision int
@@ -133,6 +139,12 @@ func Submit(ctx context.Context, opts *Options, payload *core.SubmissionPayload)
 	token, providerName, err := tokenProvider.Token(ctx, DefaultAudience)
 	if err != nil {
 		return Response{}, fmt.Errorf("submitter: acquire oidc token: %w", err)
+	}
+	// GitLab tokens are minted by the job's id_tokens block, not on
+	// request, so the CLI cannot choose their audience. A token minted for
+	// another receiver is a credential for that receiver; never forward it.
+	if err := requireAudience(token, DefaultAudience); err != nil {
+		return Response{}, fmt.Errorf("submitter: %s OIDC token: %w", providerName, err)
 	}
 	url := strings.TrimRight(opts.BaseURL, "/") + Path
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
@@ -235,7 +247,7 @@ func HasOIDC() bool {
 	if os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL") != "" && os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN") != "" {
 		return true
 	}
-	if os.Getenv(GitLabIDTokenEnv) != "" || os.Getenv(GitLabIDTokenFallbackEnv) != "" {
+	if os.Getenv(GitLabIDTokenEnv) != "" {
 		return true
 	}
 	return false
@@ -336,18 +348,83 @@ func (p *githubActionsProvider) Token(ctx context.Context, audience string) (str
 
 // gitlabCIProvider reads a pre-minted JWT from the environment. GitLab
 // CI workflows configure `id_tokens:` in `.gitlab-ci.yml` and the
-// resulting JWT lands in an env var the customer names — by default
-// SIGCOMPLY_ID_TOKEN, falling back to ID_TOKEN.
+// resulting JWT lands in SIGCOMPLY_ID_TOKEN. Submit checks its audience.
 type gitlabCIProvider struct{}
 
 func (p *gitlabCIProvider) Token(_ context.Context, _ string) (token, providerName string, err error) {
 	if t := os.Getenv(GitLabIDTokenEnv); t != "" {
 		return t, providerGitLab, nil
 	}
-	if t := os.Getenv(GitLabIDTokenFallbackEnv); t != "" {
-		return t, providerGitLab, nil
-	}
 	return "", "", ErrNoToken
+}
+
+// tokenAudiences reads the `aud` claim of a JWT without verifying its
+// signature. The CLI only routes the token; SigComply Cloud verifies it.
+func tokenAudiences(token string) ([]string, error) {
+	parts := strings.Split(strings.TrimSpace(token), ".")
+	if len(parts) != 3 {
+		return nil, errors.New("not a JWT")
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(strings.TrimRight(parts[1], "="))
+	if err != nil {
+		return nil, errors.New("JWT payload is not base64url")
+	}
+	var claims struct {
+		Aud json.RawMessage `json:"aud"`
+	}
+	if err := json.Unmarshal(raw, &claims); err != nil {
+		return nil, errors.New("JWT payload is not JSON")
+	}
+	if len(claims.Aud) == 0 {
+		return nil, nil
+	}
+	var one string
+	if json.Unmarshal(claims.Aud, &one) == nil {
+		return []string{one}, nil
+	}
+	var many []string
+	if err := json.Unmarshal(claims.Aud, &many); err != nil {
+		return nil, errors.New("JWT aud claim is neither a string nor a list")
+	}
+	return many, nil
+}
+
+// requireAudience fails unless the token's aud claim contains want. The
+// error never includes the token.
+func requireAudience(token, want string) error {
+	auds, err := tokenAudiences(token)
+	if err != nil {
+		return fmt.Errorf("cannot read its audience (%v); refusing to send it", err)
+	}
+	if !slices.Contains(auds, want) {
+		return fmt.Errorf("audience %q does not include %q; refusing to send a token minted for another receiver. "+
+			"On GitLab, set `aud: %s` on the %s entry under id_tokens", auds, want, want, GitLabIDTokenEnv)
+	}
+	return nil
+}
+
+// AWSWebIdentityAudienceWarning returns a warning when the token file
+// the AWS SDK reads (AWS_WEB_IDENTITY_TOKEN_FILE) holds a token minted
+// for SigComply Cloud. An AWS role that accepts that audience trusts a
+// token SigComply Cloud receives on every submission. It returns "" when
+// the variable is unset, the file is unreadable or not a JWT, or the
+// audience is another one: the AWS SDK reports those itself.
+func AWSWebIdentityAudienceWarning() string {
+	path := os.Getenv(awsWebIdentityTokenFileEnv)
+	if path == "" {
+		return ""
+	}
+	body, err := os.ReadFile(path) //nolint:gosec // #nosec G304 G703 -- path is the AWS SDK's own token file variable
+	if err != nil {
+		return ""
+	}
+	auds, err := tokenAudiences(string(body))
+	if err != nil || !slices.Contains(auds, DefaultAudience) {
+		return ""
+	}
+	return fmt.Sprintf("%s holds a token with the SigComply Cloud audience %s. "+
+		"Mint the AWS token with the audience sts.amazonaws.com and make the IAM role trust only that audience: "+
+		"a role that trusts %s accepts tokens SigComply Cloud receives", awsWebIdentityTokenFileEnv, DefaultAudience, DefaultAudience)
 }
 
 const (

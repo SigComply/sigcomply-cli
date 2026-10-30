@@ -185,8 +185,8 @@ func runCheck(ctx context.Context, stdout io.Writer, flags *checkFlags) error {
 }
 
 // emitConfigWarnings logs every non-fatal config finding: keys no
-// source, vault backend or experimental feature reads, and local storage
-// in a CI job.
+// source, vault backend or experimental feature reads, local storage in
+// a CI job, and an AWS web identity token minted for SigComply Cloud.
 func emitConfigWarnings(logger *log.Logger, cfg *spec.ProjectConfig) {
 	for _, w := range planner.SourceConfigWarnings(cfg) {
 		logger.Warnf("source-config: %s", w)
@@ -199,6 +199,9 @@ func emitConfigWarnings(logger *log.Logger, cfg *spec.ProjectConfig) {
 	}
 	for _, w := range ciLocalStorageWarnings(cfg, submitter.InCI()) {
 		logger.Warnf("config: %s", w)
+	}
+	if w := submitter.AWSWebIdentityAudienceWarning(); w != "" {
+		logger.Warnf("oidc: %s", w)
 	}
 }
 

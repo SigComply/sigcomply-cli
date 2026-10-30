@@ -12,7 +12,7 @@ import (
 )
 
 // stubToken is the bearer token the stub provider hands out.
-const stubToken = "stub-oidc-token"
+var stubToken = validToken
 
 // A provider that is present but fails (GitHub refusing the audience)
 // must not be masked by a later provider that is simply absent.

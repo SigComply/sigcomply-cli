@@ -71,8 +71,10 @@ The CLI submits only when all of these hold:
 - `cloud.base_url` is set (or `--cloud-url` is passed);
 - the run is in CI (`CI`, `GITHUB_ACTIONS` or `GITLAB_CI` is set);
 - an OIDC token is available: on GitHub Actions, the job has `permissions: id-token: write`; on
-  GitLab CI, `SIGCOMPLY_ID_TOKEN` (or `ID_TOKEN`) holds an ID token with
-  `aud: https://api.sigcomply.com`. The scaffolded workflows set both up.
+  GitLab CI, `SIGCOMPLY_ID_TOKEN` holds an ID token with
+  `aud: https://api.sigcomply.com`. The scaffolded workflows set both up. The CLI reads no other
+  variable, and it refuses to send a token whose audience does not include
+  `https://api.sigcomply.com`.
 
 `--no-cloud` turns submission off for one run. `--cloud` makes the CLI warn when the base URL or
 the token is missing, instead of skipping without a message.

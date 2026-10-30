@@ -45,6 +45,7 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/sign"
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 	"github.com/sigcomply/sigcomply-cli/internal/submitter"
+	"github.com/sigcomply/sigcomply-cli/internal/submitter/oidctest"
 )
 
 // e2eCommitTime pins the commit time every binary run reports. The
@@ -447,10 +448,11 @@ type fakeCloud struct {
 	tokenCalls  int
 }
 
-const (
-	fakeRunnerBearer = "runner-request-token"
-	fakeOIDCToken    = "header.payload.signature"
-)
+const fakeRunnerBearer = "runner-request-token"
+
+// fakeOIDCToken is what the fake GitHub endpoint mints: like the real
+// one, it carries the audience the CLI asked for.
+var fakeOIDCToken = oidctest.JWT(submitter.DefaultAudience)
 
 func newFakeCloud(t *testing.T, runsStatus int) *fakeCloud {
 	t.Helper()
@@ -463,7 +465,7 @@ func newFakeCloud(t *testing.T, runsStatus int) *fakeCloud {
 		fc.tokenAuth = r.Header.Get("Authorization")
 		fc.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = fmt.Fprintf(w, `{"value":%q}`, fakeOIDCToken) //nolint:errcheck // test server
+		_, _ = fmt.Fprintf(w, `{"value":%q}`, oidctest.JWT(r.URL.Query().Get("audience"))) //nolint:errcheck,gosec // test server; G705: JSON to the CLI under test, not a browser
 	})
 	mux.HandleFunc("POST "+submitter.Path, func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body) //nolint:errcheck // test server
@@ -534,6 +536,34 @@ func TestBinaryE2E_Check_SubmitsCountsWithOIDC(t *testing.T) {
 		t.Errorf("X-SigComply-Project = %q; want %q", fc.runsProject, e2eProjectID)
 	}
 	assertPayloadMatchesGoldenShape(t, fc.runsBody)
+}
+
+// An AWS token file that carries SigComply's audience means the AWS role
+// trusts a token SigComply Cloud receives. The run warns and goes on
+// (the role works; the trust is what is wrong), and an AWS-audience
+// token stays quiet.
+func TestBinaryE2E_Check_WarnsWhenAWSTokenHasSigComplyAudience(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		aud      string
+		wantWarn bool
+	}{
+		{"sigcomply audience", submitter.DefaultAudience, true},
+		{"aws audience", "sts.amazonaws.com", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := newE2EProject(t)
+			tokenFile := filepath.Join(p.dir, "aws-token")
+			if err := os.WriteFile(tokenFile, []byte(oidctest.JWT(tc.aud)), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			res := runSigcomply(t, p.dir, []string{"AWS_WEB_IDENTITY_TOKEN_FILE=" + tokenFile}, checkCmd)
+			res.wantCode(t, 1) // no evidence uploaded: policy failures
+			if got := strings.Contains(res.stderr, "AWS_WEB_IDENTITY_TOKEN_FILE holds a token with the SigComply Cloud audience"); got != tc.wantWarn {
+				t.Errorf("warning printed = %v; want %v\n%s", got, tc.wantWarn, res.stderr)
+			}
+		})
+	}
 }
 
 // missingProjectIDText is the start of the config error a run that

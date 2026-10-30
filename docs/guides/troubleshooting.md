@@ -87,6 +87,20 @@ anything. Copy the **Project ID** from your project's page on the dashboard into
 The value is not `prj_` followed by 20 base58 characters (letters and digits except 0, O, I and l), so the run stops with exit `3`. Copy the
 ID again from the project's page.
 
+### `OIDC token: audience [...] does not include "https://api.sigcomply.com"`
+
+The `SIGCOMPLY_ID_TOKEN` entry under `id_tokens:` has another audience, so the CLI did not send
+it. Set `aud: https://api.sigcomply.com` on that entry. The run itself is unaffected.
+
+### `oidc: AWS_WEB_IDENTITY_TOKEN_FILE holds a token with the SigComply Cloud audience`
+
+The job gives AWS a token minted for SigComply Cloud, so the AWS role trusts the audience
+`https://api.sigcomply.com`. SigComply Cloud receives tokens with that audience. Give AWS its own
+token with the audience `sts.amazonaws.com` and remove `https://api.sigcomply.com` from the role's
+trust policy and the IAM OIDC provider's client IDs:
+[Run in GitHub Actions](ci-github.md#3-create-the-aws-oidc-provider-and-role),
+[Run in GitLab CI](ci-gitlab.md#3-create-the-aws-oidc-provider-and-role).
+
 ### A `submit:` warning with an HTTP status
 
 The dashboard rejected the submission; the run itself is unaffected. Each status and its fix:

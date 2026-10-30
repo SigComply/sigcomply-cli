@@ -16,6 +16,7 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 	"github.com/sigcomply/sigcomply-cli/internal/submitter"
+	"github.com/sigcomply/sigcomply-cli/internal/submitter/oidctest"
 )
 
 const (
@@ -198,7 +199,7 @@ func TestRun_NoCloudPath(t *testing.T) {
 	t.Setenv("GITHUB_ACTIONS", "true")
 	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_URL", "")
 	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "")
-	t.Setenv("SIGCOMPLY_ID_TOKEN", "test-oidc-token")
+	t.Setenv("SIGCOMPLY_ID_TOKEN", oidctest.JWT(submitter.DefaultAudience))
 
 	for _, tc := range []struct {
 		name          string

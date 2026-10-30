@@ -104,11 +104,17 @@ this file lists the changes a user notices.
 
 ### Removed
 
+- GitLab CI: the CLI no longer reads an OIDC token from `ID_TOKEN`. Name the `id_tokens:` entry
+  `SIGCOMPLY_ID_TOKEN`, as `sigcomply init-ci` does. A generic `ID_TOKEN` often holds a token
+  minted for another service, and the CLI would have sent it to SigComply Cloud.
 - `soc2.cc6.7.kms_customer_managed_keys`, which could never pass on a real AWS account.
 - The duplicate SOC 2 and ISO 27001 policies merged into their twins (see Changed).
 
 ### Fixed
 
+- `check` refuses to send SigComply Cloud an OIDC token whose audience does not include
+  `https://api.sigcomply.com`, and warns when `AWS_WEB_IDENTITY_TOKEN_FILE` holds a token with
+  that audience: an AWS role that trusts it accepts tokens SigComply Cloud receives.
 - Unversioned S3, GCS and Azure storage buckets fail the versioning policies instead of making
   them error (exit 2).
 - `aws.s3` reads each bucket in its own region; a bucket outside the configured region no longer

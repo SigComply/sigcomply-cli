@@ -24,9 +24,8 @@ config error); and a failed submission is logged as a warning and does not chang
 The CLI always requests the audience `submitter.DefaultAudience` = `https://api.sigcomply.com`.
 It is an identifier, not a host: never derive it from `base_url`, and never use it as a URL. The
 dashboard's OIDC validator checks the same string (overridable on the dashboard side for
-non-production hosts). The CLI has no audience override; the
-doc comment on `DefaultAudience` that mentions an `OIDC.Audience` field is stale. Changing the
-audience is a cross-repo contract change.
+non-production hosts). The CLI has no audience override. Changing the audience is a cross-repo
+contract change.
 
 ## Where the token comes from
 
@@ -37,8 +36,19 @@ checks that the env vars exist.
   `ACTIONS_ID_TOKEN_REQUEST_URL` and `ACTIONS_ID_TOKEN_REQUEST_TOKEN`. `githubActionsProvider`
   calls that URL with `audience=` and reads the JWT from the `value` field (10-second timeout).
 - GitLab CI: the CLI cannot choose the audience. The job's `id_tokens:` block must mint a token
-  with `aud: https://api.sigcomply.com` into `SIGCOMPLY_ID_TOKEN` (the CLI falls back to
-  `ID_TOKEN`).
+  with `aud: https://api.sigcomply.com` into `SIGCOMPLY_ID_TOKEN`. No other variable is read: a
+  generic `ID_TOKEN` often holds a token minted for another receiver (AWS, Vault).
+
+`Submit` reads every token's `aud` claim (unverified; Rails verifies the signature) and refuses
+to send one that does not include `DefaultAudience`, whichever provider produced it. A token is
+a credential for the receiver it was minted for, so forwarding a foreign one would hand that
+credential to SigComply Cloud.
+
+The reverse also holds: SigComply Cloud receives every token minted for `DefaultAudience`, so no
+cloud role may trust that audience. `check` warns (`oidc:` prefix,
+`submitter.AWSWebIdentityAudienceWarning`) when the file in `AWS_WEB_IDENTITY_TOKEN_FILE` holds
+such a token. It is a warning, not a refusal: the run still works, the role's trust is what is
+wrong, and the customer fixes it in IAM.
 
 ## The request and what Rails checks
 

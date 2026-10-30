@@ -112,7 +112,8 @@ or `--scheduled`)` to stdout; with no cloud configured it stays quiet.
   environment variable. The SigComply Cloud value is `https://sigcomply.com`.
 - In CI: `CI`, `GITHUB_ACTIONS` or `GITLAB_CI` is set (`submitter.InCI`).
 - OIDC token: GitHub Actions via `ACTIONS_ID_TOKEN_REQUEST_URL` + `ACTIONS_ID_TOKEN_REQUEST_TOKEN`;
-  GitLab CI via `SIGCOMPLY_ID_TOKEN`, falling back to `ID_TOKEN` (`submitter.HasOIDC`).
+  GitLab CI via `SIGCOMPLY_ID_TOKEN` only (`submitter.HasOIDC`). `Submit` refuses a token whose
+  `aud` does not include `DefaultAudience` ([auth.md](../claude/auth.md)).
 - Audience: always `submitter.DefaultAudience` (`https://api.sigcomply.com`), whatever the base
   URL. It is an identifier, not a host. The dashboard's OIDC validator checks it.
 - There is no `cloud.enabled` switch; `cloud.base_url` and `--no-cloud` decide. Setting the

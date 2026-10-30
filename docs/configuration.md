@@ -350,7 +350,7 @@ one account aliased to two emails. Alias and `non_human` entries that match no a
 | Variable | Read by | Effect |
 |---|---|---|
 | `SIGCOMPLY_FRAMEWORK` | `init`, `evidence catalog` | Framework when `-f` is not given. `check` and `evidence due` ignore it: they take `-f` (`evidence due` only), then the config's `framework:`. |
-| `SIGCOMPLY_ID_TOKEN`, `ID_TOKEN` | `check` | OIDC token for SigComply Cloud in GitLab CI. Define an `id_tokens:` entry with one of these names. |
+| `SIGCOMPLY_ID_TOKEN` | `check` | OIDC token for SigComply Cloud in GitLab CI. Define an `id_tokens:` entry with this name and `aud: https://api.sigcomply.com`; the CLI refuses to send a token with another audience. |
 | `ACTIONS_ID_TOKEN_REQUEST_URL`, `ACTIONS_ID_TOKEN_REQUEST_TOKEN` | `check` | Set by GitHub Actions when the job has `id-token: write`; the CLI uses them to request an OIDC token. |
 | `SIGCOMPLY_AD_BIND_PASSWORD` | `active_directory` source | Bind password when the config sets neither `bind_password` nor `token_env`. |
 
