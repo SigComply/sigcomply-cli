@@ -331,7 +331,10 @@ func TestNextLinkPath_HandlesSeparateLinkHeaderLines(t *testing.T) {
 	h.Add("Link", `<https://acme.okta.com/api/v1/users?limit=200>; rel="self"`)
 	h.Add("Link", `<https://acme.okta.com/api/v1/users?after=cursor1&limit=200>; rel="next"`)
 
-	got := nextLinkFromHeader(h, "https://acme.okta.com")
+	got, err := nextLinkFromHeader(h, "https://acme.okta.com")
+	if err != nil {
+		t.Fatal(err)
+	}
 	want := "/api/v1/users?after=cursor1&limit=200"
 	if got != want {
 		t.Errorf("next = %q; want %q", got, want)
@@ -344,7 +347,10 @@ func TestNextLinkPath_HandlesCommaJoinedLinkHeader(t *testing.T) {
 	h.Set("Link", `<https://acme.okta.com/api/v1/users?limit=200>; rel="self", `+
 		`<https://acme.okta.com/api/v1/users?after=cursor1&limit=200>; rel="next"`)
 
-	got := nextLinkFromHeader(h, "https://acme.okta.com")
+	got, err := nextLinkFromHeader(h, "https://acme.okta.com")
+	if err != nil {
+		t.Fatal(err)
+	}
 	want := "/api/v1/users?after=cursor1&limit=200"
 	if got != want {
 		t.Errorf("next = %q; want %q", got, want)
@@ -355,7 +361,7 @@ func TestNextLinkPath_NoNextEndsPagination(t *testing.T) {
 	h := http.Header{}
 	h.Add("Link", `<https://acme.okta.com/api/v1/users?limit=200>; rel="self"`)
 
-	if got := nextLinkFromHeader(h, "https://acme.okta.com"); got != "" {
+	if got, err := nextLinkFromHeader(h, "https://acme.okta.com"); err != nil || got != "" {
 		t.Errorf("next = %q; want empty to end pagination", got)
 	}
 }

@@ -684,8 +684,6 @@ func (r *realGraph) token(ctx context.Context) (string, error) {
 	return tok.Token, nil
 }
 
-// graphList GETs url and follows @odata.nextLink to the end, handing each
-// element to visit in order.
 // TenantID reads the directory the token belongs to. Graph answers this
 // for the caller's own tenant with no tenant id in the request, which is
 // the point: the response cannot be steered by configuration.
@@ -706,6 +704,9 @@ func (r *realGraph) TenantID(ctx context.Context) (string, error) {
 	return page.Value[0].ID, nil
 }
 
+// graphList GETs url and follows @odata.nextLink to the end, handing each
+// element to visit in order. The link is requested with the bearer token,
+// so one that leaves the Graph base is refused (sources.FollowableLink).
 func graphList[T any](ctx context.Context, r *realGraph, token, url string, visit func(*T)) error {
 	for url != "" {
 		var page graphPage[T]
@@ -715,7 +716,11 @@ func graphList[T any](ctx context.Context, r *realGraph, token, url string, visi
 		for i := range page.Value {
 			visit(&page.Value[i])
 		}
-		url = page.NextLink
+		next, err := sources.FollowableLink(SourceID, r.base, page.NextLink)
+		if err != nil {
+			return err
+		}
+		url = next
 	}
 	return nil
 }

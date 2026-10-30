@@ -311,10 +311,15 @@ sources:
   A URL the credential is sent to goes through `sources.ResolveEndpoint` (or, for a vault
   backend, `endpoint.ValidateHTTPS`): `https://`, or `http://` only to a loopback host
   (`localhost`, `127.0.0.1`, `::1`). The config file is repository content anyone with push
-  access edits, so without both a branch could point a
-  source at its own host with the job's AWS keys as the "token". Active Directory keeps its own
-  `ldaps://` or StartTLS rule. Guards: the `forbidigo` linter (`os.Getenv` in `internal/sources`) and the
-  registry-wide tests in `internal/sources/builtin` and `internal/vault/builtin`.
+  access edits, so without both a branch could point a source at its own host with the job's
+  AWS keys as the "token". Active Directory keeps its own `ldaps://` or StartTLS rule. An Azure
+  storage `account` becomes a host name, so it must match Azure's 3 to 24 lowercase letters and
+  digits (`endpoint.ValidateAzureStorageAccount`). A pagination link the server returns (GitHub
+  and Okta `Link` headers, Graph `@odata.nextLink`) goes through `sources.FollowableLink`: same
+  scheme and host as the API base, no user info, under its path. Guards: the `forbidigo` linter
+  (`os.Getenv` in `internal/sources`), the registry-wide endpoint and host-key tests in
+  `internal/sources/builtin` and `internal/vault/builtin`, and
+  `TestPaginationLinksGoThroughFollowableLink`.
 - A second region uses the same mechanism: regional `aws.*` plugins read only `region`
   (`awscfg.Load`), so per-region instances (`"aws.ec2[eu]"`) are how an estate with several
   regions is covered. There is no `regions:` list; `aws.s3` alone routes each bucket to its own

@@ -1930,20 +1930,7 @@ func (h *httpAPI) getJSONURL(ctx context.Context, fullURL string, out any) (next
 // getJSONURL, the only place a Link header is read, returns next through
 // here, so every caller that follows it is covered.
 func (h *httpAPI) followableLink(next string) (string, error) {
-	if next == "" {
-		return "", nil
-	}
-	base, err := url.Parse(h.base)
-	if err != nil {
-		return "", fmt.Errorf("github: parse API base %q: %w", h.base, err)
-	}
-	u, err := url.Parse(next)
-	basePath := strings.TrimSuffix(base.Path, "/")
-	if err != nil || u.Scheme != base.Scheme || u.Host != base.Host || u.User != nil ||
-		(basePath != "" && u.Path != basePath && !strings.HasPrefix(u.Path, basePath+"/")) {
-		return "", fmt.Errorf("github: pagination link %q leaves the API base %q; refusing to follow it", next, h.base)
-	}
-	return next, nil
+	return sources.FollowableLink(SourceID, h.base, next)
 }
 
 // nextLink returns the rel="next" URL from a Link header, or "" when there is

@@ -324,8 +324,8 @@ func TestNextLinkPath(t *testing.T) {
 		{`<malformed`, ""},
 	}
 	for _, c := range cases {
-		if got := nextLinkPath(c.in, base); got != c.want {
-			t.Errorf("nextLinkPath(%q) = %q; want %q", c.in, got, c.want)
+		if got, err := nextLinkPath(c.in, base); err != nil || got != c.want {
+			t.Errorf("nextLinkPath(%q) = %q, %v; want %q", c.in, got, err, c.want)
 		}
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 // The cursor-paginated endpoints follow the Link header's rel="next"
@@ -32,17 +33,24 @@ func TestHTTPAPI_PaginationLinkMustStayOnAPIHost(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			var api *httpAPI
+			var requests atomic.Int32
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-				link := next
-				if link == "" {
-					link = strings.TrimSuffix(api.base, "/api/v3") + "/other/path?after=x"
+				// Only the first page links on, so a client that follows
+				// the link (the check reverted) ends instead of looping.
+				if requests.Add(1) == 1 {
+					link := next
+					if link == "" {
+						link = strings.TrimSuffix(api.base, "/api/v3") + "/other/path?after=x"
+					}
+					w.Header().Set("Link", "<"+link+`>; rel="next"`)
 				}
-				w.Header().Set("Link", "<"+link+`>; rel="next"`)
 				_, _ = w.Write([]byte(`[]`)) //nolint:errcheck // test handler
 			}))
 			defer srv.Close()
 			api = &httpAPI{org: testOrg, token: testToken, base: srv.URL + "/api/v3", client: srv.Client()}
-			_, err := api.ListDependabotAlerts(context.Background())
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			_, err := api.ListDependabotAlerts(ctx)
 			if err == nil || !strings.Contains(err.Error(), "pagination") {
 				t.Errorf("ListDependabotAlerts err = %v; want a pagination-link error", err)
 			}

@@ -703,12 +703,9 @@ func (h *httpAPI) getJSON(ctx context.Context, path string, out any) (string, er
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
 		return "", fmt.Errorf("okta: decode %s: %w", path, err)
 	}
-	return nextLinkFromHeader(resp.Header, h.base), nil
+	return nextLinkFromHeader(resp.Header, h.base)
 }
 
-// nextLinkPath extracts the relative path of the rel="next" link, or
-// empty string if no next page. Okta's Link header format matches
-// RFC 5988 — comma-separated, each part wrapped in angle brackets.
 // nextLinkFromHeader finds the rel="next" link across every Link header on
 // the response.
 //
@@ -722,18 +719,25 @@ func (h *httpAPI) getJSON(ctx context.Context, path string, out any) (string, er
 // truncates collection silently: the run looks complete, and an `all`
 // quantifier passes on the records it never saw. Both encodings (separate
 // lines and one comma-joined value) are legal HTTP, so scan all of them.
-func nextLinkFromHeader(h http.Header, base string) string {
+func nextLinkFromHeader(h http.Header, base string) (string, error) {
 	for _, link := range h.Values("Link") {
-		if next := nextLinkPath(link, base); next != "" {
-			return next
+		if next, err := nextLinkPath(link, base); next != "" || err != nil {
+			return next, err
 		}
 	}
-	return ""
+	return "", nil
 }
 
-func nextLinkPath(link, base string) string {
+// nextLinkPath extracts the rel="next" link as a path relative to base
+// (getJSON prefixes base), or "" if there is no next page. Okta's Link
+// header format matches RFC 5988: comma-separated, each part wrapped in
+// angle brackets. The link is requested with the SSWS token, so one that
+// leaves base (another host, user info, another scheme) is an error, not
+// a path to append: "@evil.example/x" appended to the org URL would make
+// evil.example the host (sources.FollowableLink).
+func nextLinkPath(link, base string) (string, error) {
 	if link == "" {
-		return ""
+		return "", nil
 	}
 	for _, part := range strings.Split(link, ",") {
 		if !strings.Contains(part, `rel="next"`) {
@@ -742,18 +746,23 @@ func nextLinkPath(link, base string) string {
 		start := strings.Index(part, "<")
 		end := strings.Index(part, ">")
 		if start < 0 || end < 0 || end <= start {
-			return ""
+			return "", nil
 		}
-		fullURL := part[start+1 : end]
-		if strings.HasPrefix(fullURL, base) {
-			return strings.TrimPrefix(fullURL, base)
+		abs, err := sources.FollowableLink(SourceID, base, part[start+1:end])
+		if err != nil {
+			return "", err
 		}
-		// Relative URL or different host — return as-is for the http
-		// client to combine via h.base+path. We strip the scheme+host
-		// only when it matches; otherwise fall through (best-effort).
-		return fullURL
+		u, err := url.Parse(abs)
+		if err != nil {
+			return "", err
+		}
+		b, err := url.Parse(base)
+		if err != nil {
+			return "", err
+		}
+		return strings.TrimPrefix(u.RequestURI(), strings.TrimSuffix(b.Path, "/")), nil
 	}
-	return ""
+	return "", nil
 }
 
 var (
