@@ -9,15 +9,32 @@ tracker. Don't import those assumptions from the Rails dashboard repo.
 ## What a push to main triggers
 
 - `test.yml` on every push: fixture scan, full suite with `-race` and the coverage floor
-  (`COVERAGE_THRESHOLD` in `test.yml`), golangci-lint, and a cross-platform build matrix. On a
+  (`COVERAGE_THRESHOLD` in `test.yml`), a lint job (actionlint over the workflows, shellcheck
+  `-S warning` over every committed `*.sh`, golangci-lint), and a cross-platform build matrix.
+  Both release workflows call `test.yml`, so a red lint job blocks the release. On a
   push that also releases, it runs twice (directly and through `auto-release.yml`). On a
   docs-only push it still runs, so `TestDocFiguresMatchCode` gates docs pushes.
 - `security.yml` on every push, every pull request and weekly: dependency, code, secret and
-  workflow scanners. Blocking: `go mod verify`, the `go mod tidy` check, govulncheck (a
-  vulnerability the code reaches) and gitleaks over the full history. The rest are warn-only or
-  upload SARIF to code scanning (`continue-on-error`, `|| true`), so a green run does not mean
-  no findings. zizmor audits the workflows and `dependabot.yml` and reports to code scanning;
-  accepted findings live in `.github/zizmor.yml` or an inline `# zizmor: ignore[...]`.
+  workflow scanners, and fuzzing. It does not gate the release (only `test.yml` does), but a red
+  job is fixed like a red test. Blocking: `go mod verify`, the `go mod tidy` check, govulncheck
+  (a vulnerability the code reaches), gitleaks over the full history, Semgrep, zizmor and the
+  fuzz job. CodeQL, gosec, Trivy, OSV-Scanner, Scorecard and the license check upload SARIF or
+  print and do not fail (`continue-on-error`, `|| true`), so for them a green run does not mean
+  no findings.
+  - Semgrep red: fix the code, or suppress one false positive on its line with
+    `// nosemgrep: <rule-id> -- <reason>`. A file that cannot carry a comment (JSON test data)
+    goes into the `--exclude` list in the Semgrep step by exact path, with the reason in the
+    comment above it. Never exclude a directory.
+  - zizmor red (it audits the workflows and `dependabot.yml`): fix the workflow. A finding
+    accepted on purpose goes in `.github/zizmor.yml` or an inline `# zizmor: ignore[...]` with
+    the reason.
+  - Fuzz red (pushes to main and weekly, not pull requests): each target in the job's matrix
+    runs for two minutes. A target missing from its package fails the job, so a renamed target
+    must be renamed in the matrix too. A crasher is uploaded as the artifact
+    `fuzz-crashers-<target>`; to reproduce, download it with
+    `gh run download <run-id> -n fuzz-crashers-<target> -D <package>/testdata/fuzz/<target>/`,
+    then run `go test -run '<target>/<file>' <package>`. Fix the bug and commit the crasher
+    file: under `testdata/fuzz/` it runs as a regression case in every `go test`.
   - govulncheck red: upgrade the module (or the Go toolchain in `go.mod` and `mise.toml`, for a
     standard-library finding). Never make the step warn-only again.
   - gitleaks red: a real secret must be revoked first, then removed. A false positive gets an
@@ -47,7 +64,10 @@ tracker. Don't import those assumptions from the Rails dashboard repo.
      no tag. A re-run is safe: when HEAD already carries a final tag it resumes that version
      instead of bumping again, a tag already on origin is not pushed twice (one at another commit
      fails the run), and an existing release only gets the assets it lacks.
-  3. Promotes the prerelease to latest (`release-promote.yml`). With the repository variable
+  3. Installs the prerelease on Linux and macOS with `install.sh` and
+     `SIGCOMPLY_REQUIRE_PROVENANCE=1` (the `verify` job), so a release whose checksum or build
+     provenance does not verify is never promoted.
+  4. Promotes the prerelease to latest (`release-promote.yml`). With the repository variable
      `RELEASE_GATE` set to `on`, it first dispatches `release-gate.yml` in the GitHub E2E repo
      for that exact tag and waits for it: up to 10 minutes for the gate run to appear, then up to
      60 minutes for it to finish. A cancelled gate run is dispatched once more (the job is capped
@@ -90,7 +110,12 @@ in the head commit's message deliberately, and only then. The job matches it any
 commit's full message, so never quote it in a body by accident. A release that was skipped or
 path-ignored can be cut by hand with `workflow_dispatch` on `auto-release.yml`. `release.yml` is a
 separate manual release that takes an explicit version. Its `verify` job runs `install.sh` with
-`SIGCOMPLY_REQUIRE_PROVENANCE=1`, so a release whose provenance does not verify turns it red. It calls `test.yml` first and builds only
+`SIGCOMPLY_REQUIRE_PROVENANCE=1`, and promotion waits for it, so a release whose provenance does
+not verify turns the run red and stays a prerelease. Both release workflows release only from
+`refs/heads/main` or a `refs/tags/v*` ref: a dispatch from any other branch skips every job that
+builds, signs, tags, publishes or promotes. `scripts/release_workflows_test.go` fails when a
+privileged release job loses that guard or a promote job stops needing the verified install.
+`release.yml` calls `test.yml` first and builds only
 when the suite passes on the dispatched commit; unlike `auto-release.yml` it holds the `release`
 group for the whole run, tests included. A version with a suffix (`v1.2.3-rc.1`)
 stays a prerelease, any other goes through the same gate and promotion. It also tags only after
@@ -126,7 +151,8 @@ Add, when the change calls for it:
 | `sigcomply build`, `plugin/`, or anything the heavy tests cover | `make test-full` |
 | Source plugin, cassette, or `contracts/` | `make test-contract` and `make check-fixtures` |
 | Coverage-sensitive change (new package, large deletion of tests) | `make test-coverage` and compare the total with `COVERAGE_THRESHOLD` in `test.yml` (CI enforces it, make does not) |
-| `.github/workflows/*` | `actionlint` (install it yourself; it is not in `mise.toml`) |
+| `.github/workflows/*` | `actionlint` (1.7.12, the version the lint job pins; install it yourself, it is not in `mise.toml`) |
+| `*.sh` | `git ls-files -z '*.sh' \| xargs -0 shellcheck -S warning` (shellcheck 0.11.0, the version the lint job pins) |
 | `go.mod` / `go.sum` | `go mod tidy` and commit the result |
 | `mise.toml` | `mise lock --platform linux-x64,macos-arm64` and commit `mise.lock` (versions stay exact) |
 | `.github/workflows/*`, `.github/dependabot.yml` | `zizmor .` (1.31.1, the version `security.yml` runs; `mise exec zizmor@1.31.1 -- zizmor .`): no new findings |
