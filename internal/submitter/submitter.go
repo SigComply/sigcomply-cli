@@ -23,6 +23,7 @@ import (
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/endpoint"
+	"github.com/sigcomply/sigcomply-cli/internal/log"
 )
 
 // DefaultAudience is the OIDC token audience the CLI requests when
@@ -168,7 +169,7 @@ func Submit(ctx context.Context, opts *Options, payload *core.SubmissionPayload)
 		return Response{}, fmt.Errorf("submitter: post %s: %w", url, err)
 	}
 	defer func() { _ = resp.Body.Close() }() //nolint:errcheck // best-effort cleanup
-	respBody, readErr := io.ReadAll(resp.Body)
+	respBody, readErr := io.ReadAll(io.LimitReader(resp.Body, maxResponseBody))
 	if readErr != nil {
 		return Response{StatusCode: resp.StatusCode}, fmt.Errorf("submitter: read response body: %w", readErr)
 	}
@@ -178,7 +179,7 @@ func Submit(ctx context.Context, opts *Options, payload *core.SubmissionPayload)
 			"Set cloud.base_url to the final https URL", url, resp.StatusCode, resp.Header.Get("Location"))
 	}
 	if resp.StatusCode >= 400 {
-		return out, fmt.Errorf("submitter: %s returned %d: %s", url, resp.StatusCode, string(respBody))
+		return out, fmt.Errorf("submitter: %s returned %d: %s", url, resp.StatusCode, bodyExcerpt(respBody))
 	}
 	return out, nil
 }
@@ -423,4 +424,19 @@ func LegacyIDTokenWarning() string {
 	}
 	return "ID_TOKEN is set but " + GitLabIDTokenEnv + " is not; the CLI reads only " + GitLabIDTokenEnv +
 		", so this run cannot submit to SigComply Cloud. Rename the id_tokens entry to " + GitLabIDTokenEnv
+}
+
+// maxResponseBody caps what Submit reads from cloud.base_url: a run answer is
+// a small JSON object, and the host is whatever the config names.
+const maxResponseBody = 1 << 20
+
+// bodyExcerpt is the part of an error response that goes into the error
+// `check` prints: its first 512 bytes, with newlines, control characters and
+// workflow-command prefixes neutralized, since the host is untrusted.
+func bodyExcerpt(body []byte) string {
+	const limit = 512
+	if len(body) > limit {
+		return log.Sanitize(string(body[:limit])) + "…"
+	}
+	return log.Sanitize(string(body))
 }

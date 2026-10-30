@@ -148,6 +148,38 @@ func TestSubmit_ServerError(t *testing.T) {
 	}
 }
 
+// The error body comes from whatever cloud.base_url points at, and `check`
+// prints the error: it must not carry newlines, workflow commands or
+// escapes into the CI log, and a huge body must not be read in full.
+func TestSubmit_ServerErrorBodyIsBoundedAndSanitized(t *testing.T) {
+	hostile := "denied\n::add-mask::x\x1b[31m red" + strings.Repeat("A", 4<<20)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(hostile)) //nolint:errcheck // test handler
+	}))
+	defer srv.Close()
+	_, err := Submit(context.Background(), &Options{
+		BaseURL:       srv.URL,
+		HTTPClient:    srv.Client(),
+		TokenProvider: &stubProvider{token: validToken, provider: providerGitHub},
+	}, &core.SubmissionPayload{})
+	if err == nil {
+		t.Fatal("want an error for a 403")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "403") || !strings.Contains(msg, "denied") {
+		t.Errorf("error should keep the status and the start of the body; got %.200q", msg)
+	}
+	for _, bad := range []string{"\n", "::add-mask::", "\x1b"} {
+		if strings.Contains(msg, bad) {
+			t.Errorf("error carries %q from the response body: %.200q", bad, msg)
+		}
+	}
+	if len(msg) > 2048 {
+		t.Errorf("error is %d bytes; the body excerpt must be truncated", len(msg))
+	}
+}
+
 func TestGitHubActionsProvider_FetchesTokenFromIDP(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := r.Header.Get("Authorization"); got != "Bearer secret" {
