@@ -25,7 +25,10 @@ func build(raw map[string]any) (reader manual.Reader, scheme, bucketOut, prefixO
 	if prefix == "" {
 		prefix = "manual/"
 	}
-	endpoint := sources.StringOpt(raw, "endpoint")
+	endpoint, err := sources.ResolveEndpoint(raw, "manual.pdf s3", "endpoint")
+	if err != nil {
+		return nil, "", "", "", err
+	}
 	forcePathStyle, err := boolOrString(raw, "force_path_style")
 	if err != nil {
 		return nil, "", "", "", err

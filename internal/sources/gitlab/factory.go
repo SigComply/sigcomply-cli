@@ -25,6 +25,9 @@ func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
 	if err != nil {
 		return nil, err
 	}
-	baseURL := sources.StringOpt(env.Config, "base_url")
+	baseURL, err := sources.ResolveEndpoint(env.Config, SourceID, "base_url")
+	if err != nil {
+		return nil, err
+	}
 	return NewFromToken(ctx, group, token, baseURL)
 }

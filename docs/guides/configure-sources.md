@@ -76,7 +76,9 @@ exits `3` before collection with `token required`.
 | `active_directory` | `SIGCOMPLY_AD_BIND_PASSWORD` | The bind user's password. The runner must reach the domain controller, which hosted runners rarely can. |
 
 To give two instances of a source different tokens, set `token_env` on each instance to the name
-of its variable.
+of its variable. `token_env` can't name a CI or cloud credential such as `AWS_SECRET_ACCESS_KEY`,
+`CI_JOB_TOKEN` or an OIDC token variable: the source sends its token to its API, so the CLI
+refuses those names ([list](../configuration.md#environment-variables)).
 
 GitHub Actions does not pass its built-in `GITHUB_TOKEN` to steps on its own, and that token is
 scoped to one repository: it cannot read organization members or settings, or any repository's

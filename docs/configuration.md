@@ -361,7 +361,7 @@ one account aliased to two emails. Alias and `non_human` entries that match no a
 | `GITHUB_TOKEN` | `github`, when the config sets neither `token` nor `token_env` |
 | `GITLAB_TOKEN` | `gitlab`, when the config sets neither `token` nor `token_env` |
 | `OKTA_API_TOKEN` | `okta`, when the config sets neither `api_token` nor `token_env` |
-| Any name in `token_env` | the source that names it; an empty or unset variable is an error |
+| Any name in `token_env` | the source that names it; an empty or unset variable is an error. A CI or cloud credential variable is refused (exit 3): names starting with `AWS_`, `ACTIONS_`, `GOOGLE_`, `AZURE_` or `CI_JOB_`, names containing `ID_TOKEN`, and `CI_REGISTRY_PASSWORD`, `CI_DEPLOY_PASSWORD`, `CI_DEPENDENCY_PROXY_PASSWORD`. |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_PROFILE`, `AWS_REGION`, `AWS_ROLE_ARN`, `AWS_WEB_IDENTITY_TOKEN_FILE` | `aws.*` sources, `s3` vault and `manual.pdf` backend, through the AWS SDK credential chain |
 | `GOOGLE_APPLICATION_CREDENTIALS` | `gcp.*` sources, `gcs` vault and `manual.pdf` backend, through Application Default Credentials |
 | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_FEDERATED_TOKEN_FILE` | `azure.*` sources, `azure_blob` vault and `manual.pdf` backend, through `DefaultAzureCredential` |
@@ -387,7 +387,7 @@ storage block takes credential keys.
 | Backend | `vault` keys | `manual.pdf` keys |
 |---|---|---|
 | `local` | `path` (default `./.sigcomply/vault`) | `path` (required); `prefix` (default `manual/`); `bucket` (defaults to `path`; files are always read from under `path`) |
-| `s3` | `bucket`, `region` (required); `prefix` (default none); `endpoint`, `force_path_style` (`true` or `false`, quoted or not) for S3-compatible stores | `bucket`, `region` (required; `region` falls back to `vault.region`); `prefix` (default `manual/`); `endpoint`, `force_path_style` |
+| `s3` | `bucket`, `region` (required); `prefix` (default none); `endpoint` (`https://`, or `http://` for `localhost` only), `force_path_style` (`true` or `false`, quoted or not) for S3-compatible stores | `bucket`, `region` (required; `region` falls back to `vault.region`); `prefix` (default `manual/`); `endpoint`, `force_path_style` |
 | `gcs` | `bucket` (required); `prefix` | `bucket` (required); `prefix` (default `manual/`) |
 | `azure_blob` | `account`, `container` (required); `prefix` | `account`, `container` (required); `prefix` (default `manual/`) |
 

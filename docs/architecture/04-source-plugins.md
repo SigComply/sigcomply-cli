@@ -304,6 +304,15 @@ sources:
   outrank a profile on CI runners. `github`, `gitlab` and `okta` take their own token or
   `token_env`. `gcp.*` and `azure.*` instances vary `project_id`/`subscription_id` but share one
   ambient identity. Not built: per-instance GCP impersonation and Azure per-tenant credentials.
+- Credential routing: a source reads a credential from the environment only through
+  `sources.ResolveToken`, which refuses a `token_env` naming a CI or cloud credential (`AWS_*`,
+  `ACTIONS_*`, `GOOGLE_*`, `AZURE_*`, `CI_JOB_*`, `*ID_TOKEN*`, GitLab's predefined passwords).
+  A URL the credential is sent to goes through `sources.ResolveEndpoint` (or, for a vault
+  backend, `endpoint.ValidateHTTPS`): https, http only to localhost. The config file is
+  repository content anyone with push access edits, so without both a branch could point a
+  source at its own host with the job's AWS keys as the "token". Active Directory keeps its own
+  `ldaps://` or StartTLS rule. Guards: forbidigo (`os.Getenv` in `internal/sources`) and the
+  registry-wide tests in `internal/sources/builtin` and `internal/vault/builtin`.
 - A second region uses the same mechanism: regional `aws.*` plugins read only `region`
   (`awscfg.Load`), so per-region instances (`"aws.ec2[eu]"`) are how an estate with several
   regions is covered. There is no `regions:` list; `aws.s3` alone routes each bucket to its own

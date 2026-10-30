@@ -16,13 +16,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	neturl "net/url"
 	"os"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/endpoint"
 )
 
 // DefaultAudience is the OIDC token audience the CLI requests when
@@ -197,29 +197,11 @@ func setHeaders(h http.Header, opts *Options, token, providerName string) {
 	}
 }
 
-// ValidateBaseURL accepts an https URL with a host, or plain http to a
-// loopback host for local testing. Anything else would send the OIDC
-// bearer token in cleartext.
+// ValidateBaseURL applies endpoint.ValidateHTTPS to the cloud base URL:
+// https, or http to localhost only, so the OIDC bearer token never
+// crosses the network in cleartext.
 func ValidateBaseURL(raw string) error {
-	u, err := neturl.Parse(raw)
-	if err != nil {
-		return fmt.Errorf("cloud base URL %q: %w", raw, err)
-	}
-	if u.Host == "" {
-		return fmt.Errorf("cloud base URL %q: want https://<host>", raw)
-	}
-	switch u.Scheme {
-	case "https":
-		return nil
-	case "http":
-		switch u.Hostname() {
-		case "localhost", "127.0.0.1", "::1":
-			return nil
-		}
-		return fmt.Errorf("cloud base URL %q: must use https; plain http would send the OIDC token unencrypted (http is accepted only for localhost)", raw)
-	default:
-		return fmt.Errorf("cloud base URL %q: want https://<host>", raw)
-	}
+	return endpoint.ValidateHTTPS("cloud base URL", raw)
 }
 
 // Response is the parsed cloud response.

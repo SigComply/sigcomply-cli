@@ -16,6 +16,7 @@ linters:
   enable:
     # Default linters
     - errcheck
+    - forbidigo
     - govet
     - ineffassign
     - staticcheck
@@ -55,6 +56,16 @@ linters:
       disable:
         - fieldalignment  # Field ordering is for readability
         - shadow          # Intentional shadowing in loops is acceptable
+
+    # Sources read credentials from the environment only through
+    # sources.ResolveToken (internal/sources/token.go), which refuses CI
+    # and cloud credential variables. Scoped to internal/sources/** by the
+    # exclusion rules below.
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: ^os\.(Getenv|LookupEnv|Environ)$
+          msg: "read source credentials through sources.ResolveToken (internal/sources/token.go), which refuses CI and cloud credential variables"
 
     gocyclo:
       min-complexity: 15
@@ -107,6 +118,18 @@ linters:
 
   exclusions:
     rules:
+      # forbidigo guards source credential reads only: everywhere outside
+      # internal/sources, and inside it the one resolver plus the test
+      # harnesses (gcptest, sourcetest) that read test-account variables.
+      - path-except: ^internal/sources/
+        linters:
+          - forbidigo
+      - path: ^internal/sources/(token\.go|gcp/gcptest/|sourcetest/)
+        linters:
+          - forbidigo
+      - path: ^internal/sources/.*_test\.go
+        linters:
+          - forbidigo
       # Source-plugin factories register themselves into the
       # process-global sources registry via init() — that's the
       # entire point of the self-registering factory pattern. See

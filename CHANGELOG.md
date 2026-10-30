@@ -112,6 +112,11 @@ this file lists the changes a user notices.
 
 ### Fixed
 
+- `github` and `gitlab` `base_url`, and the `s3` `endpoint` of the vault and of `manual.pdf`, must
+  be `https://` (`http://` only for `localhost`); a plaintext URL is a config error (exit 3). A
+  source's `token_env` can't name a CI or cloud credential variable (`AWS_*`, `ACTIONS_*`,
+  `GOOGLE_*`, `AZURE_*`, `CI_JOB_*`, names containing `ID_TOKEN`, GitLab's predefined passwords),
+  so a config change can't send the job's own credentials to a source's host.
 - A run in a pull request or merge request pipeline never submits to SigComply Cloud, whatever
   its flags, and prints `cloud submission skipped: this run is in a pull request or merge request
   pipeline`. The pull request's branch produced it, so it is not the project's result.

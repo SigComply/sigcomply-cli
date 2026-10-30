@@ -3,6 +3,7 @@ package activedirectory
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"math"
 	"net"
@@ -129,24 +130,23 @@ func parseURL(m map[string]any, cfg *Config) error {
 	return nil
 }
 
-// resolveBindPassword follows the same order as sources.ResolveToken —
-// token_env (so each [instance] can bind with its own password instead of
-// sharing a process-global variable), then SIGCOMPLY_AD_BIND_PASSWORD —
-// with password-specific error messages.
+// resolveBindPassword goes through sources.ResolveToken — token_env (so
+// each [instance] can bind with its own password instead of sharing a
+// process-global variable, and never a CI or cloud credential), then
+// SIGCOMPLY_AD_BIND_PASSWORD — with a password-specific message when
+// nothing is configured.
 func resolveBindPassword(m map[string]any) (string, error) {
-	if name := sources.StringOpt(m, "token_env"); name != "" {
-		if pw := os.Getenv(name); pw != "" {
-			return pw, nil
-		}
-		// Never fall through to the shared variable: this instance would
-		// bind as some other instance's account and report success.
-		return "", fmt.Errorf("token_env names %s, which is empty or unset", name)
+	pw, err := sources.ResolveToken(m, "bind password", cfgKeyBindPasswordName, BindPasswordEnv)
+	if errors.Is(err, sources.ErrNoToken) {
+		return "", fmt.Errorf("bind password required (set bind_password, token_env, or %s); anonymous binds are refused", BindPasswordEnv)
 	}
-	if pw := os.Getenv(BindPasswordEnv); pw != "" {
-		return pw, nil
-	}
-	return "", fmt.Errorf("bind password required (set bind_password, token_env, or %s); anonymous binds are refused", BindPasswordEnv)
+	return pw, err
 }
+
+// cfgKeyBindPasswordName is the config key a literal bind password sits
+// under. parseBind reads it with a type check first; ResolveToken only
+// sees it empty.
+const cfgKeyBindPasswordName = "bind_password"
 
 func parseBind(m map[string]any, cfg *Config) error {
 	bindDN, err := stringOpt(m, "bind_dn")

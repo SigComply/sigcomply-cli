@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/endpoint"
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 	"github.com/sigcomply/sigcomply-cli/internal/vault"
 )
@@ -24,6 +25,13 @@ func build(ctx context.Context, cfg *spec.VaultConfig) (core.Vault, error) {
 	pathStyle, err := forcePathStyle(cfg)
 	if err != nil {
 		return nil, err
+	}
+	// The endpoint receives SigV4-signed requests that carry the session
+	// token; same https rule as every other credentialed endpoint.
+	if ep := cfg.Str("endpoint"); ep != "" {
+		if err := endpoint.ValidateHTTPS(`vault s3: "endpoint"`, ep); err != nil {
+			return nil, err
+		}
 	}
 	v, err := New(ctx, Options{
 		Bucket:         cfg.Str("bucket"),

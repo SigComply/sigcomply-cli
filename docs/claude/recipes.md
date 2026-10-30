@@ -68,10 +68,19 @@ declares via `Emits()`. It never references a policy. Live example:
    func init() { sources.RegisterFactory(SourceID, build, "org_url", "api_token", "token_env") }
 
    func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
-       // pull config via sources.StringOpt(env.Config, "..."), env vars, etc.
+       // pull config via sources.StringOpt(env.Config, "...");
+       // credentials via sources.ResolveToken, URLs via sources.ResolveEndpoint
        return NewFromConfig(ctx, ...)
    }
    ```
+   Read a credential only through `sources.ResolveToken` (it refuses a
+   `token_env` naming a CI or cloud credential; forbidigo bans
+   `os.Getenv` elsewhere in `internal/sources`), and a URL the credential
+   goes to only through `sources.ResolveEndpoint` (https, or http to
+   localhost). `TestEverySourceRefusesPlaintextEndpoints` and
+   `TestEverySourceRefusesCredentialTokenEnv`
+   (`internal/sources/builtin`) check every registered factory; a new
+   URL-like key must be added to the first one's table.
    The trailing arguments name every config key the factory reads, so
    the planner can warn about a typo in the source's config block. AWS
    and Azure plugins pass the shared sets `awscfg.ConfigKeys` /

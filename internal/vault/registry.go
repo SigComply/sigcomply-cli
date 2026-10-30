@@ -43,6 +43,14 @@ func RegisterBackendKeys(id string, configKeys ...string) {
 	keys[id] = append([]string(nil), configKeys...)
 }
 
+// BackendKeys returns the config keys backend id declared with
+// RegisterBackendKeys, or nil.
+func BackendKeys(id string) []string {
+	mu.RLock()
+	defer mu.RUnlock()
+	return append([]string(nil), keys[id]...)
+}
+
 // ConfigWarnings reports vault keys the configured backend does not
 // read. The vault block is an open bag, so `bakend: s3` used to load
 // with no word and the run wrote to the default local folder.
