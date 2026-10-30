@@ -82,7 +82,9 @@ the token is missing, instead of skipping without a message.
 Only runs that cover every policy submit: `sigcomply check` with no filter, and
 `sigcomply check --scheduled`. A run with `--cadence`, `--cadences`, `--on-push` or `--pr` checks
 a subset, so it prints `cloud submission skipped: this run evaluates a subset of policies` and
-sends nothing. In the workflows `init-ci` writes, only the daily scheduled run submits. The workflows `init-ci` writes submit from the daily scheduled run only.
+sends nothing. A run in a pull request or merge request pipeline never submits either, whatever
+its flags: it prints `cloud submission skipped: this run is in a pull request or merge request
+pipeline`. In the workflows `init-ci` writes, only the daily scheduled run submits.
 
 ## 4. Run and check the result
 

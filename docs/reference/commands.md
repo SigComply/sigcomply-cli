@@ -78,9 +78,11 @@ Only a run that covers every policy submits: `check` with no filter, or `--sched
 `--cadence`, `--cadences`, `--on-push` or `--pr` prints `cloud submission skipped: this run
 evaluates a subset of policies` and sends nothing (`--capture-cloud-payload` still writes the
 file). A `--pr` run also leaves the cadence state in the vault unchanged, so a pull request's
-result is never carried forward by a later `--scheduled` run. So does any run in a pull-request
+result is never carried forward by a later `--scheduled` run. Any run in a pull-request
 pipeline (`GITHUB_EVENT_NAME` is `pull_request` or `pull_request_target`) or a GitLab merge
-request pipeline (GitLab sets `CI_MERGE_REQUEST_IID`), whatever its flags.
+request pipeline (GitLab sets `CI_MERGE_REQUEST_IID`) also leaves the state unchanged and never
+submits, whatever its flags; it prints `cloud submission skipped: this run is in a pull request
+or merge request pipeline`.
 
 ## `sigcomply init`
 

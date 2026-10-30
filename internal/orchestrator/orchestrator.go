@@ -204,10 +204,9 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 
 	// A --pr run evaluates the pull request's branch and config; advancing
 	// state from it would let a later --scheduled run on the default
-	// branch carry forward a pass the branch earned. The same holds for
-	// any run in a pull-request or merge-request pipeline, whatever flags
-	// the job passes.
-	if opts.Mode != ModePR && !inPullRequestPipeline() {
+	// branch carry forward a pass the branch earned. handleSubmission
+	// applies the same rule to submission.
+	if !isPullRequestRun(opts) {
 		advancePolicyStates(ctx, opts, plan, results, runID, runRoot, startedAt)
 	}
 
@@ -695,6 +694,11 @@ func buildPayload(opts *Options, results []core.PolicyResult, plan *planner.RunP
 // evaluated a subset of policies.
 const filteredSubmissionNotice = "cloud submission skipped: this run evaluates a subset of policies (use `sigcomply check` or `--scheduled`)"
 
+// prPipelineSubmissionNotice is printed instead of submitting a run in a
+// pull-request or merge-request pipeline.
+const prPipelineSubmissionNotice = "cloud submission skipped: this run is in a pull request or merge request pipeline; " +
+	"only runs on pushes, schedules and manual runs of a branch are submitted"
+
 // handleSubmission sends the payload, or writes it to
 // --capture-cloud-payload instead.
 //
@@ -703,7 +707,11 @@ const filteredSubmissionNotice = "cloud submission skipped: this run evaluates a
 // --cadences, --on-push, --pr) covers a subset of policies, so it never
 // POSTs; the dashboard would otherwise swap the score between unrelated
 // subsets. A --scheduled run without a filter is complete, because the
-// policies that are not due carry forward. The notice is printed only
+// policies that are not due carry forward. A run in a pull-request or
+// merge-request pipeline (or with --pr) never POSTs either, whatever its
+// flags: the branch's code and config produced it, so it is not the
+// project's result (the same rule keeps it from advancing cadence state,
+// and SigComply Cloud rejects such runs too). A notice is printed only
 // when a submission or capture was in play, so a run with no cloud
 // configured stays quiet.
 //
@@ -712,8 +720,15 @@ const filteredSubmissionNotice = "cloud submission skipped: this run evaluates a
 // operator asked for that file and an exit 0 without it reads as success.
 func handleSubmission(ctx context.Context, opts *Options, payload *core.SubmissionPayload, completedAt time.Time, filtered bool) (submitted bool, submittedAt time.Time, err error) {
 	decision := submitter.Decide(&opts.SubmitterOpts, submitter.HasOIDC(), submitter.InCI())
-	if filtered && (opts.CapturePayloadPath != "" || decision != submitter.DecisionSkip) {
-		_, _ = fmt.Fprintln(opts.Stdout, filteredSubmissionNotice) //nolint:errcheck // status output
+	var skipNotice string
+	switch {
+	case filtered:
+		skipNotice = filteredSubmissionNotice
+	case isPullRequestRun(opts):
+		skipNotice = prPipelineSubmissionNotice
+	}
+	if skipNotice != "" && (opts.CapturePayloadPath != "" || decision != submitter.DecisionSkip) {
+		_, _ = fmt.Fprintln(opts.Stdout, skipNotice) //nolint:errcheck // status output
 	}
 	if opts.CapturePayloadPath != "" {
 		if err := writeCapturedPayload(opts.CapturePayloadPath, payload); err != nil {
@@ -721,7 +736,7 @@ func handleSubmission(ctx context.Context, opts *Options, payload *core.Submissi
 		}
 		return false, time.Time{}, nil
 	}
-	if filtered {
+	if skipNotice != "" {
 		return false, time.Time{}, nil
 	}
 	switch decision {
@@ -1140,6 +1155,13 @@ func Bootstrap(configPath string) (*spec.ProjectConfig, *registry.Set, error) {
 
 // ErrBootstrapAlreadyInitialized is reserved for future use.
 var ErrBootstrapAlreadyInitialized = errors.New("orchestrator: already initialized")
+
+// isPullRequestRun reports whether this run evaluates a pull request's or
+// merge request's branch: --pr, or a PR/MR pipeline whatever the flags.
+// Such a run never advances cadence state and never submits.
+func isPullRequestRun(opts *Options) bool {
+	return opts.Mode == ModePR || inPullRequestPipeline()
+}
 
 // inPullRequestPipeline reports whether CI says this job runs for a pull
 // request (GitHub Actions pull_request or pull_request_target) or a merge

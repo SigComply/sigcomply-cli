@@ -356,3 +356,60 @@ func TestRun_PRPipelineDoesNotAdvanceStateWithoutPRFlag(t *testing.T) {
 		})
 	}
 }
+
+// prPipelineNotice is the start of the line a run in a pull-request or
+// merge-request pipeline prints instead of submitting.
+const prPipelineNotice = "cloud submission skipped: this run is in a pull request or merge request pipeline"
+
+// A pull-request or merge-request pipeline runs the branch's code and
+// config, so its result is not the project's. Whatever the flags (even
+// --cloud on an unfiltered or --scheduled run), it never reaches the
+// submitter, and it says so; a push pipeline still submits.
+func TestRun_PRPipelineNeverSubmits(t *testing.T) {
+	setSubmittingCI(t)
+	tests := []struct {
+		name       string
+		env        map[string]string
+		mode       Mode
+		force      bool
+		wantSubmit bool
+	}{
+		{"github pull_request, check", map[string]string{envGitHubEventName: "pull_request"}, ModeManual, false, false},
+		{"github pull_request_target, --scheduled", map[string]string{envGitHubEventName: "pull_request_target"}, ModeScheduled, false, false},
+		{"gitlab merge request, --cloud", map[string]string{envMergeRequestIID: "7"}, ModeManual, true, false},
+		{"control: github push", map[string]string{envGitHubEventName: "push"}, ModeManual, false, true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, k := range []string{envGitHubEventName, envMergeRequestIID} {
+				t.Setenv(k, tc.env[k])
+			}
+			var calls atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				calls.Add(1)
+				w.WriteHeader(http.StatusCreated)
+			}))
+			defer srv.Close()
+			var stdout bytes.Buffer
+			res, err := Run(context.Background(), &Options{
+				Config:        schedConfig(),
+				Registries:    schedRegistries(t, &schedSource{}),
+				Vault:         newListVault(),
+				Mode:          tc.mode,
+				Stdout:        &stdout,
+				Logger:        log.New(&bytes.Buffer{}, false),
+				Now:           func() time.Time { return time.Date(2026, 5, 24, 9, 0, 0, 0, time.UTC) },
+				SubmitterOpts: submitter.Options{BaseURL: srv.URL, Force: tc.force},
+			})
+			if err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+			if got := calls.Load() == 1 && res.Submitted; got != tc.wantSubmit {
+				t.Errorf("submitted = %v (POSTs %d); want %v", got, calls.Load(), tc.wantSubmit)
+			}
+			if got := strings.Contains(stdout.String(), prPipelineNotice); got == tc.wantSubmit {
+				t.Errorf("PR notice printed = %v; want %v\n%s", got, !tc.wantSubmit, stdout.String())
+			}
+		})
+	}
+}

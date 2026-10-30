@@ -96,9 +96,18 @@ policy. A filtered run (`--cadence`, `--cadences`, `--on-push`, `--pr`; `planner
 prints `cloud submission skipped: this run evaluates a subset of policies (use `sigcomply check`
 or `--scheduled`)` to stdout; with no cloud configured it stays quiet.
 
+A run in a pull-request or merge-request pipeline never POSTs either, whatever its flags
+(`isPullRequestRun`: `--pr`, `GITHUB_EVENT_NAME` `pull_request`/`pull_request_target`, or
+`CI_MERGE_REQUEST_IID` set; the same helper stops it advancing cadence state). The branch's code
+and config produced it, so it is not the project's result. It prints `cloud submission skipped:
+this run is in a pull request or merge request pipeline; ...` under the same condition as the
+filtered notice. Rails enforces the same rule from the verified token claims (it accepts only
+push, schedule and manual events), so the CLI skip saves a rejected request and says why.
+
 | Input | Effect |
 |---|---|
 | Filtered run | Skip, with the stdout notice above. `--capture-cloud-payload` still writes. |
+| Pull-request or merge-request pipeline | Skip, with its notice, whatever the flags (`--cloud` too). `--capture-cloud-payload` still writes. |
 | `--capture-cloud-payload` | Writes the file. Nothing is sent. |
 | `--no-cloud` | Skip. |
 | `--cloud`, no base URL | Skip with a warning naming `cloud.base_url` and `--cloud-url`. |

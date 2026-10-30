@@ -112,6 +112,9 @@ this file lists the changes a user notices.
 
 ### Fixed
 
+- A run in a pull request or merge request pipeline never submits to SigComply Cloud, whatever
+  its flags, and prints `cloud submission skipped: this run is in a pull request or merge request
+  pipeline`. The pull request's branch produced it, so it is not the project's result.
 - `check` refuses to send SigComply Cloud an OIDC token whose audience does not include
   `https://api.sigcomply.com`, and warns when `AWS_WEB_IDENTITY_TOKEN_FILE` holds a token with
   that audience: an AWS role that trusts it accepts tokens SigComply Cloud receives.

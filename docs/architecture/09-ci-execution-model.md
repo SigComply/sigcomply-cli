@@ -64,10 +64,11 @@ Rules that follow from `planner.filterAccepts`:
   `every:` policies.
 - A `--cadence` or `--cadences` value that is not a cadence is a planner error, exit 3
   (`planner.validateFilter`).
-- Any filter (and `--pr`) means the run never submits to Cloud; `--pr` also does not advance
-  cadence state, and neither does any run in a pull-request or merge-request pipeline
-  (`inPullRequestPipeline`: `GITHUB_EVENT_NAME` `pull_request`/`pull_request_target`, or
-  `CI_MERGE_REQUEST_IID` set).
+- Any filter (and `--pr`) means the run never submits to Cloud. A run in a pull-request or
+  merge-request pipeline (`inPullRequestPipeline`: `GITHUB_EVENT_NAME`
+  `pull_request`/`pull_request_target`, or `CI_MERGE_REQUEST_IID` set) never submits either,
+  whatever its flags. Neither it nor `--pr` advances cadence state. One helper,
+  `isPullRequestRun`, decides both.
 - Effective cadence is the project override if set, else the framework default.
 - `on_push` defaults to `true` for automated policies and `false` for manual ones, so on-push runs
   never require manual evidence.
