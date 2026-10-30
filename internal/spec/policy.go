@@ -212,7 +212,7 @@ func validatePolicyRequiredScalars(raw *policySpecRaw) error {
 	if raw.ID == "" {
 		return fmt.Errorf("policy spec: missing required field \"id\"")
 	}
-	if !vaultkey.ValidID(raw.ID) {
+	if !vaultkey.ValidBaseID(raw.ID) {
 		return fmt.Errorf("policy spec: invalid id %q: letters, digits, dot, dash and underscore only, starting with a letter or digit (the id becomes a folder name in your vault)", raw.ID)
 	}
 	if raw.Control == "" {

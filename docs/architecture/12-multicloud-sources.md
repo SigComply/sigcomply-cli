@@ -89,8 +89,9 @@ subscription or org). Worked config:
 
 Rules (`internal/sources/instance.go`, `internal/sources/factory.go`):
 
-1. Grammar: `sources.IDPattern` (= `vaultkey.IDPattern`, also used for catalog entries and
-   project-local policy IDs), a base ID plus optional `[name]` of letters, digits, `.`, `_`, `-`.
+1. Grammar: `sources.IDPattern` (= `vaultkey.IDPattern`, also used for catalog entries), a base
+   ID plus optional `[name]` of letters, digits, `.`, `_`, `-`. Project-local policy IDs use
+   `vaultkey.BaseIDPattern`, the same grammar without `[name]`.
    The key becomes part of an envelope path in the vault, so `/` and `..` are rejected.
 2. Factories register under the base ID only. An instance key builds from the base factory.
 3. `asInstance` wraps a bracketed plugin. The wrapper reports the instance key as its ID and

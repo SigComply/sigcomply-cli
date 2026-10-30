@@ -70,8 +70,8 @@ func ResolveToken(cfg map[string]any, sourceID, configKey, fallbackEnv string) (
 
 // ResolveEndpoint reads the URL a source sends its credential to (a
 // GitHub Enterprise or self-managed GitLab base_url, an S3-compatible
-// endpoint) and refuses one that is not https (http to localhost is
-// allowed for tests). An unset key returns "": the source's default host.
+// endpoint) and refuses one that is not https (http to a loopback host
+// is allowed for tests). An unset key returns "": the source's default host.
 // Every such key goes through here, so the rule cannot be skipped for one
 // source; a registry-wide test in internal/sources/builtin checks it.
 func ResolveEndpoint(cfg map[string]any, sourceID, key string) (string, error) {
@@ -93,7 +93,9 @@ func ResolveEndpoint(cfg map[string]any, sourceID, key string) (string, error) {
 // Matching is case-insensitive (Windows env names are).
 var (
 	deniedTokenEnvPrefixes = []string{"AWS_", "ACTIONS_", "GOOGLE_", "AZURE_", "ARM_", "CLOUDSDK_", "CI_JOB_"}
-	deniedTokenEnvMarkers  = []string{"ID_TOKEN"}
+	// OIDC and JWT catch federation tokens a job mints under its own
+	// name (SIGCOMPLY_OIDC_TOKEN, VAULT_JWT); a source token holds neither.
+	deniedTokenEnvMarkers = []string{"ID_TOKEN", "OIDC", "JWT"}
 	// CI_REPOSITORY_URL embeds the GitLab job token in its userinfo.
 	deniedTokenEnvExact = []string{"CI_REGISTRY_PASSWORD", "CI_DEPLOY_PASSWORD", "CI_DEPENDENCY_PROXY_PASSWORD",
 		"CI_REPOSITORY_URL", "VAULT_TOKEN"}

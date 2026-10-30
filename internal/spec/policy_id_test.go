@@ -11,7 +11,7 @@ import (
 // folder. It must match the same grammar as source keys.
 func TestLoadPolicy_RejectsPathUnsafeID(t *testing.T) {
 	base := string(readTestdata(t, "policy/valid_mfa_enforced.yaml"))
-	for _, id := range []string{"../../escape", "a/b", `a\b`, ".hidden", "a b", "x:y"} {
+	for _, id := range []string{"../../escape", "a/b", `a\b`, ".hidden", "a b", "x:y", "acme.policy[x]", "a[b"} {
 		data := strings.Replace(base, "id: soc2.cc6.1.mfa_enforced", "id: \""+strings.ReplaceAll(id, `\`, `\\`)+"\"", 1)
 		if data == base {
 			t.Fatal("fixture id line not found")

@@ -306,8 +306,8 @@ sources:
   ambient identity. Not built: per-instance GCP impersonation and Azure per-tenant credentials.
 - Credential routing: a source reads a credential from the environment only through
   `sources.ResolveToken`, which refuses a `token_env` naming a CI or cloud credential (`AWS_*`,
-  `ACTIONS_*`, `GOOGLE_*`, `AZURE_*`, `ARM_*`, `CLOUDSDK_*`, `CI_JOB_*`, `*ID_TOKEN*`, GitLab's
-  predefined passwords, `CI_REPOSITORY_URL`, `VAULT_TOKEN`).
+  `ACTIONS_*`, `GOOGLE_*`, `AZURE_*`, `ARM_*`, `CLOUDSDK_*`, `CI_JOB_*`, `*ID_TOKEN*`, `*OIDC*`,
+  `*JWT*`, GitLab's predefined passwords, `CI_REPOSITORY_URL`, `VAULT_TOKEN`).
   A URL the credential is sent to goes through `sources.ResolveEndpoint` (or, for a vault
   backend, `endpoint.ValidateHTTPS`): `https://`, or `http://` only to a loopback host
   (`localhost`, `127.0.0.1`, `::1`). The config file is repository content anyone with push

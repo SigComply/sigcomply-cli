@@ -26,6 +26,14 @@ var IDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*(\[[A-Za-z0-9._-]
 // ValidID reports whether id matches IDPattern.
 func ValidID(id string) bool { return IDPattern.MatchString(id) }
 
+// BaseIDPattern is IDPattern without the `[instance]` suffix: the grammar
+// for an identifier that never names an instance, such as a project-local
+// policy ID.
+var BaseIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
+
+// ValidBaseID reports whether id matches BaseIDPattern.
+func ValidBaseID(id string) bool { return BaseIDPattern.MatchString(id) }
+
 // segmentPattern is what one path segment of a vault key may hold. It is
 // looser than IDPattern because built segments combine IDs (an envelope
 // file is `<type>__<source>[<instance>]_<entry>.json`), but it has no
