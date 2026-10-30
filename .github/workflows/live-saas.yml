@@ -78,8 +78,23 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
+            // Only the failing test names and the run link go into the
+            // issue: raw `go test` output can carry API responses, tenant
+            // names or token fragments, and the issue is public. The full
+            // output stays in the run log.
             const fs = require('fs');
             const report = fs.readFileSync('live-report.txt', 'utf8');
+            const names = new Set();
+            for (const line of report.split('\n')) {
+              const test = line.match(/^\s*--- FAIL: ([A-Za-z0-9_\/.-]+)/);
+              if (test) names.add(test[1]);
+              const pkg = line.match(/^FAIL\s+([A-Za-z0-9_\/.-]+)/);
+              if (pkg) names.add(`package ${pkg[1]}`);
+            }
+            const failing = names.size > 0
+              ? [...names].slice(0, 50).map((n) => `- \`${n}\``)
+              : ['- (no test name found; the run failed before or outside a test)'];
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const { owner, repo } = context.repo;
             const label = 'live-drift';
             const title = 'Live SaaS drift detected (L4a)';
@@ -91,9 +106,10 @@ jobs:
               'if needed, and re-record the affected cassette. Runbook:',
               '`docs/architecture/11-testing-strategy.md`.',
               '',
-              '```',
-              report.trim().slice(-8000),
-              '```',
+              'Failing:',
+              ...failing,
+              '',
+              `Run (full output in the log): ${runUrl}`,
             ].join('\n');
             const existing = await github.rest.issues.listForRepo({
               owner, repo, state: 'open', labels: label,
