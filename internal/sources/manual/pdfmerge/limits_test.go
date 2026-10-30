@@ -73,3 +73,55 @@ func TestNoDefaultPDFCPUConfiguration(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// TestMerge_WritesNoConfigDirectory is the behavior half of the guard
+// above: a pdfcpu call given a nil configuration builds the default one,
+// which creates a pdfcpu folder (config.yml, fonts) in the user's config
+// directory. Merge, including its decrypt and validate steps, must leave
+// a fresh HOME and XDG_CONFIG_HOME empty.
+func TestMerge_WritesNoConfigDirectory(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("AppData", filepath.Join(home, "AppData"))
+	if _, err := pdfmerge.Merge(context.Background(), [][]byte{realPDF(t), realPDF(t)}); err != nil {
+		t.Fatalf("Merge: %v", err)
+	}
+	err := filepath.WalkDir(home, func(path string, _ os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if path != home {
+			t.Errorf("Merge created %s", path)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestNoNilPDFCPUConfiguration: pdfapi.X(..., nil) builds the default
+// configuration inside pdfcpu, so the ban on NewDefaultConfiguration
+// alone misses it.
+func TestNoNilPDFCPUConfiguration(t *testing.T) {
+	nilConf := regexp.MustCompile(`pdfapi\.[A-Za-z]+\(.*,\s*nil\)`)
+	err := filepath.WalkDir(".", func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return err
+		}
+		src, err := os.ReadFile(path) //nolint:gosec // walking this package's own sources
+		if err != nil {
+			return err
+		}
+		for i, line := range strings.Split(string(src), "\n") {
+			if nilConf.MatchString(line) {
+				t.Errorf("%s:%d passes a nil pdfcpu configuration; pass newConfig()", path, i+1)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}

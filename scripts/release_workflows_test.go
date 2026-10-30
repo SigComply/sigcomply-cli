@@ -25,7 +25,24 @@ const (
 )
 
 type workflowFile struct {
+	On   yaml.Node              `yaml:"on"`
 	Jobs map[string]workflowJob `yaml:"jobs"`
+}
+
+// reusableOnly reports whether the workflow runs only when another
+// workflow calls it. Its jobs run with the caller's ref, and the calling
+// job is held to the ref guard, so they are not checked on their own.
+func (w *workflowFile) reusableOnly() bool {
+	const call = "workflow_call"
+	switch w.On.Kind {
+	case yaml.ScalarNode:
+		return w.On.Value == call
+	case yaml.MappingNode:
+		return len(w.On.Content) == 2 && w.On.Content[0].Value == call
+	case yaml.SequenceNode:
+		return len(w.On.Content) == 1 && w.On.Content[0].Value == call
+	}
+	return false
 }
 
 type workflowJob struct {
@@ -37,9 +54,14 @@ type workflowJob struct {
 }
 
 type workflowStep struct {
-	Run string            `yaml:"run"`
-	Env map[string]string `yaml:"env"`
+	Run  string            `yaml:"run"`
+	Uses string            `yaml:"uses"`
+	Env  map[string]string `yaml:"env"`
 }
+
+// releaseActions are third-party actions that create or publish a
+// GitHub release.
+var releaseActions = []string{"goreleaser/goreleaser-action", "softprops/action-gh-release", "ncipollo/release-action", "actions/create-release"}
 
 // stringList accepts `needs: a` and `needs: [a, b]`.
 type stringList []string
@@ -81,13 +103,57 @@ func loadWorkflows(t *testing.T) map[string]workflowFile {
 	return out
 }
 
+// publishes: the job can create, edit or publish a release: it runs the
+// publish script or `gh release`, uses a release action, or can write
+// repository contents (tags and releases).
 func (j *workflowJob) publishes() bool {
+	if j.Permissions["contents"] == "write" {
+		return true
+	}
 	for _, s := range j.Steps {
-		if strings.Contains(s.Run, publishScript) {
+		if strings.Contains(s.Run, publishScript) || strings.Contains(s.Run, "gh release") {
 			return true
+		}
+		for _, a := range releaseActions {
+			if strings.HasPrefix(s.Uses, a+"@") {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+// guarded reports whether cond is the ref guard, alone or joined to more
+// conditions with a top-level "&&". A top-level "||" next to it would let
+// the job run from any ref.
+func guarded(cond string) bool {
+	cond = strings.TrimSpace(cond)
+	if cond == releaseRefGuard {
+		return true
+	}
+	var rest string
+	switch {
+	case strings.HasSuffix(cond, " && "+releaseRefGuard):
+		rest = strings.TrimSuffix(cond, " && "+releaseRefGuard)
+	case strings.HasPrefix(cond, releaseRefGuard+" && "):
+		rest = strings.TrimPrefix(cond, releaseRefGuard+" && ")
+	default:
+		return false
+	}
+	depth := 0
+	for i := 0; i < len(rest); i++ {
+		switch rest[i] {
+		case '(':
+			depth++
+		case ')':
+			depth--
+		case '|':
+			if depth == 0 && i+1 < len(rest) && rest[i+1] == '|' {
+				return false
+			}
+		}
+	}
+	return depth == 0
 }
 
 // privileged: the job can push a tag, publish or promote a release, or
@@ -109,7 +175,11 @@ func (j *workflowJob) privileged() bool {
 func releaseWorkflows(t *testing.T, all map[string]workflowFile) []string {
 	t.Helper()
 	var names []string
-	for name, wf := range all {
+	for name := range all {
+		wf := all[name]
+		if wf.reusableOnly() && name != filepath.Base(pipelineWorkflow) {
+			continue
+		}
 		for _, j := range wf.Jobs {
 			if j.Uses == promoteWorkflow || j.Uses == pipelineWorkflow || j.publishes() {
 				names = append(names, name)
@@ -126,6 +196,24 @@ func releaseWorkflows(t *testing.T, all map[string]workflowFile) []string {
 		}
 	}
 	return names
+}
+
+func TestGuarded(t *testing.T) {
+	for cond, want := range map[string]bool{
+		releaseRefGuard:                           true,
+		"a == 'b' && " + releaseRefGuard:          true,
+		releaseRefGuard + " && !contains(x, '-')": true,
+		"(a || b) && " + releaseRefGuard:          true,
+		"always() || " + releaseRefGuard:          false,
+		"a || b && " + releaseRefGuard:            false,
+		"x == '" + releaseRefGuard + "'":          false,
+		"":                                        false,
+		"github.ref == 'refs/heads/main'":         false,
+	} {
+		if got := guarded(cond); got != want {
+			t.Errorf("guarded(%q) = %v; want %v", cond, got, want)
+		}
+	}
 }
 
 func contains(list []string, s string) bool {
@@ -147,8 +235,8 @@ func TestReleaseWorkflows_PrivilegedJobsRunOnlyFromMainOrTags(t *testing.T) {
 			if !j.privileged() {
 				continue
 			}
-			if !strings.Contains(j.If, releaseRefGuard) {
-				t.Errorf("%s: job %q can release but its `if` lacks the ref guard %s (got %q)",
+			if !guarded(j.If) {
+				t.Errorf("%s: job %q can release but its `if` is not the ref guard %s, alone or joined with && (got %q)",
 					name, id, releaseRefGuard, j.If)
 			}
 		}
