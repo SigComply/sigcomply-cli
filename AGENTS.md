@@ -29,7 +29,7 @@ overview `../AGENTS.md` exists only on maintainer machines; nothing here may dep
 - The code is source-available under the Elastic License 2.0 (`LICENSE`), not open source. Never
   call the CLI or its policies "open source" or "open"; "open core" names the business model
   only. `NOTICE` holds the copyright line and the Apache-2.0 cut-off (releases up to v0.90.2);
-  keep `licenses/APACHE-2.0.txt`, since earlier contributions were made under it. A future
+  keep `licenses/APACHE-2.0.txt`, which that cut-off refers to. A future
   license-key check is protected by ELv2's license key clause; keep it in this repo so that
   clause applies.
 - A push to `main` runs the tests and cuts a GitHub Release unless every changed file is
