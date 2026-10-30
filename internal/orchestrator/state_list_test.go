@@ -69,7 +69,7 @@ func seedState(t *testing.T, v *listVault, framework, policyID string, at time.T
 		Framework:     framework, PolicyID: policyID,
 		LastRunAt: at, LastPassAt: at, LastRunStatus: core.StatusPass, LastRunID: "seed",
 	}
-	if err := WritePolicyState(context.Background(), v, ps); err != nil {
+	if err := WritePolicyState(context.Background(), v, ps, time.Now()); err != nil {
 		t.Fatalf("seed %s: %v", policyID, err)
 	}
 }

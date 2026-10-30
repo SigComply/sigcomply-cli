@@ -288,8 +288,9 @@ func resolveMode(ctx context.Context, opts *Options, _ time.Time) (planner.Filte
 }
 
 // loadPolicyStates fetches every policy state shard for the
-// configured framework. Errors are logged as warnings — a missing
-// or unreadable shard degrades to "treat as first run", which is
+// configured framework. Errors are logged as warnings — a missing,
+// unreadable or future-dated (futureDated) shard degrades to "treat
+// as first run", which is
 // safe (the policy re-evaluates) and surfaces loudly via the
 // first-run warning at plan time.
 func loadPolicyStates(ctx context.Context, opts *Options) map[string]*core.PolicyState {
@@ -306,6 +307,17 @@ func loadPolicyStates(ctx context.Context, opts *Options) map[string]*core.Polic
 	states, errs := BulkReadPolicyStates(ctx, opts.Vault, framework, ids)
 	for _, err := range errs {
 		opts.Logger.Warnf("policy-state: %s", err.Error())
+	}
+	now := nowOrFallback(opts.Now)
+	for id, s := range states {
+		if s == nil {
+			continue
+		}
+		if field, at, future := futureDated(s, now); future {
+			opts.Logger.Warnf("policy-state: %s: ignoring state shard: %s %s is in the future (run clock %s); evaluating the policy",
+				id, field, at.UTC().Format(time.RFC3339), now.UTC().Format(time.RFC3339))
+			states[id] = nil
+		}
 	}
 	return states
 }
@@ -546,7 +558,7 @@ func advancePolicyStates(
 			startedAt,
 			planner.CadenceInterval(cadence),
 		)
-		if err := WritePolicyState(ctx, opts.Vault, ps); err != nil {
+		if err := WritePolicyState(ctx, opts.Vault, ps, nowOrFallback(opts.Now)); err != nil {
 			opts.Logger.Warnf("policy-state: write %s: %s", r.PolicyID, err.Error())
 		}
 	}

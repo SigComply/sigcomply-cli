@@ -37,8 +37,37 @@ func PolicyStatePrefix(framework string) string {
 	return fmt.Sprintf("state/%s/policies/", framework)
 }
 
-// errCorruptShard marks a shard that was read but could not be parsed.
+// errCorruptShard marks a shard that was read but could not be parsed,
+// or whose timestamps cannot be true (futureDated).
 var errCorruptShard = errors.New("corrupt state shard")
+
+// stateClockSkew is how far a shard's timestamps may lie ahead of the
+// run clock: runners' clocks differ by seconds, so a shard written by
+// one slightly ahead is honest. Anything later is corrupt.
+const stateClockSkew = 5 * time.Minute
+
+// futureDated reports the first of the shard's "when did this happen"
+// timestamps that is later than now plus stateClockSkew. State shards
+// are unsigned scheduling hints, so a shard planted with a pass dated
+// next year would carry an unevaluated pass forward, and one with a
+// future last_run_at would make the monotonic write guard refuse every
+// honest write. NextDueAt is a future time by design and is not checked.
+func futureDated(s *core.PolicyState, now time.Time) (field string, at time.Time, ok bool) {
+	limit := now.Add(stateClockSkew)
+	for _, f := range []struct {
+		name string
+		at   time.Time
+	}{
+		{"last_run_at", s.LastRunAt},
+		{"last_pass_at", s.LastPassAt},
+		{"last_fail_at", s.LastFailAt},
+	} {
+		if f.at.After(limit) {
+			return f.name, f.at, true
+		}
+	}
+	return "", time.Time{}, false
+}
 
 // ReadPolicyState fetches one state shard from the vault. A missing
 // shard returns (nil, nil) — the planner treats this as "first run"
@@ -88,11 +117,12 @@ func ReadPolicyState(ctx context.Context, vault core.Vault, framework, policyID 
 // wire those in through the core.Vault interface.
 //
 // A missing shard is treated as "no prior state" — the new state
-// wins. Returns nil when the write is accepted, nil when it is
+// wins, and so is a corrupt one, including one dated after now plus
+// stateClockSkew (futureDated). Returns nil when the write is accepted, nil when it is
 // rejected by the monotonic guard (the caller's perspective: "the
 // vault already has equivalent-or-newer state, which is fine"), and
 // a non-nil error only for true I/O failures.
-func WritePolicyState(ctx context.Context, vault core.Vault, ps *core.PolicyState) error {
+func WritePolicyState(ctx context.Context, vault core.Vault, ps *core.PolicyState, now time.Time) error {
 	if vault == nil {
 		return fmt.Errorf("policy-state: nil vault")
 	}
@@ -106,6 +136,11 @@ func WritePolicyState(ctx context.Context, vault core.Vault, ps *core.PolicyStat
 		ps.SchemaVersion = core.PolicyStateSchemaVersion
 	}
 	existing, err := ReadPolicyState(ctx, vault, ps.Framework, ps.PolicyID)
+	if existing != nil {
+		if _, _, future := futureDated(existing, now); future {
+			err = errCorruptShard
+		}
+	}
 	switch {
 	case errors.Is(err, errCorruptShard):
 		// The shard is loss-tolerant (Invariant 5): an unparseable one is

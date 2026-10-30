@@ -90,6 +90,17 @@ OR (new.LastRunAt == existing.LastRunAt AND new.LastRunID > existing.LastRunID)
 A runner with a slow clock cannot overwrite a newer result. A rejected write returns nil: the vault
 already holds equal or newer state.
 
+### Future-dated shards
+
+Shards are unsigned, so anyone who can write the vault can plant one. A shard whose `LastRunAt`,
+`LastPassAt` or `LastFailAt` is later than the run clock plus `stateClockSkew` (5 minutes) is
+corrupt (`futureDated` in `internal/orchestrator/state.go`). `loadPolicyStates` drops it with a
+warning, so the policy is treated as a first run and evaluated, and `WritePolicyState` replaces
+it instead of letting the monotonic rule keep it forever. Without this, a pass dated next year
+would carry an annual policy forward unevaluated, and a future `LastRunAt` would freeze the shard.
+A shard with an honest past date is still trusted: carry-forward does not re-verify the envelope
+under `LastEnvelopeRef`.
+
 Every mode except `--pr` advances state after evaluation (`advancePolicyStates`), so a passing
 `--on-push` run on the default branch sets `LastPassAt` and a later `--scheduled` run can carry the
 policy forward. A `--pr` run evaluates a pull request's branch and config, so it neither advances
