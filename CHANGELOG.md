@@ -11,6 +11,18 @@ this file lists the changes a user notices.
 
 ## [Unreleased]
 
+### Fixed
+
+- `azure.defender` reads vulnerability findings from Defender for Cloud's individual
+  recommendations, through Azure Resource Graph. Microsoft retired the security sub-assessments it
+  read before on 2026-07-31; they now answer `404 SubAssessmentsDeprecated`, which made
+  `soc2.cc6.8.no_critical_findings_active` and `soc2.cc6.8.no_high_findings_unaddressed` `error`
+  on every Azure subscription. Only recommendations in a vulnerability category count
+  (`SoftwareUpdate`, `ServiceUpgrade`, `SystemUpdate`, `CodeVulnerabilities`, `IacVulnerabilities`,
+  `ApiVulnerabilities`); misconfiguration and exposed-secret recommendations are not findings.
+  Each finding is now per vulnerable package and lists all its CVEs in `cve_ids`. The Reader role
+  still covers it.
+
 ## [0.89.0 to 1.0.0] - 2026-10-28 to 2026-10-31
 
 v1.0.0 is the first major release. It carries the security hardening listed below: CI templates

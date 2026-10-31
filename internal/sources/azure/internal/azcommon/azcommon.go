@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -225,7 +226,14 @@ type resourceQuerier interface {
 // azure.* resource collectors use instead of fanning out per-RG ARM calls. Rows
 // are returned as map[string]any (ResultFormatObjectArray).
 func QueryResourceGraph(ctx context.Context, cred azcore.TokenCredential, kql string, subscriptionIDs []string) ([]map[string]any, error) {
-	client, err := armresourcegraph.NewClient(cred, nil)
+	return QueryResourceGraphWithOptions(ctx, cred, nil, kql, subscriptionIDs)
+}
+
+// QueryResourceGraphWithOptions is QueryResourceGraph with explicit ARM client
+// options: nil in production, a test transport and endpoint (httptest server or
+// cassette) in tests.
+func QueryResourceGraphWithOptions(ctx context.Context, cred azcore.TokenCredential, opts *arm.ClientOptions, kql string, subscriptionIDs []string) ([]map[string]any, error) {
+	client, err := armresourcegraph.NewClient(cred, opts)
 	if err != nil {
 		return nil, fmt.Errorf("azure: resource graph client: %w", err)
 	}

@@ -2,7 +2,7 @@
 // Microsoft Defender for Cloud (Azure Security Center) in a subscription and
 // emits three cross-vendor types — threat_detection_service (one per Defender
 // plan), security_service (one CSPM record for Defender for Cloud itself), and
-// vulnerability_finding (one per security sub-assessment) — so threat-detection,
+// vulnerability_finding (one per vulnerability recommendation) — so threat-detection,
 // security-service-enablement, and unaddressed-finding policies evaluate against
 // Azure exactly as they do against AWS (GuardDuty / SecurityHub-Macie-Inspector
 // / Inspector findings) and GCP (Security Command Center) — zero policy changes
@@ -29,23 +29,31 @@
 //     modern estate using agentless scanning + Defender plans would read a false
 //     auto-provisioning value while being fully protected.
 //
-// vulnerability_finding (from security sub-assessments):
+// vulnerability_finding (from individual recommendations):
 //
-//   - One record per sub-assessment (the CVE / posture-finding level), swept
-//     subscription-wide via NewListAllPager. severity maps the sub-assessment
-//     severity (Critical/High/Medium/Low → CRITICAL/HIGH/MEDIUM/LOW; anything
-//     else → INFORMATIONAL). status maps the status code (Unhealthy → ACTIVE,
-//     Healthy → RESOLVED, NotApplicable → SUPPRESSED); a missing status is
-//     treated as ACTIVE so a finding is never silently hidden from the
-//     "no active critical findings" policies.
+//   - One record per Defender for Cloud individual recommendation in a
+//     vulnerability category (vulnerabilityCategories: a vulnerable software
+//     package, a missing system update, a code, IaC or API finding), read
+//     subscription-wide through Azure Resource Graph. Microsoft retired the
+//     grouped model these used to come from (security sub-assessments, which
+//     now answer 404 SubAssessmentsDeprecated) on 2026-07-31; misconfiguration
+//     and exposed-secret recommendations are not vulnerabilities and are not
+//     read. severity maps the recommendation's metadata severity
+//     (Critical/High/Medium/Low → CRITICAL/HIGH/MEDIUM/LOW; anything else →
+//     INFORMATIONAL). status maps the status code (Unhealthy → ACTIVE, Healthy
+//     → RESOLVED, NotApplicable → SUPPRESSED); a missing status is treated as
+//     ACTIVE so a finding is never silently hidden from the "no active critical
+//     findings" policies. cve_id is the first CVE in CvesDetails, cve_ids all
+//     of them; remediation_available is true when a fixed version is named.
 //
 // A list failure (e.g. a missing-permission 403) is surfaced as an error
 // (tagging only the azure.defender-bound policies `error`) rather than returning
 // a partial or insecure-default result.
 //
-// Test injection: the API interface is the single seam and returns raw SDK
-// types so 100% of the vendor→canonical mapping stays in Collect under fakeAPI
-// unit tests; the real adapter (realDefender) wraps the armsecurity clients.
+// Test injection: the API interface is the single seam and returns raw vendor
+// values (SDK types; Resource Graph columns as strings) so 100% of the
+// vendor→canonical mapping stays in Collect under fakeAPI unit tests; the real
+// adapter (realDefender) wraps the armsecurity and Resource Graph clients.
 package defender
 
 import (
@@ -64,6 +72,46 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/sources/azure/internal/azcommon"
 )
 
+// vulnerabilityCategories are the Defender for Cloud recommendation categories
+// whose recommendations are vulnerability findings (Microsoft's "Vulnerabilities"
+// view plus missing system updates, which the grouped model also reported).
+var vulnerabilityCategories = []string{
+	"SoftwareUpdate", "ServiceUpgrade", "SystemUpdate",
+	"CodeVulnerabilities", "IacVulnerabilities", "ApiVulnerabilities",
+}
+
+// vulnerabilityQuery reads every vulnerability recommendation in the queried
+// subscriptions, projected to the Assessment columns. resourceDetails spells
+// its keys differently by source (Azure: Id; connectors: ResourceId), hence the
+// coalesce.
+var vulnerabilityQuery = `securityresources
+| where type =~ 'microsoft.security/assessments'
+| extend category = tostring(properties.metadata.recommendationCategory)
+| where category in~ ('` + strings.Join(vulnerabilityCategories, "', '") + `')
+| project id,
+    resourceId = tostring(coalesce(properties.resourceDetails.Id, properties.resourceDetails.id, properties.resourceDetails.ResourceId)),
+    resourceType = tostring(coalesce(properties.resourceDetails.ResourceType, properties.resourceDetails.resourceType)),
+    displayName = tostring(properties.displayName),
+    severity = tostring(properties.metadata.severity),
+    status = tostring(properties.status.code),
+    category,
+    cves = tostring(properties.additionalData.CvesDetails),
+    fixedVersion = tostring(properties.additionalData.FixedVersion)`
+
+// Assessment is one Defender for Cloud individual recommendation as the
+// vulnerability query projects it: raw vendor strings, mapped in Collect.
+type Assessment struct {
+	ID           string
+	ResourceID   string
+	ResourceType string
+	DisplayName  string
+	Severity     string // properties.metadata.severity
+	StatusCode   string // properties.status.code
+	Category     string // properties.metadata.recommendationCategory
+	CvesDetails  string // properties.additionalData.CvesDetails: a JSON array, as a string
+	FixedVersion string // properties.additionalData.FixedVersion; empty when no fix exists
+}
+
 // Evidence type IDs this plugin emits.
 const (
 	EvidenceTypeThreatService   = "threat_detection_service"
@@ -75,7 +123,8 @@ const (
 const SourceID = "azure.defender"
 
 // resourceTypeFallback is used when an affected resource's ARM type can't be
-// parsed from its id (e.g. an on-premise sub-assessment resource).
+// parsed from its id or read from the recommendation (e.g. an on-premise
+// resource).
 const resourceTypeFallback = "azure_resource"
 
 // providerAzure is the cloud-provider name stamped on every emitted record.
@@ -88,8 +137,9 @@ const providerAzure = "azure"
 type API interface {
 	// ListPricings returns the subscription's Defender plan configurations.
 	ListPricings(ctx context.Context) ([]*armsecurity.Pricing, error)
-	// ListSubAssessments returns every security sub-assessment in the subscription.
-	ListSubAssessments(ctx context.Context) ([]*armsecurity.SubAssessment, error)
+	// ListVulnerabilityAssessments returns every individual recommendation in a
+	// vulnerability category in the subscription.
+	ListVulnerabilityAssessments(ctx context.Context) ([]Assessment, error)
 }
 
 // Plugin is the in-process azure.defender source.
@@ -122,7 +172,7 @@ func New(opts Options) *Plugin {
 	}
 }
 
-// NewFromAzure constructs a Plugin backed by the real armsecurity SDK using the
+// NewFromAzure constructs a Plugin backed by the real Azure SDK using the
 // given credential (a DefaultAzureCredential) scoped to cfg.SubscriptionID.
 func NewFromAzure(cred azcore.TokenCredential, cfg azcommon.Config) (*Plugin, error) {
 	adapter, err := newRealDefender(cfg.SubscriptionID, cred, nil)
@@ -180,9 +230,11 @@ type vulnFindingPayload struct {
 	Status               string `json:"status"`
 	CVEID                string `json:"cve_id,omitempty"`
 	RemediationAvailable bool   `json:"remediation_available"`
-	// Extras (additionalProperties).
-	Provider string `json:"provider"`
-	Category string `json:"category,omitempty"`
+	// Extras (additionalProperties). A recommendation is per software package,
+	// so it can carry several CVEs; cve_id holds the first.
+	CVEIDs   []string `json:"cve_ids,omitempty"`
+	Provider string   `json:"provider"`
+	Category string   `json:"category,omitempty"`
 }
 
 // Collect dispatches on which of the three emitted types the slot accepts,
@@ -287,29 +339,31 @@ func securityRecord(pricings []*armsecurity.Pricing, now time.Time, scope *core.
 	return record(EvidenceTypeSecurityService, payload, payload.ID, now, scope)
 }
 
-// collectFindings lists security sub-assessments and emits one
+// collectFindings lists the vulnerability recommendations and emits one
 // vulnerability_finding record each, sorted by ID.
 func (p *Plugin) collectFindings(ctx context.Context, now time.Time, scope *core.RecordScope) ([]core.EvidenceRecord, error) {
-	subs, err := p.api.ListSubAssessments(ctx)
+	found, err := p.api.ListVulnerabilityAssessments(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("azure.defender: list sub-assessments: %w", err)
+		return nil, fmt.Errorf("azure.defender: list vulnerability assessments: %w", err)
 	}
-	records := make([]core.EvidenceRecord, 0, len(subs))
-	for _, sa := range subs {
-		if sa == nil {
-			continue
-		}
+	records := make([]core.EvidenceRecord, 0, len(found))
+	for i := range found {
+		a := &found[i]
+		cves := cveIDs(a.CvesDetails)
 		payload := vulnFindingPayload{
-			ID:                   deref(sa.ID),
-			ResourceID:           resourceID(sa),
-			ResourceType:         resourceType(sa),
-			Title:                displayName(sa),
-			Severity:             mapSeverity(severityOf(sa)),
-			Status:               mapStatus(statusCodeOf(sa)),
-			CVEID:                cveID(sa),
-			RemediationAvailable: hasRemediation(sa),
+			ID:                   a.ID,
+			ResourceID:           a.ResourceID,
+			ResourceType:         resourceType(a),
+			Title:                a.DisplayName,
+			Severity:             mapSeverity(a.Severity),
+			Status:               mapStatus(a.StatusCode),
+			RemediationAvailable: strings.TrimSpace(a.FixedVersion) != "",
+			CVEIDs:               cves,
 			Provider:             providerAzure,
-			Category:             category(sa),
+			Category:             a.Category,
+		}
+		if len(cves) > 0 {
+			payload.CVEID = cves[0]
 		}
 		rec, err := record(EvidenceTypeVulnFinding, payload, payload.ID, now, scope)
 		if err != nil {
@@ -370,62 +424,47 @@ func subPlan(pr *armsecurity.Pricing) string {
 	return deref(pr.Properties.SubPlan)
 }
 
-// mapSeverity maps a sub-assessment severity to the vulnerability_finding enum.
-// Anything outside Critical/High/Medium/Low maps to INFORMATIONAL.
-func mapSeverity(s *armsecurity.Severity) string {
-	if s == nil {
-		return "INFORMATIONAL"
-	}
-	switch *s {
-	case armsecurity.SeverityCritical:
+// mapSeverity maps a recommendation severity to the vulnerability_finding
+// enum. Anything outside Critical/High/Medium/Low maps to INFORMATIONAL.
+func mapSeverity(s string) string {
+	switch {
+	case strings.EqualFold(s, string(armsecurity.SeverityCritical)):
 		return "CRITICAL"
-	case armsecurity.SeverityHigh:
+	case strings.EqualFold(s, string(armsecurity.SeverityHigh)):
 		return "HIGH"
-	case armsecurity.SeverityMedium:
+	case strings.EqualFold(s, string(armsecurity.SeverityMedium)):
 		return "MEDIUM"
-	case armsecurity.SeverityLow:
+	case strings.EqualFold(s, string(armsecurity.SeverityLow)):
 		return "LOW"
 	default:
 		return "INFORMATIONAL"
 	}
 }
 
-// mapStatus maps a sub-assessment status code to the schema status enum. A
+// mapStatus maps a recommendation status code to the schema status enum. A
 // missing/unknown code is treated as ACTIVE so a finding is never silently
 // hidden from the "no active critical findings" policies.
-func mapStatus(c *armsecurity.SubAssessmentStatusCode) string {
-	if c == nil {
-		return "ACTIVE"
-	}
-	switch *c {
-	case armsecurity.SubAssessmentStatusCodeHealthy:
+func mapStatus(c string) string {
+	switch {
+	case strings.EqualFold(c, string(armsecurity.AssessmentStatusCodeHealthy)):
 		return "RESOLVED"
-	case armsecurity.SubAssessmentStatusCodeNotApplicable:
+	case strings.EqualFold(c, string(armsecurity.AssessmentStatusCodeNotApplicable)):
 		return "SUPPRESSED"
 	default:
 		return "ACTIVE"
 	}
 }
 
-// resourceID returns the ARM id of the assessed resource, or "" when the
-// resource is not an Azure resource (e.g. on-premise).
-func resourceID(sa *armsecurity.SubAssessment) string {
-	if sa == nil || sa.Properties == nil {
-		return ""
-	}
-	if ard, ok := sa.Properties.ResourceDetails.(*armsecurity.AzureResourceDetails); ok && ard != nil {
-		return deref(ard.ID)
-	}
-	return ""
-}
-
-// resourceType extracts the ARM resource type (e.g.
-// "Microsoft.Compute/virtualMachines") from the assessed resource id, falling
-// back to a generic marker when it can't be parsed.
-func resourceType(sa *armsecurity.SubAssessment) string {
-	id := resourceID(sa)
-	if t := resourceTypeFromID(id); t != "" {
+// resourceType is the ARM type parsed from the assessed resource id (e.g.
+// "Microsoft.Compute/virtualMachines"), else the type the recommendation
+// names (a connector resource such as an EC2 instance has no ARM id), else a
+// generic marker.
+func resourceType(a *Assessment) string {
+	if t := resourceTypeFromID(a.ResourceID); t != "" {
 		return t
+	}
+	if a.ResourceType != "" {
+		return a.ResourceType
 	}
 	return resourceTypeFallback
 }
@@ -446,52 +485,26 @@ func resourceTypeFromID(id string) string {
 	return ""
 }
 
-func displayName(sa *armsecurity.SubAssessment) string {
-	if sa == nil || sa.Properties == nil {
-		return ""
+// cveIDs returns the CVE identifiers in a CvesDetails value (a JSON array of
+// {"CveId": ...} objects, as a string), in order, once each. Ids that are not
+// CVEs, and a value that is not that JSON, yield nothing: the finding is still
+// reported, only without CVE ids.
+func cveIDs(details string) []string {
+	var entries []struct {
+		CveID string `json:"CveId"`
 	}
-	return deref(sa.Properties.DisplayName)
-}
-
-func category(sa *armsecurity.SubAssessment) string {
-	if sa == nil || sa.Properties == nil {
-		return ""
-	}
-	return deref(sa.Properties.Category)
-}
-
-// cveID returns the sub-assessment's vulnerability id when it is a CVE
-// identifier; other vulnerability ids are not CVEs and are omitted.
-func cveID(sa *armsecurity.SubAssessment) string {
-	if sa == nil || sa.Properties == nil {
-		return ""
-	}
-	id := deref(sa.Properties.ID)
-	if strings.HasPrefix(strings.ToUpper(id), "CVE-") {
-		return id
-	}
-	return ""
-}
-
-func hasRemediation(sa *armsecurity.SubAssessment) bool {
-	if sa == nil || sa.Properties == nil {
-		return false
-	}
-	return strings.TrimSpace(deref(sa.Properties.Remediation)) != ""
-}
-
-func severityOf(sa *armsecurity.SubAssessment) *armsecurity.Severity {
-	if sa == nil || sa.Properties == nil || sa.Properties.Status == nil {
+	if err := json.Unmarshal([]byte(details), &entries); err != nil {
 		return nil
 	}
-	return sa.Properties.Status.Severity
-}
-
-func statusCodeOf(sa *armsecurity.SubAssessment) *armsecurity.SubAssessmentStatusCode {
-	if sa == nil || sa.Properties == nil || sa.Properties.Status == nil {
-		return nil
+	var out []string
+	seen := map[string]bool{}
+	for _, e := range entries {
+		if strings.HasPrefix(strings.ToUpper(e.CveID), "CVE-") && !seen[e.CveID] {
+			seen[e.CveID] = true
+			out = append(out, e.CveID)
+		}
 	}
-	return sa.Properties.Status.Code
+	return out
 }
 
 func deref(s *string) string {
@@ -504,26 +517,23 @@ func deref(s *string) string {
 // --- real Azure adapter ---
 
 // realDefender is the production implementation of API. It wraps the armsecurity
-// PricingsClient (Defender plans, a single subscription-scoped List) and
-// SubAssessmentsClient (security sub-assessments, paged subscription-wide).
+// PricingsClient (Defender plans, a single subscription-scoped List) and an
+// Azure Resource Graph query (vulnerability recommendations, paged).
 type realDefender struct {
 	pricings       *armsecurity.PricingsClient
-	subassessments *armsecurity.SubAssessmentsClient
+	cred           azcore.TokenCredential
+	opts           *arm.ClientOptions
 	subscriptionID string
 }
 
-// newRealDefender builds the armsecurity clients. opts is nil in production;
+// newRealDefender builds the armsecurity client. opts is nil in production;
 // tests pass a *arm.ClientOptions pointing the clients at an httptest server.
 func newRealDefender(subscriptionID string, cred azcore.TokenCredential, opts *arm.ClientOptions) (*realDefender, error) {
 	pricings, err := armsecurity.NewPricingsClient(cred, opts)
 	if err != nil {
 		return nil, fmt.Errorf("azure.defender: pricings client: %w", err)
 	}
-	subs, err := armsecurity.NewSubAssessmentsClient(cred, opts)
-	if err != nil {
-		return nil, fmt.Errorf("azure.defender: sub-assessments client: %w", err)
-	}
-	return &realDefender{pricings: pricings, subassessments: subs, subscriptionID: subscriptionID}, nil
+	return &realDefender{pricings: pricings, cred: cred, opts: opts, subscriptionID: subscriptionID}, nil
 }
 
 func (r *realDefender) scope() string {
@@ -538,17 +548,35 @@ func (r *realDefender) ListPricings(ctx context.Context) ([]*armsecurity.Pricing
 	return resp.Value, nil
 }
 
-func (r *realDefender) ListSubAssessments(ctx context.Context) ([]*armsecurity.SubAssessment, error) {
-	var out []*armsecurity.SubAssessment
-	pager := r.subassessments.NewListAllPager(r.scope(), nil)
-	for pager.More() {
-		page, err := pager.NextPage(ctx)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, page.Value...)
+func (r *realDefender) ListVulnerabilityAssessments(ctx context.Context) ([]Assessment, error) {
+	rows, err := azcommon.QueryResourceGraphWithOptions(ctx, r.cred, r.opts, vulnerabilityQuery, []string{r.subscriptionID})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Assessment, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, Assessment{
+			ID:           column(row, "id"),
+			ResourceID:   column(row, "resourceId"),
+			ResourceType: column(row, "resourceType"),
+			DisplayName:  column(row, "displayName"),
+			Severity:     column(row, "severity"),
+			StatusCode:   column(row, "status"),
+			Category:     column(row, "category"),
+			CvesDetails:  column(row, "cves"),
+			FixedVersion: column(row, "fixedVersion"),
+		})
 	}
 	return out, nil
+}
+
+// column reads a projected string column; the query tostring()s every column,
+// so anything else (absent, null) reads as empty.
+func column(row map[string]any, name string) string {
+	if s, ok := row[name].(string); ok {
+		return s
+	}
+	return ""
 }
 
 var _ core.SourcePlugin = (*Plugin)(nil)

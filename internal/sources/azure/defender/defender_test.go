@@ -24,7 +24,12 @@ import (
 
 const (
 	vulnStatusActive = "ACTIVE"
+	vulnStatusFixed  = "RESOLVED"
+	sevHigh          = "HIGH"
 	testCVEID        = "CVE-2024-1234"
+	testSub          = "sub-1"
+	vmType           = "Microsoft.Compute/virtualMachines"
+	catSoftware      = "SoftwareUpdate"
 )
 
 var fixedNow = time.Date(2026, 6, 17, 12, 0, 0, 0, time.UTC)
@@ -40,11 +45,11 @@ func mustUnmarshal(t *testing.T, raw json.RawMessage, dst any) {
 
 type fakeAPI struct {
 	pricings     []*armsecurity.Pricing
-	subs         []*armsecurity.SubAssessment
+	findings     []Assessment
 	pricingsErr  error
-	subsErr      error
+	findingsErr  error
 	pricingCalls int
-	subCalls     int
+	findingCalls int
 }
 
 func (f *fakeAPI) ListPricings(context.Context) ([]*armsecurity.Pricing, error) {
@@ -55,12 +60,12 @@ func (f *fakeAPI) ListPricings(context.Context) ([]*armsecurity.Pricing, error) 
 	return f.pricings, nil
 }
 
-func (f *fakeAPI) ListSubAssessments(context.Context) ([]*armsecurity.SubAssessment, error) {
-	f.subCalls++
-	if f.subsErr != nil {
-		return nil, f.subsErr
+func (f *fakeAPI) ListVulnerabilityAssessments(context.Context) ([]Assessment, error) {
+	f.findingCalls++
+	if f.findingsErr != nil {
+		return nil, f.findingsErr
 	}
-	return f.subs, nil
+	return f.findings, nil
 }
 
 func allReq() core.SlotRequest {
@@ -68,7 +73,7 @@ func allReq() core.SlotRequest {
 }
 
 func newPlugin(f *fakeAPI) *Plugin {
-	return New(Options{API: f, SubscriptionID: "sub-1", Now: func() time.Time { return fixedNow }})
+	return New(Options{API: f, SubscriptionID: testSub, Now: func() time.Time { return fixedNow }})
 }
 
 // --- builders ---
@@ -85,31 +90,16 @@ func pricing(name, tier, subPlanV string) *armsecurity.Pricing {
 	return &armsecurity.Pricing{ID: pricingID(name), Name: to.Ptr(name), Properties: props}
 }
 
-func subAssessment(id string, sev armsecurity.Severity, code armsecurity.SubAssessmentStatusCode, resID, display, vulnID, remediation, cat string) *armsecurity.SubAssessment {
-	props := &armsecurity.SubAssessmentProperties{
-		Status: &armsecurity.SubAssessmentStatus{
-			Severity: to.Ptr(sev),
-			Code:     to.Ptr(code),
-		},
-	}
-	if resID != "" {
-		props.ResourceDetails = &armsecurity.AzureResourceDetails{ID: to.Ptr(resID)}
-	}
-	if display != "" {
-		props.DisplayName = to.Ptr(display)
-	}
-	if vulnID != "" {
-		props.ID = to.Ptr(vulnID)
-	}
-	if remediation != "" {
-		props.Remediation = to.Ptr(remediation)
-	}
-	if cat != "" {
-		props.Category = to.Ptr(cat)
-	}
-	return &armsecurity.SubAssessment{
-		ID:         to.Ptr("/subscriptions/sub-1/providers/Microsoft.Security/subAssessments/" + id),
-		Properties: props,
+func assessment(id, sev, code, resID, display, category, cves, fixed string) Assessment {
+	return Assessment{
+		ID:           "/subscriptions/sub-1/providers/Microsoft.Security/assessments/" + id,
+		ResourceID:   resID,
+		DisplayName:  display,
+		Severity:     sev,
+		StatusCode:   code,
+		Category:     category,
+		CvesDetails:  cves,
+		FixedVersion: fixed,
 	}
 }
 
@@ -154,7 +144,7 @@ func TestCollect_ThreatService_MapsSortsFullPayload(t *testing.T) {
 		if r.Type != EvidenceTypeThreatService || r.SourceID != SourceID || !r.CollectedAt.Equal(fixedNow) {
 			t.Errorf("record envelope wrong: %+v", r)
 		}
-		if r.Scope == nil || r.Scope.Account != "sub-1" {
+		if r.Scope == nil || r.Scope.Account != testSub {
 			t.Errorf("scope = %+v, want Account sub-1", r.Scope)
 		}
 	}
@@ -219,12 +209,12 @@ func TestCollect_SecurityService_DisabledWhenNoStandardPlan(t *testing.T) {
 }
 
 func TestCollect_VulnFindings_MapsSortsFullPayload(t *testing.T) {
-	f := &fakeAPI{subs: []*armsecurity.SubAssessment{
-		subAssessment("a", armsecurity.SeverityCritical, armsecurity.SubAssessmentStatusCodeUnhealthy,
+	f := &fakeAPI{findings: []Assessment{
+		assessment("a", "Critical", "Unhealthy",
 			"/subscriptions/sub-1/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1",
-			"VM has a critical vuln", testCVEID, "Apply patch KB123", "Vulnerabilities"),
-		subAssessment("b", armsecurity.SeverityLow, armsecurity.SubAssessmentStatusCodeHealthy,
-			"", "", "", "", ""),
+			"openssl should be updated", catSoftware,
+			`[{"CveId":"`+testCVEID+`"},{"CveId":"CVE-2024-5678"}]`, "3.0.15"),
+		assessment("b", "Low", "Healthy", "", "", "", "", ""),
 	}}
 	recs, err := newPlugin(f).Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeVulnFinding}})
 	if err != nil {
@@ -240,12 +230,13 @@ func TestCollect_VulnFindings_MapsSortsFullPayload(t *testing.T) {
 	var a vulnFindingPayload
 	mustUnmarshal(t, recs[0].Payload, &a)
 	wantA := vulnFindingPayload{
-		ID:           "/subscriptions/sub-1/providers/Microsoft.Security/subAssessments/a",
+		ID:           "/subscriptions/sub-1/providers/Microsoft.Security/assessments/a",
 		ResourceID:   "/subscriptions/sub-1/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1",
-		ResourceType: "Microsoft.Compute/virtualMachines",
-		Title:        "VM has a critical vuln",
+		ResourceType: vmType,
+		Title:        "openssl should be updated",
 		Severity:     "CRITICAL", Status: vulnStatusActive, CVEID: testCVEID,
-		RemediationAvailable: true, Provider: providerAzure, Category: "Vulnerabilities",
+		CVEIDs:               []string{testCVEID, "CVE-2024-5678"},
+		RemediationAvailable: true, Provider: providerAzure, Category: catSoftware,
 	}
 	if !reflect.DeepEqual(a, wantA) {
 		t.Errorf("finding a = %+v, want %+v", a, wantA)
@@ -253,20 +244,37 @@ func TestCollect_VulnFindings_MapsSortsFullPayload(t *testing.T) {
 	var b vulnFindingPayload
 	mustUnmarshal(t, recs[1].Payload, &b)
 	wantB := vulnFindingPayload{
-		ID:           "/subscriptions/sub-1/providers/Microsoft.Security/subAssessments/b",
+		ID:           "/subscriptions/sub-1/providers/Microsoft.Security/assessments/b",
 		ResourceID:   "",
 		ResourceType: resourceTypeFallback,
-		Severity:     "LOW", Status: "RESOLVED", RemediationAvailable: false, Provider: providerAzure,
+		Severity:     "LOW", Status: vulnStatusFixed, RemediationAvailable: false, Provider: providerAzure,
 	}
 	if !reflect.DeepEqual(b, wantB) {
 		t.Errorf("finding b = %+v, want %+v", b, wantB)
 	}
 }
 
+func TestCollect_VulnFindings_ResourceTypeFromColumnWhenIDHasNone(t *testing.T) {
+	// A non-ARM resource (an EC2 instance through a connector) carries no
+	// providers segment, but the row still names its type.
+	a := assessment("a", "High", "Unhealthy", "arn:aws:ec2:us-east-1:111122223333:instance/i-1", "", catSoftware, "", "")
+	a.ResourceType = "ec2instance"
+	recs, err := newPlugin(&fakeAPI{findings: []Assessment{a}}).Collect(context.Background(),
+		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeVulnFinding}})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	var got vulnFindingPayload
+	mustUnmarshal(t, recs[0].Payload, &got)
+	if got.ResourceType != "ec2instance" {
+		t.Errorf("resource_type = %q, want the row's ec2instance", got.ResourceType)
+	}
+}
+
 func TestCollect_AllThreeTypes_SharedPricingsCalledOnce(t *testing.T) {
 	f := &fakeAPI{
 		pricings: []*armsecurity.Pricing{pricing("VirtualMachines", "Standard", "")},
-		subs:     []*armsecurity.SubAssessment{subAssessment("a", armsecurity.SeverityHigh, armsecurity.SubAssessmentStatusCodeUnhealthy, "", "", "", "", "")},
+		findings: []Assessment{assessment("a", "High", "Unhealthy", "", "", "", "", "")},
 	}
 	recs, err := newPlugin(f).Collect(context.Background(), allReq())
 	if err != nil {
@@ -282,8 +290,8 @@ func TestCollect_AllThreeTypes_SharedPricingsCalledOnce(t *testing.T) {
 	if f.pricingCalls != 1 {
 		t.Errorf("pricings called %d times, want 1 (shared by threat+security)", f.pricingCalls)
 	}
-	if f.subCalls != 1 {
-		t.Errorf("sub-assessments called %d times, want 1", f.subCalls)
+	if f.findingCalls != 1 {
+		t.Errorf("assessments called %d times, want 1", f.findingCalls)
 	}
 }
 
@@ -296,32 +304,32 @@ func TestCollect_OnlyVuln_SkipsPricings(t *testing.T) {
 	if f.pricingCalls != 0 {
 		t.Errorf("pricings called %d times, want 0", f.pricingCalls)
 	}
-	if f.subCalls != 1 {
-		t.Errorf("sub-assessments called %d times, want 1", f.subCalls)
+	if f.findingCalls != 1 {
+		t.Errorf("assessments called %d times, want 1", f.findingCalls)
 	}
 }
 
-func TestCollect_OnlyThreat_SkipsSubAssessments(t *testing.T) {
+func TestCollect_OnlyThreat_SkipsAssessments(t *testing.T) {
 	f := &fakeAPI{pricings: []*armsecurity.Pricing{pricing("VirtualMachines", "Standard", "")}}
 	_, err := newPlugin(f).Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeThreatService}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
-	if f.subCalls != 0 {
-		t.Errorf("sub-assessments called %d times, want 0", f.subCalls)
+	if f.findingCalls != 0 {
+		t.Errorf("assessments called %d times, want 0", f.findingCalls)
 	}
 }
 
 func TestCollect_NilEntriesSkipped(t *testing.T) {
 	f := &fakeAPI{
 		pricings: []*armsecurity.Pricing{nil, pricing("VirtualMachines", "Standard", "")},
-		subs:     []*armsecurity.SubAssessment{nil, subAssessment("a", armsecurity.SeverityHigh, armsecurity.SubAssessmentStatusCodeUnhealthy, "", "", "", "", "")},
+		findings: []Assessment{assessment("a", "High", "Unhealthy", "", "", "", "", "")},
 	}
 	recs, err := newPlugin(f).Collect(context.Background(), allReq())
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
-	// 1 threat (nil skipped) + 1 security + 1 finding (nil skipped).
+	// 1 threat (nil skipped) + 1 security + 1 finding.
 	if len(recs) != 3 {
 		t.Fatalf("got %d records, want 3", len(recs))
 	}
@@ -336,7 +344,7 @@ func TestCollect_ErrorPropagation(t *testing.T) {
 		want string
 	}{
 		{"pricings", &fakeAPI{pricingsErr: sentinel}, core.SlotRequest{AcceptedTypes: []string{EvidenceTypeThreatService}}, "list pricings"},
-		{"subassessments", &fakeAPI{subsErr: sentinel}, core.SlotRequest{AcceptedTypes: []string{EvidenceTypeVulnFinding}}, "list sub-assessments"},
+		{"assessments", &fakeAPI{findingsErr: sentinel}, core.SlotRequest{AcceptedTypes: []string{EvidenceTypeVulnFinding}}, "list vulnerability assessments"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -349,32 +357,25 @@ func TestCollect_ErrorPropagation(t *testing.T) {
 }
 
 func TestMapSeverity_Table(t *testing.T) {
-	crit, high, med, low, info := armsecurity.SeverityCritical, armsecurity.SeverityHigh, armsecurity.SeverityMedium, armsecurity.SeverityLow, armsecurity.Severity("Informational")
-	cases := []struct {
-		in   *armsecurity.Severity
-		want string
-	}{
-		{&crit, "CRITICAL"}, {&high, "HIGH"}, {&med, "MEDIUM"}, {&low, "LOW"},
-		{&info, "INFORMATIONAL"}, {nil, "INFORMATIONAL"},
+	cases := []struct{ in, want string }{
+		{"Critical", "CRITICAL"}, {"High", sevHigh}, {"Medium", "MEDIUM"}, {"Low", "LOW"},
+		{"high", sevHigh}, {"Informational", "INFORMATIONAL"}, {"", "INFORMATIONAL"},
 	}
 	for _, c := range cases {
 		if got := mapSeverity(c.in); got != c.want {
-			t.Errorf("mapSeverity(%v) = %q, want %q", c.in, got, c.want)
+			t.Errorf("mapSeverity(%q) = %q, want %q", c.in, got, c.want)
 		}
 	}
 }
 
 func TestMapStatus_Table(t *testing.T) {
-	healthy, unhealthy, na := armsecurity.SubAssessmentStatusCodeHealthy, armsecurity.SubAssessmentStatusCodeUnhealthy, armsecurity.SubAssessmentStatusCodeNotApplicable
-	cases := []struct {
-		in   *armsecurity.SubAssessmentStatusCode
-		want string
-	}{
-		{&unhealthy, vulnStatusActive}, {&healthy, "RESOLVED"}, {&na, "SUPPRESSED"}, {nil, vulnStatusActive},
+	cases := []struct{ in, want string }{
+		{"Unhealthy", vulnStatusActive}, {"Healthy", vulnStatusFixed}, {"healthy", vulnStatusFixed},
+		{"NotApplicable", "SUPPRESSED"}, {"", vulnStatusActive}, {"Unknown", vulnStatusActive},
 	}
 	for _, c := range cases {
 		if got := mapStatus(c.in); got != c.want {
-			t.Errorf("mapStatus(%v) = %q, want %q", c.in, got, c.want)
+			t.Errorf("mapStatus(%q) = %q, want %q", c.in, got, c.want)
 		}
 	}
 }
@@ -384,7 +385,7 @@ func TestResourceTypeFromID_Table(t *testing.T) {
 		id   string
 		want string
 	}{
-		{"/subscriptions/s/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1", "Microsoft.Compute/virtualMachines"},
+		{"/subscriptions/s/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1", vmType},
 		{"/subscriptions/s/providers/Microsoft.Storage/storageAccounts/sa", "Microsoft.Storage/storageAccounts"},
 		{"/subscriptions/s/resourceGroups/rg", ""},
 		{"", ""},
@@ -396,21 +397,25 @@ func TestResourceTypeFromID_Table(t *testing.T) {
 	}
 }
 
-func TestCVEID_Table(t *testing.T) {
+func TestCVEIDs_Table(t *testing.T) {
 	cases := []struct {
-		vulnID string
-		want   string
+		name string
+		in   string
+		want []string
 	}{
-		{testCVEID, testCVEID},
-		{"cve-2024-9999", "cve-2024-9999"},
-		{"12345", ""},
-		{"", ""},
+		{"two", `[{"CveId":"CVE-2024-1"},{"CveId":"cve-2024-2"}]`, []string{"CVE-2024-1", "cve-2024-2"}},
+		{"non-CVE ids dropped", `[{"CveId":"GHSA-xxxx"},{"CveId":"CVE-2024-3"}]`, []string{"CVE-2024-3"}},
+		{"duplicates once", `[{"CveId":"CVE-2024-4"},{"CveId":"CVE-2024-4"}]`, []string{"CVE-2024-4"}},
+		{"empty", "", nil},
+		{"not JSON", "CVE-2024-5", nil},
+		{"empty array", "[]", nil},
 	}
 	for _, c := range cases {
-		sa := subAssessment("x", armsecurity.SeverityLow, armsecurity.SubAssessmentStatusCodeUnhealthy, "", "", c.vulnID, "", "")
-		if got := cveID(sa); got != c.want {
-			t.Errorf("cveID(vulnID=%q) = %q, want %q", c.vulnID, got, c.want)
-		}
+		t.Run(c.name, func(t *testing.T) {
+			if got := cveIDs(c.in); !reflect.DeepEqual(got, c.want) {
+				t.Errorf("cveIDs(%q) = %v, want %v", c.in, got, c.want)
+			}
+		})
 	}
 }
 
@@ -453,7 +458,7 @@ func realDefenderPointedAt(t *testing.T, srv *httptest.Server) *realDefender {
 		}},
 		Transport: srv.Client(),
 	}}
-	rd, err := newRealDefender("sub-1", fakeCred{}, opts)
+	rd, err := newRealDefender(testSub, fakeCred{}, opts)
 	if err != nil {
 		t.Fatalf("newRealDefender: %v", err)
 	}
@@ -464,18 +469,28 @@ func TestRealDefender_HappyPath(t *testing.T) {
 	pricingBody := mustMarshal(t, armsecurity.PricingList{Value: []*armsecurity.Pricing{
 		pricing("VirtualMachines", "Standard", ""),
 	}})
-	subBody := mustMarshal(t, armsecurity.SubAssessmentList{Value: []*armsecurity.SubAssessment{
-		subAssessment("a", armsecurity.SeverityHigh, armsecurity.SubAssessmentStatusCodeUnhealthy, "", "finding", "", "", ""),
-	}})
+	// One Resource Graph row, in the columns the plugin's query projects.
+	graphBody := []byte(`{"totalRecords":1,"count":1,"resultTruncated":"false","data":[{` +
+		`"id":"/subscriptions/sub-1/providers/Microsoft.Security/assessments/a",` +
+		`"resourceId":"/subscriptions/sub-1/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1",` +
+		`"resourceType":"microsoft.compute/virtualmachines","displayName":"finding","severity":"High",` +
+		`"status":"Unhealthy","category":"SoftwareUpdate","cves":"[{\"CveId\":\"CVE-2024-1\"}]","fixedVersion":"1.2.3"}]}`)
+	var graphReq struct {
+		Subscriptions []string `json:"subscriptions"`
+		Query         string   `json:"query"`
+	}
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
-		case strings.Contains(r.URL.Path, "/subAssessments"):
-			_, _ = w.Write(subBody) //nolint:errcheck // test handler
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/providers/Microsoft.ResourceGraph/resources"):
+			if err := json.NewDecoder(r.Body).Decode(&graphReq); err != nil {
+				t.Errorf("decode graph request: %v", err)
+			}
+			_, _ = w.Write(graphBody) //nolint:errcheck // test handler
 		case strings.Contains(r.URL.Path, "/pricings"):
 			_, _ = w.Write(pricingBody) //nolint:errcheck // test handler
 		default:
-			t.Errorf("unexpected path: %s", r.URL.Path)
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
@@ -488,10 +503,32 @@ func TestRealDefender_HappyPath(t *testing.T) {
 			t.Fatalf("ListPricings = %+v, err %v", ps, err)
 		}
 	})
-	t.Run("subassessments", func(t *testing.T) {
-		subs, err := rd.ListSubAssessments(context.Background())
-		if err != nil || len(subs) != 1 || displayName(subs[0]) != "finding" {
-			t.Fatalf("ListSubAssessments = %+v, err %v", subs, err)
+	t.Run("assessments", func(t *testing.T) {
+		got, err := rd.ListVulnerabilityAssessments(context.Background())
+		if err != nil {
+			t.Fatalf("ListVulnerabilityAssessments: %v", err)
+		}
+		want := []Assessment{{
+			ID:           "/subscriptions/sub-1/providers/Microsoft.Security/assessments/a",
+			ResourceID:   "/subscriptions/sub-1/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1",
+			ResourceType: "microsoft.compute/virtualmachines",
+			DisplayName:  "finding", Severity: "High", StatusCode: "Unhealthy", Category: catSoftware,
+			CvesDetails: `[{"CveId":"CVE-2024-1"}]`, FixedVersion: "1.2.3",
+		}}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("ListVulnerabilityAssessments = %+v, want %+v", got, want)
+		}
+		if !reflect.DeepEqual(graphReq.Subscriptions, []string{testSub}) {
+			t.Errorf("graph subscriptions = %v, want [sub-1]", graphReq.Subscriptions)
+		}
+		// The deprecated sub-assessments resource must never be queried again.
+		if !strings.Contains(graphReq.Query, "'microsoft.security/assessments'") || strings.Contains(graphReq.Query, "subassessments") {
+			t.Errorf("graph query does not read individual recommendations:\n%s", graphReq.Query)
+		}
+		for _, c := range vulnerabilityCategories {
+			if !strings.Contains(graphReq.Query, "'"+c+"'") {
+				t.Errorf("graph query does not filter on category %q", c)
+			}
 		}
 	})
 }
@@ -507,7 +544,7 @@ func TestRealDefender_ListError(t *testing.T) {
 	if _, err := rd.ListPricings(context.Background()); err == nil {
 		t.Fatal("expected error on 403, got nil")
 	}
-	if _, err := rd.ListSubAssessments(context.Background()); err == nil {
+	if _, err := rd.ListVulnerabilityAssessments(context.Background()); err == nil {
 		t.Fatal("expected error on 403, got nil")
 	}
 }

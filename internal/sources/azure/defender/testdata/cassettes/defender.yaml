@@ -45,29 +45,29 @@ interactions:
         host: 127.0.0.1:56290
         form:
             api-version:
-                - 2019-01-01-preview
+                - "2024-04-01"
         headers:
             Accept:
                 - application/json
             Authorization:
                 - REDACTED
-            User-Agent:
-                - azsdk-go-armsecurity/v0.15.0 (go1.25.8; darwin)
-        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Security/subAssessments?api-version=2019-01-01-preview
-        method: GET
+            Content-Type:
+                - application/json
+        url: https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2024-04-01
+        method: POST
       response:
         proto: HTTP/1.1
         proto_major: 1
         proto_minor: 1
-        content_length: 518
-        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Security/subAssessments/a1","name":"a1","type":"Microsoft.Security/subAssessments","properties":{"displayName":"Outdated package CVE","id":"CVE-2025-1234","category":"Compute","severity":"High","status":{"code":"Unhealthy","severity":"High"},"resourceDetails":{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Compute/virtualMachines/e2evm"},"remediation":"Patch the system"}}]}'
+        content_length: 604
+        body: '{"totalRecords":1,"count":1,"resultTruncated":"false","data":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Compute/virtualMachines/e2evm/providers/Microsoft.Security/assessments/a1","resourceId":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Compute/virtualMachines/e2evm","resourceType":"microsoft.compute/virtualmachines","displayName":"openssl should be updated","severity":"High","status":"Unhealthy","category":"SoftwareUpdate","cves":"[{\"CveId\":\"CVE-2025-1234\"}]","fixedVersion":"3.0.15"}]}'
         headers:
             Content-Length:
-                - "518"
+                - "604"
             Content-Type:
                 - application/json
             Date:
-                - Sun, 28 Jun 2026 14:08:56 GMT
+                - Sun, 01 Nov 2026 10:00:00 GMT
         status: 200 OK
         code: 200
         duration: 238.208µs

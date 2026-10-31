@@ -12,7 +12,9 @@ import (
 
 // defender_conformance_test.go: azure Defender for Cloud L1+L2 (WU-2.12).
 // Hand-authored: two pricing plans (VMs Standard/P2, Storage Free) + one High
-// sub-assessment finding. Three evidence types, run per type.
+// SoftwareUpdate recommendation from Resource Graph, in the row shape of
+// Microsoft's individual-recommendations migration guide (the e2e subscription
+// has no vulnerable resource to record). Three evidence types, run per type.
 func TestAzureDefenderConformance(t *testing.T) {
 	fixedNow := time.Date(2026, 6, 28, 0, 0, 0, 0, time.UTC)
 	newPlugin := func() core.SourcePlugin {
@@ -43,7 +45,8 @@ func TestAzureDefenderConformance(t *testing.T) {
 	if err := json.Unmarshal(vuln[0].Payload, &v); err != nil {
 		t.Fatal(err)
 	}
-	if v.Severity != "HIGH" || !v.RemediationAvailable {
-		t.Errorf("finding = %+v; want HIGH with remediation", v)
+	if v.Severity != sevHigh || !v.RemediationAvailable || v.CVEID != "CVE-2025-1234" ||
+		v.ResourceType != vmType || v.Category != catSoftware {
+		t.Errorf("finding = %+v; want a HIGH SoftwareUpdate VM finding for CVE-2025-1234 with remediation", v)
 	}
 }
