@@ -9,6 +9,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/sigcomply/sigcomply-cli/internal/log"
 )
 
 // backendLocal is the "local" backend identifier, shared by the
@@ -52,7 +54,9 @@ func exitCodeFor(err error, stderr io.Writer) int {
 			return code
 		}
 	}
-	_, _ = fmt.Fprintln(stderr, "Error:", err) //nolint:errcheck // nothing useful to do on stderr write failure
+	// The error can carry text from a source, the vault or SigComply Cloud,
+	// and this line lands in the CI log: redact, then neutralize it.
+	_, _ = fmt.Fprintln(stderr, "Error:", log.Sanitize(log.Redact(err.Error()))) //nolint:errcheck // nothing useful to do on stderr write failure
 	return code
 }
 

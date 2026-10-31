@@ -106,3 +106,20 @@ func TestExitCodeFor_WrappedExitErrorKeepsCode(t *testing.T) {
 		t.Errorf("exitCodeFor(nil) = %d; want 0", got)
 	}
 }
+
+// The final error line reaches the CI log: text an error carries from a
+// source, the vault or SigComply Cloud must not inject lines, workflow
+// commands or terminal escapes there.
+func TestExitCodeFor_SanitizesTheErrorLine(t *testing.T) {
+	var stderr bytes.Buffer
+	exitCodeFor(errors.New("vault: read x\n::add-mask::y\x1b[31m"), &stderr)
+	out := strings.TrimSuffix(stderr.String(), "\n")
+	for _, bad := range []string{"\n", "::add-mask::", "\x1b"} {
+		if strings.Contains(out, bad) {
+			t.Errorf("error line carries %q: %q", bad, out)
+		}
+	}
+	if !strings.Contains(out, "vault: read x") {
+		t.Errorf("error line lost its message: %q", out)
+	}
+}
