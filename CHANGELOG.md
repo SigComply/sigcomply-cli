@@ -11,6 +11,13 @@ this file lists the changes a user notices.
 
 ## [Unreleased]
 
+## [0.89.0 to 1.0.0] - 2026-10-28 to 2026-10-31
+
+v1.0.0 is the first major release. It carries the security hardening listed below: CI templates
+give AWS its own OIDC audience, credentialed endpoints must be https, pull and merge request
+pipelines never submit, and manual evidence, project Rego rules, the vault and logs are bounded
+and sanitized. Read "Changed" and "Removed" before upgrading.
+
 ### Added
 
 - Releases publish `sigcomply_<version>_provenance.sigstore.json`, the build provenance bundle,
