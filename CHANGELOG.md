@@ -155,12 +155,11 @@ this file lists the changes a user notices.
   use `input.now`. A builtin error now makes the policy `error`.
 - A policy state shard dated in the future is ignored and the policy is evaluated, so a forged
   shard can't carry a pass forward or block later writes.
-- Project-local policy IDs may use only letters, digits, `.`, `_` and `-`, and every vault key
-  segment is validated, so no ID can write outside its run folder.
+- Project-local policy IDs may use only letters, digits, `.`, `_` and `-` (no `[name]` suffix),
+  and every vault key segment is validated, so no ID can write outside its run folder.
 - The local manual-evidence folder ignores symlinks, and the local vault refuses to follow one.
 - GitHub, Okta and Microsoft Entra ID (`azure.entra`) pagination links that leave the configured
   API host are refused, so the token never goes to another host.
-- Project-local policy IDs can't carry a `[name]` suffix; only letters, digits, `.`, `_` and `-`.
 - A PNG upload is decoded with a bounded reader before conversion, so a small PNG whose data
   decompresses to gigabytes fails its policy (`conversion_failed`) instead of exhausting memory.
 - `check` output, `report` text and CSV output, and logs neutralize newlines, GitHub workflow
