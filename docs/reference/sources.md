@@ -245,6 +245,14 @@ locally. All `gcp.*` sources share one identity per run.
 run `azure/login` with OIDC before `sigcomply check`; locally, run `az login`. All `azure.*`
 sources share one identity per run, so instances can only vary `subscription_id`.
 
+With `azure/login`, keep `AZURE_CLIENT_ID` and `AZURE_TENANT_ID` out of the `sigcomply check`
+step's environment, including workflow-level `env:`. Pass the IDs to `azure/login` as inputs
+instead. With `AZURE_CLIENT_ID` set and no `AZURE_CLIENT_SECRET`, the chain skips environment
+variables and asks the runner's managed identity endpoint for that client ID. GitHub-hosted
+runners are Azure VMs, so the endpoint answers `400 Identity not found`, the chain stops there
+and never reaches the Azure CLI session, and the run exits `3` with `no usable Azure
+credentials`.
+
 ### Sources
 
 | Source ID | Emits | Role |
