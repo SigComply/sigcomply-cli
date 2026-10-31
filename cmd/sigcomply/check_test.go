@@ -499,3 +499,22 @@ func TestMissingProjectIDError(t *testing.T) {
 		})
 	}
 }
+
+// The legacy ID_TOKEN warning is about SigComply Cloud submission: a GitLab
+// job that mints ID_TOKEN for something else (HashiCorp Vault) and has no
+// cloud configured must not be told it can't submit.
+func TestEmitConfigWarnings_LegacyIDTokenOnlyWithCloud(t *testing.T) {
+	t.Setenv("GITLAB_CI", "true")
+	t.Setenv("ID_TOKEN", "x.y.z")
+	t.Setenv("SIGCOMPLY_ID_TOKEN", "")
+	for _, tc := range []struct {
+		cloud bool
+		want  bool
+	}{{cloud: false, want: false}, {cloud: true, want: true}} {
+		var buf bytes.Buffer
+		emitConfigWarnings(log.New(&buf, false), &spec.ProjectConfig{}, tc.cloud)
+		if got := strings.Contains(buf.String(), "ID_TOKEN"); got != tc.want {
+			t.Errorf("cloud=%v: warning printed = %v; want %v (output %q)", tc.cloud, got, tc.want, buf.String())
+		}
+	}
+}

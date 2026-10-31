@@ -103,7 +103,7 @@ func runCheck(ctx context.Context, stdout io.Writer, flags *checkFlags) error {
 	// reason the credential resolution that follows fails, and reporting
 	// it afterwards would mean the operator never sees it — the eager
 	// credential check stops the run first.
-	emitConfigWarnings(logger, cfg)
+	emitConfigWarnings(logger, cfg, cloudConfigured(cfg, flags))
 
 	// Before any source is built: SigComply Cloud refuses a run without
 	// the project ID, so finding out after a full collection wastes the
@@ -187,7 +187,7 @@ func runCheck(ctx context.Context, stdout io.Writer, flags *checkFlags) error {
 // emitConfigWarnings logs every non-fatal config finding: keys no
 // source, vault backend or experimental feature reads, local storage in
 // a CI job, and an AWS web identity token minted for SigComply Cloud.
-func emitConfigWarnings(logger *log.Logger, cfg *spec.ProjectConfig) {
+func emitConfigWarnings(logger *log.Logger, cfg *spec.ProjectConfig, cloudConfigured bool) {
 	for _, w := range planner.SourceConfigWarnings(cfg) {
 		logger.Warnf("source-config: %s", w)
 	}
@@ -203,9 +203,17 @@ func emitConfigWarnings(logger *log.Logger, cfg *spec.ProjectConfig) {
 	if w := submitter.AWSWebIdentityAudienceWarning(); w != "" {
 		logger.Warnf("oidc: %s", w)
 	}
-	if w := submitter.LegacyIDTokenWarning(); w != "" {
+	// Only a run that would submit needs SIGCOMPLY_ID_TOKEN; an ID_TOKEN
+	// minted for something else (HashiCorp Vault) is not a mistake then.
+	if w := submitter.LegacyIDTokenWarning(); w != "" && cloudConfigured {
 		logger.Warnf("oidc: %s", w)
 	}
+}
+
+// cloudConfigured reports whether the run names a SigComply Cloud URL
+// (cloud.base_url or --cloud-url), before that URL is checked.
+func cloudConfigured(cfg *spec.ProjectConfig, flags *checkFlags) bool {
+	return cfg.Cloud.BaseURL != "" || flags.cloudURL != ""
 }
 
 // resolveCloudBase picks the cloud URL (--cloud-url over cloud.base_url)
