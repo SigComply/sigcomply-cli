@@ -25,6 +25,10 @@ this file lists the changes a user notices.
 - `azure.keyvault` reports `rotation_enabled: true` for a key whose rotation policy rotates it.
   Azure returns the action type as `Rotate` and the CLI matched only `rotate`, so every Key Vault
   key failed `soc2.cc6.7.kms_key_rotation_enabled`.
+- `azure.network` reports `flow_logs_enabled: true` for a VNet with an enabled VNet flow log. A
+  VNet lists its flow logs only as references with no enabled state, so the CLI now also lists
+  each Network Watcher's flow logs and matches them to the VNet they target. Before, every VNet
+  failed `soc2.cc6.6.vpc_flow_logs_enabled`. The Reader role still covers it.
 
 ## [0.89.0 to 1.0.0] - 2026-10-28 to 2026-10-31
 

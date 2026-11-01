@@ -11,8 +11,8 @@ import (
 )
 
 // network_conformance_test.go: azure firewall_rule + network L1+L2 (WU-2.12).
-// Hand-authored: an NSG with an inbound 0.0.0.0/0 SSH allow rule + a VNet with
-// flow logs enabled. Run per evidence type.
+// Recorded live: an NSG with an inbound 0.0.0.0/0 SSH allow rule + a VNet with
+// a Network Watcher VNet flow log. Run per evidence type.
 func TestAzureNetworkConformance(t *testing.T) {
 	fixedNow := time.Date(2026, 6, 28, 0, 0, 0, 0, time.UTC)
 	newPlugin := func() core.SourcePlugin {
@@ -43,9 +43,9 @@ func TestAzureNetworkConformance(t *testing.T) {
 	if err := json.Unmarshal(nets[0].Payload, &net); err != nil {
 		t.Fatal(err)
 	}
-	// Flow logs are not asserted (need a Network Watcher + storage account);
-	// the NSG's unrestricted-ingress rule is detected.
-	if !rule.IsUnrestrictedIPv4 {
-		t.Errorf("rule=%+v net=%+v; want unrestricted ingress detected", rule, net)
+	// The VNet lists its flow log only as an {id} reference; the enabled state
+	// comes from the Network Watcher flow log that targets it.
+	if !rule.IsUnrestrictedIPv4 || !net.FlowLogsEnabled {
+		t.Errorf("rule=%+v net=%+v; want unrestricted ingress detected and flow logs enabled", rule, net)
 	}
 }

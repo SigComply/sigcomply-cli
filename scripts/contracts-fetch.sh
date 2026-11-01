@@ -198,6 +198,7 @@ fetch_swagger "sql-tde@2025-01-01" "$SQL/transparentDataEncryptions.json" "Azure
 NET="network/resource-manager/Microsoft.Network/Network/stable/2025-03-01"
 fetch_swagger "network-nsg@2025-03-01"  "$NET/networkSecurityGroup.json" "Azure NSG (slice)"  "Azure/azure-rest-api-specs $NET/networkSecurityGroup.json" "firewall_rule: network security group" NetworkSecurityGroup
 fetch_swagger "network-vnet@2025-03-01" "$NET/virtualNetwork.json"       "Azure VNet (slice)" "Azure/azure-rest-api-specs $NET/virtualNetwork.json" "network: virtual network" VirtualNetwork
+fetch_swagger "network-watcher@2025-03-01" "$NET/networkWatcher.json"  "Azure Network Watcher (slice)" "Azure/azure-rest-api-specs $NET/networkWatcher.json" "network: VNet flow logs" NetworkWatcher FlowLog
 fetch_swagger "network-nic@2025-03-01"  "$NET/networkInterface.json"     "Azure NIC (slice)"  "Azure/azure-rest-api-specs $NET/networkInterface.json" "compute_instance: network interface" NetworkInterface
 fetch_swagger "compute@2026-03-01" "compute/resource-manager/Microsoft.Compute/Compute/stable/2026-03-01/ComputeRP.json" "Azure Compute (slice)" "Azure/azure-rest-api-specs Microsoft.Compute/Compute/stable/2026-03-01/ComputeRP.json" "compute_instance: virtual machine" VirtualMachine
 fetch_swagger "keyvault@2026-02-01" "keyvault/resource-manager/Microsoft.KeyVault/KeyVault/stable/2026-02-01/openapi.json" "Azure Key Vault (slice)" "Azure/azure-rest-api-specs Microsoft.KeyVault/KeyVault/stable/2026-02-01/openapi.json" "kms_key + secret: vault, keys, secrets" Vault Key Secret

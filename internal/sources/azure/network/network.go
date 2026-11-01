@@ -26,10 +26,13 @@
 //     VNet concept (unlike an AWS default VPC), so the no-default-network policy
 //     is vacuously satisfied for Azure.
 //   - flow_logs_enabled reflects **VNet flow logs** (the modern signal that
-//     supersedes NSG flow logs): true when an inline FlowLog on the VNet is
-//     enabled. NSG-flow-log-only setups (the legacy model) are a documented v1
-//     gap and read false (a conservative mapping — absence is treated as "not
-//     enabled" rather than guessed true).
+//     supersedes NSG flow logs): true when an enabled Network Watcher flow log
+//     targets the VNet. The VNet itself lists its flow logs only as {id}
+//     references with no enabled state, so the plugin also lists every Network
+//     Watcher's flow logs and matches them by target id (case-insensitive, as
+//     ARM ids are). NSG-flow-log-only setups (the legacy model) are a
+//     documented v1 gap and read false (a conservative mapping — absence is
+//     treated as "not enabled" rather than guessed true).
 //
 // A list failure (e.g. a missing-permission 403) is surfaced as an error
 // (tagging only the azure.network-bound policies `error`) rather than returning
@@ -83,6 +86,9 @@ type API interface {
 	ListSecurityGroups(ctx context.Context) ([]*armnetwork.SecurityGroup, error)
 	// ListVirtualNetworks returns every VNet in the subscription.
 	ListVirtualNetworks(ctx context.Context) ([]*armnetwork.VirtualNetwork, error)
+	// ListFlowLogs returns the flow logs of every Network Watcher in the
+	// subscription (one watcher per region).
+	ListFlowLogs(ctx context.Context) ([]*armnetwork.FlowLog, error)
 }
 
 // Plugin is the in-process azure.network source.
@@ -280,6 +286,11 @@ func (p *Plugin) collectNetworks(ctx context.Context, now time.Time, scope *core
 	if err != nil {
 		return nil, fmt.Errorf("azure.network: list virtual networks: %w", err)
 	}
+	flowLogs, err := p.api.ListFlowLogs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("azure.network: list flow logs: %w", err)
+	}
+	enabledTargets := enabledFlowLogTargets(flowLogs)
 	records := make([]core.EvidenceRecord, 0, len(vnets))
 	for _, vnet := range vnets {
 		if vnet == nil {
@@ -290,7 +301,7 @@ func (p *Plugin) collectNetworks(ctx context.Context, now time.Time, scope *core
 			Name:            deref(vnet.Name),
 			Provider:        "azure",
 			Region:          deref(vnet.Location),
-			FlowLogsEnabled: vnetFlowLogsEnabled(vnet),
+			FlowLogsEnabled: vnetFlowLogsEnabled(vnet, enabledTargets),
 			IsDefault:       false, // Azure has no default-VNet concept.
 			CIDRBlock:       firstAddressPrefix(vnet),
 			SubnetCount:     subnetCount(vnet),
@@ -453,9 +464,32 @@ func parsePortRange(s string) (from, to int) {
 	return port, port
 }
 
-// vnetFlowLogsEnabled reports whether an inline VNet flow log is enabled.
-func vnetFlowLogsEnabled(vnet *armnetwork.VirtualNetwork) bool {
-	if vnet == nil || vnet.Properties == nil {
+// enabledFlowLogTargets returns the lowercased target resource ids of the
+// enabled flow logs.
+func enabledFlowLogTargets(flowLogs []*armnetwork.FlowLog) map[string]bool {
+	targets := map[string]bool{}
+	for _, fl := range flowLogs {
+		if fl == nil || fl.Properties == nil || fl.Properties.Enabled == nil || !*fl.Properties.Enabled {
+			continue
+		}
+		if id := deref(fl.Properties.TargetResourceID); id != "" {
+			targets[strings.ToLower(id)] = true
+		}
+	}
+	return targets
+}
+
+// vnetFlowLogsEnabled reports whether a VNet flow log is enabled: an enabled
+// Network Watcher flow log targets the VNet (enabledTargets, lowercased ids),
+// or an inline flow log on the VNet carries enabled=true.
+func vnetFlowLogsEnabled(vnet *armnetwork.VirtualNetwork, enabledTargets map[string]bool) bool {
+	if vnet == nil {
+		return false
+	}
+	if id := deref(vnet.ID); id != "" && enabledTargets[strings.ToLower(id)] {
+		return true
+	}
+	if vnet.Properties == nil {
 		return false
 	}
 	for _, fl := range vnet.Properties.FlowLogs {
@@ -502,11 +536,14 @@ func deref(s *string) string {
 // --- real Azure adapter ---
 
 // realNetwork is the production implementation of API. It wraps the armnetwork
-// SecurityGroupsClient (NSGs) and VirtualNetworksClient (VNets), both listed
-// subscription-wide.
+// SecurityGroupsClient (NSGs), VirtualNetworksClient (VNets) and
+// WatchersClient, all listed subscription-wide, plus FlowLogsClient (per
+// watcher).
 type realNetwork struct {
-	nsgs  *armnetwork.SecurityGroupsClient
-	vnets *armnetwork.VirtualNetworksClient
+	nsgs     *armnetwork.SecurityGroupsClient
+	vnets    *armnetwork.VirtualNetworksClient
+	watchers *armnetwork.WatchersClient
+	flowLogs *armnetwork.FlowLogsClient
 }
 
 // newRealNetwork builds the armnetwork clients. opts is nil in production; tests
@@ -520,7 +557,15 @@ func newRealNetwork(subscriptionID string, cred azcore.TokenCredential, opts *ar
 	if err != nil {
 		return nil, fmt.Errorf("azure.network: virtual networks client: %w", err)
 	}
-	return &realNetwork{nsgs: nsgs, vnets: vnets}, nil
+	watchers, err := armnetwork.NewWatchersClient(subscriptionID, cred, opts)
+	if err != nil {
+		return nil, fmt.Errorf("azure.network: network watchers client: %w", err)
+	}
+	flowLogs, err := armnetwork.NewFlowLogsClient(subscriptionID, cred, opts)
+	if err != nil {
+		return nil, fmt.Errorf("azure.network: flow logs client: %w", err)
+	}
+	return &realNetwork{nsgs: nsgs, vnets: vnets, watchers: watchers, flowLogs: flowLogs}, nil
 }
 
 func (r *realNetwork) ListSecurityGroups(ctx context.Context) ([]*armnetwork.SecurityGroup, error) {
@@ -545,6 +590,37 @@ func (r *realNetwork) ListVirtualNetworks(ctx context.Context) ([]*armnetwork.Vi
 			return nil, err
 		}
 		out = append(out, page.Value...)
+	}
+	return out, nil
+}
+
+func (r *realNetwork) ListFlowLogs(ctx context.Context) ([]*armnetwork.FlowLog, error) {
+	var watchers []*armnetwork.Watcher
+	wpager := r.watchers.NewListAllPager(nil)
+	for wpager.More() {
+		page, err := wpager.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		watchers = append(watchers, page.Value...)
+	}
+	var out []*armnetwork.FlowLog
+	for _, w := range watchers {
+		if w == nil {
+			continue
+		}
+		rg, err := resourceGroupFromID(deref(w.ID))
+		if err != nil {
+			return nil, err
+		}
+		pager := r.flowLogs.NewListPager(rg, deref(w.Name), nil)
+		for pager.More() {
+			page, err := pager.NextPage(ctx)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, page.Value...)
+		}
 	}
 	return out, nil
 }

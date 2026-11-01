@@ -56,10 +56,13 @@ func mustUnmarshal(t *testing.T, raw json.RawMessage, dst any) {
 type fakeAPI struct {
 	nsgs      []*armnetwork.SecurityGroup
 	vnets     []*armnetwork.VirtualNetwork
+	flowLogs  []*armnetwork.FlowLog
 	nsgErr    error
 	vnetErr   error
+	flowErr   error
 	nsgCalls  int
 	vnetCalls int
+	flowCalls int
 }
 
 func (f *fakeAPI) ListSecurityGroups(context.Context) ([]*armnetwork.SecurityGroup, error) {
@@ -76,6 +79,14 @@ func (f *fakeAPI) ListVirtualNetworks(context.Context) ([]*armnetwork.VirtualNet
 		return nil, f.vnetErr
 	}
 	return f.vnets, nil
+}
+
+func (f *fakeAPI) ListFlowLogs(context.Context) ([]*armnetwork.FlowLog, error) {
+	f.flowCalls++
+	if f.flowErr != nil {
+		return nil, f.flowErr
+	}
+	return f.flowLogs, nil
 }
 
 func bothReq() core.SlotRequest {
@@ -242,8 +253,8 @@ func TestCollect_OnlyFirewall_SkipsVNetList(t *testing.T) {
 	if len(recs) != 1 || recs[0].Type != EvidenceTypeFirewallRule {
 		t.Fatalf("expected one firewall_rule record, got %+v", recs)
 	}
-	if f.vnetCalls != 0 {
-		t.Errorf("VNet list should not be called when only firewall_rule is requested, got %d", f.vnetCalls)
+	if f.vnetCalls != 0 || f.flowCalls != 0 {
+		t.Errorf("VNet/flow-log lists should not be called when only firewall_rule is requested, got %d/%d", f.vnetCalls, f.flowCalls)
 	}
 	// A restricted source should not be flagged unrestricted.
 	var got rulePayload
@@ -360,6 +371,12 @@ func TestCollect_ErrorPropagation(t *testing.T) {
 			t.Fatalf("got %v", err)
 		}
 	})
+	t.Run("flow-log-list", func(t *testing.T) {
+		_, err := New(Options{API: &fakeAPI{flowErr: errors.New("flow boom")}}).Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeNetwork}})
+		if err == nil || !strings.Contains(err.Error(), "flow boom") {
+			t.Fatalf("got %v", err)
+		}
+	})
 }
 
 func TestCollect_BadNSGResourceGroupID(t *testing.T) {
@@ -458,12 +475,56 @@ func TestMapProtocol_Table(t *testing.T) {
 }
 
 func TestVNetFlowLogsEnabled_NilSafe(t *testing.T) {
-	if vnetFlowLogsEnabled(nil) || vnetFlowLogsEnabled(&armnetwork.VirtualNetwork{}) {
+	if vnetFlowLogsEnabled(nil, nil) || vnetFlowLogsEnabled(&armnetwork.VirtualNetwork{}, nil) {
 		t.Error("nil-safe vnetFlowLogsEnabled should be false")
 	}
 	disabled := &armnetwork.VirtualNetwork{Properties: &armnetwork.VirtualNetworkPropertiesFormat{FlowLogs: []*armnetwork.FlowLog{{Properties: &armnetwork.FlowLogPropertiesFormat{Enabled: to.Ptr(false)}}}}}
-	if vnetFlowLogsEnabled(disabled) {
+	if vnetFlowLogsEnabled(disabled, nil) {
 		t.Error("disabled flow log should be false")
+	}
+}
+
+// TestCollect_NetworkWatcherFlowLogs: a VNet lists its flow logs only as
+// {id} references (no properties), so the enabled state comes from the
+// Network Watcher flow logs that target the VNet.
+func TestCollect_NetworkWatcherFlowLogs(t *testing.T) {
+	ref := func(name string) []*armnetwork.FlowLog {
+		return []*armnetwork.FlowLog{{ID: to.Ptr("/subscriptions/sub-1/resourceGroups/NetworkWatcherRG/providers/Microsoft.Network/networkWatchers/NetworkWatcher_eastus/flowLogs/" + name)}}
+	}
+	flowLog := func(target *string, enabled bool) *armnetwork.FlowLog {
+		return &armnetwork.FlowLog{Properties: &armnetwork.FlowLogPropertiesFormat{TargetResourceID: target, Enabled: to.Ptr(enabled)}}
+	}
+	f := &fakeAPI{
+		vnets: []*armnetwork.VirtualNetwork{
+			{Name: to.Ptr("on"), ID: vnetID("rg", "on"), Properties: &armnetwork.VirtualNetworkPropertiesFormat{FlowLogs: ref("on")}},
+			{Name: to.Ptr("off"), ID: vnetID("rg", "off"), Properties: &armnetwork.VirtualNetworkPropertiesFormat{FlowLogs: ref("off")}},
+			{Name: to.Ptr("none"), ID: vnetID("rg", "none"), Properties: &armnetwork.VirtualNetworkPropertiesFormat{}},
+		},
+		flowLogs: []*armnetwork.FlowLog{
+			// ARM ids are case-insensitive; the target may differ in case.
+			flowLog(to.Ptr(strings.ToLower(*vnetID("rg", "on"))), true),
+			flowLog(vnetID("rg", "off"), false),
+			flowLog(nsgID("rg", "none"), true), // targets an NSG, not the VNet
+			nil,
+			{},
+		},
+	}
+	recs, err := New(Options{API: f}).Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeNetwork}})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	got := map[string]bool{}
+	for _, rec := range recs {
+		var n networkPayload
+		mustUnmarshal(t, rec.Payload, &n)
+		got[n.Name] = n.FlowLogsEnabled
+	}
+	want := map[string]bool{"on": true, "off": false, "none": false}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("flow_logs_enabled = %v, want %v", got, want)
+	}
+	if f.flowCalls != 1 {
+		t.Errorf("flow logs listed %d times, want once per Collect", f.flowCalls)
 	}
 }
 
@@ -531,9 +592,19 @@ func TestRealNetwork_ListNSGsAndVNets_HappyPath(t *testing.T) {
 	vnetBody := mustMarshal(t, armnetwork.VirtualNetworkListResult{Value: []*armnetwork.VirtualNetwork{
 		{Name: to.Ptr("vnet1"), ID: vnetID("rg", "vnet1")},
 	}})
+	watcherBody := mustMarshal(t, armnetwork.WatcherListResult{Value: []*armnetwork.Watcher{
+		{Name: to.Ptr("NetworkWatcher_eastus"), ID: to.Ptr("/subscriptions/sub-1/resourceGroups/NetworkWatcherRG/providers/Microsoft.Network/networkWatchers/NetworkWatcher_eastus")},
+	}})
+	flowLogBody := mustMarshal(t, armnetwork.FlowLogListResult{Value: []*armnetwork.FlowLog{
+		{Name: to.Ptr("fl1"), Properties: &armnetwork.FlowLogPropertiesFormat{TargetResourceID: vnetID("rg", "vnet1"), Enabled: to.Ptr(true)}},
+	}})
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
+		case strings.HasSuffix(r.URL.Path, "/resourceGroups/NetworkWatcherRG/providers/Microsoft.Network/networkWatchers/NetworkWatcher_eastus/flowLogs"):
+			_, _ = w.Write(flowLogBody) //nolint:errcheck // test handler
+		case strings.HasSuffix(r.URL.Path, "/providers/Microsoft.Network/networkWatchers"):
+			_, _ = w.Write(watcherBody) //nolint:errcheck // test handler
 		case strings.Contains(r.URL.Path, "/networkSecurityGroups"):
 			_, _ = w.Write(nsgBody) //nolint:errcheck // test handler
 		case strings.Contains(r.URL.Path, "/virtualNetworks"):
@@ -556,6 +627,12 @@ func TestRealNetwork_ListNSGsAndVNets_HappyPath(t *testing.T) {
 		vnets, err := rn.ListVirtualNetworks(context.Background())
 		if err != nil || len(vnets) != 1 || deref(vnets[0].Name) != "vnet1" {
 			t.Fatalf("ListVirtualNetworks = %+v, err %v", vnets, err)
+		}
+	})
+	t.Run("flow logs", func(t *testing.T) {
+		fls, err := rn.ListFlowLogs(context.Background())
+		if err != nil || len(fls) != 1 || deref(fls[0].Name) != "fl1" {
+			t.Fatalf("ListFlowLogs = %+v, err %v", fls, err)
 		}
 	})
 }

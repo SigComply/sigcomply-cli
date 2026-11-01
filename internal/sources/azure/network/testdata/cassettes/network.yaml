@@ -17,24 +17,24 @@ interactions:
             Authorization:
                 - REDACTED
             User-Agent:
-                - azsdk-go-armnetwork/v9.0.0 (go1.25.8; darwin)
+                - azsdk-go-armnetwork/v12.1.0 (go1.27.3; darwin)
         url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/networkSecurityGroups?api-version=2026-03-01
         method: GET
       response:
         proto: HTTP/2.0
         proto_major: 2
         proto_minor: 0
-        content_length: 5647
-        body: '{"value":[{"name":"sigcomply-e2e-nsg","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.Network/networkSecurityGroups/sigcomply-e2e-nsg","etag":"W/\"03f7e970-8b43-4971-926c-0a4bf6d0e041\"","type":"Microsoft.Network/networkSecurityGroups","location":"eastus","properties":{"provisioningState":"Succeeded","resourceGuid":"2e7ec9a5-09ff-44ad-a3a2-736ad73ee25d","securityRules":[{"name":"allow-ssh","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.Network/networkSecurityGroups/sigcomply-e2e-nsg/securityRules/allow-ssh","etag":"W/\"03f7e970-8b43-4971-926c-0a4bf6d0e041\"","type":"Microsoft.Network/networkSecurityGroups/securityRules","properties":{"provisioningState":"Succeeded","protocol":"Tcp","sourcePortRange":"*","destinationPortRange":"22","sourceAddressPrefix":"0.0.0.0/0","destinationAddressPrefix":"*","access":"Allow","priority":1000,"direction":"Inbound","sourcePortRanges":[],"destinationPortRanges":[],"sourceAddressPrefixes":[],"destinationAddressPrefixes":[]}}],"defaultSecurityRules":[{"name":"AllowVnetInBound","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.Network/networkSecurityGroups/sigcomply-e2e-nsg/defaultSecurityRules/AllowVnetInBound","etag":"W/\"03f7e970-8b43-4971-926c-0a4bf6d0e041\"","type":"Microsoft.Network/networkSecurityGroups/defaultSecurityRules","properties":{"provisioningState":"Succeeded","description":"Allow inbound traffic from all VMs in VNET","protocol":"*","sourcePortRange":"*","destinationPortRange":"*","sourceAddressPrefix":"VirtualNetwork","destinationAddressPrefix":"VirtualNetwork","access":"Allow","priority":65000,"direction":"Inbound","sourcePortRanges":[],"destinationPortRanges":[],"sourceAddressPrefixes":[],"destinationAddressPrefixes":[]}},{"name":"AllowAzureLoadBalancerInBound","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.Network/networkSecurityGroups/sigcomply-e2e-nsg/defaultSecurityRules/AllowAzureLoadBalancerInBound","etag":"W/\"03f7e970-8b43-4971-926c-0a4bf6d0e041\"","type":"Microsoft.Network/networkSecurityGroups/defaultSecurityRules","properties":{"provisioningState":"Succeeded","description":"Allow inbound traffic from azure load balancer","protocol":"*","sourcePortRange":"*","destinationPortRange":"*","sourceAddressPrefix":"AzureLoadBalancer","destinationAddressPrefix":"*","access":"Allow","priority":65001,"direction":"Inbound","sourcePortRanges":[],"destinationPortRanges":[],"sourceAddressPrefixes":[],"destinationAddressPrefixes":[]}},{"name":"DenyAllInBound","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.Network/networkSecurityGroups/sigcomply-e2e-nsg/defaultSecurityRules/DenyAllInBound","etag":"W/\"03f7e970-8b43-4971-926c-0a4bf6d0e041\"","type":"Microsoft.Network/networkSecurityGroups/defaultSecurityRules","properties":{"provisioningState":"Succeeded","description":"Deny all inbound traffic","protocol":"*","sourcePortRange":"*","destinationPortRange":"*","sourceAddressPrefix":"*","destinationAddressPrefix":"*","access":"Deny","priority":65500,"direction":"Inbound","sourcePortRanges":[],"destinationPortRanges":[],"sourceAddressPrefixes":[],"destinationAddressPrefixes":[]}},{"name":"AllowVnetOutBound","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.Network/networkSecurityGroups/sigcomply-e2e-nsg/defaultSecurityRules/AllowVnetOutBound","etag":"W/\"03f7e970-8b43-4971-926c-0a4bf6d0e041\"","type":"Microsoft.Network/networkSecurityGroups/defaultSecurityRules","properties":{"provisioningState":"Succeeded","description":"Allow outbound traffic from all VMs to all VMs in VNET","protocol":"*","sourcePortRange":"*","destinationPortRange":"*","sourceAddressPrefix":"VirtualNetwork","destinationAddressPrefix":"VirtualNetwork","access":"Allow","priority":65000,"direction":"Outbound","sourcePortRanges":[],"destinationPortRanges":[],"sourceAddressPrefixes":[],"destinationAddressPrefixes":[]}},{"name":"AllowInternetOutBound","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.Network/networkSecurityGroups/sigcomply-e2e-nsg/defaultSecurityRules/AllowInternetOutBound","etag":"W/\"03f7e970-8b43-4971-926c-0a4bf6d0e041\"","type":"Microsoft.Network/networkSecurityGroups/defaultSecurityRules","properties":{"provisioningState":"Succeeded","description":"Allow outbound traffic from all VMs to Internet","protocol":"*","sourcePortRange":"*","destinationPortRange":"*","sourceAddressPrefix":"*","destinationAddressPrefix":"Internet","access":"Allow","priority":65001,"direction":"Outbound","sourcePortRanges":[],"destinationPortRanges":[],"sourceAddressPrefixes":[],"destinationAddressPrefixes":[]}},{"name":"DenyAllOutBound","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.Network/networkSecurityGroups/sigcomply-e2e-nsg/defaultSecurityRules/DenyAllOutBound","etag":"W/\"03f7e970-8b43-4971-926c-0a4bf6d0e041\"","type":"Microsoft.Network/networkSecurityGroups/defaultSecurityRules","properties":{"provisioningState":"Succeeded","description":"Deny all outbound traffic","protocol":"*","sourcePortRange":"*","destinationPortRange":"*","sourceAddressPrefix":"*","destinationAddressPrefix":"*","access":"Deny","priority":65500,"direction":"Outbound","sourcePortRanges":[],"destinationPortRanges":[],"sourceAddressPrefixes":[],"destinationAddressPrefixes":[]}}]}}]}'
+        content_length: 5664
+        body: '{"value":[{"name":"sigcomply-test-nsg","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-test-rg/providers/Microsoft.Network/networkSecurityGroups/sigcomply-test-nsg","etag":"W/\"ef9c8125-9d35-463d-b0c4-ecb34c50308a\"","type":"Microsoft.Network/networkSecurityGroups","location":"eastus","properties":{"provisioningState":"Succeeded","resourceGuid":"1e80e537-1cca-476c-859e-612724f7f986","securityRules":[{"name":"allow-ssh","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-test-rg/providers/Microsoft.Network/networkSecurityGroups/sigcomply-test-nsg/securityRules/allow-ssh","etag":"W/\"ef9c8125-9d35-463d-b0c4-ecb34c50308a\"","type":"Microsoft.Network/networkSecurityGroups/securityRules","properties":{"provisioningState":"Succeeded","sourcePortRange":"*","destinationPortRange":"22","sourceAddressPrefix":"0.0.0.0/0","destinationAddressPrefix":"*","priority":1000,"protocol":"Tcp","access":"Allow","direction":"Inbound","sourcePortRanges":[],"destinationPortRanges":[],"sourceAddressPrefixes":[],"destinationAddressPrefixes":[]}}],"defaultSecurityRules":[{"name":"AllowVnetInBound","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-test-rg/providers/Microsoft.Network/networkSecurityGroups/sigcomply-test-nsg/defaultSecurityRules/AllowVnetInBound","etag":"W/\"ef9c8125-9d35-463d-b0c4-ecb34c50308a\"","type":"Microsoft.Network/networkSecurityGroups/defaultSecurityRules","properties":{"provisioningState":"Succeeded","sourcePortRange":"*","destinationPortRange":"*","sourceAddressPrefix":"VirtualNetwork","destinationAddressPrefix":"VirtualNetwork","priority":65000,"description":"Allow inbound traffic from all VMs in VNET","protocol":"*","access":"Allow","direction":"Inbound","sourcePortRanges":[],"destinationPortRanges":[],"sourceAddressPrefixes":[],"destinationAddressPrefixes":[]}},{"name":"AllowAzureLoadBalancerInBound","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-test-rg/providers/Microsoft.Network/networkSecurityGroups/sigcomply-test-nsg/defaultSecurityRules/AllowAzureLoadBalancerInBound","etag":"W/\"ef9c8125-9d35-463d-b0c4-ecb34c50308a\"","type":"Microsoft.Network/networkSecurityGroups/defaultSecurityRules","properties":{"provisioningState":"Succeeded","sourcePortRange":"*","destinationPortRange":"*","sourceAddressPrefix":"AzureLoadBalancer","destinationAddressPrefix":"*","priority":65001,"description":"Allow inbound traffic from azure load balancer","protocol":"*","access":"Allow","direction":"Inbound","sourcePortRanges":[],"destinationPortRanges":[],"sourceAddressPrefixes":[],"destinationAddressPrefixes":[]}},{"name":"DenyAllInBound","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-test-rg/providers/Microsoft.Network/networkSecurityGroups/sigcomply-test-nsg/defaultSecurityRules/DenyAllInBound","etag":"W/\"ef9c8125-9d35-463d-b0c4-ecb34c50308a\"","type":"Microsoft.Network/networkSecurityGroups/defaultSecurityRules","properties":{"provisioningState":"Succeeded","sourcePortRange":"*","destinationPortRange":"*","sourceAddressPrefix":"*","destinationAddressPrefix":"*","priority":65500,"description":"Deny all inbound traffic","protocol":"*","access":"Deny","direction":"Inbound","sourcePortRanges":[],"destinationPortRanges":[],"sourceAddressPrefixes":[],"destinationAddressPrefixes":[]}},{"name":"AllowVnetOutBound","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-test-rg/providers/Microsoft.Network/networkSecurityGroups/sigcomply-test-nsg/defaultSecurityRules/AllowVnetOutBound","etag":"W/\"ef9c8125-9d35-463d-b0c4-ecb34c50308a\"","type":"Microsoft.Network/networkSecurityGroups/defaultSecurityRules","properties":{"provisioningState":"Succeeded","sourcePortRange":"*","destinationPortRange":"*","sourceAddressPrefix":"VirtualNetwork","destinationAddressPrefix":"VirtualNetwork","priority":65000,"description":"Allow outbound traffic from all VMs to all VMs in VNET","protocol":"*","access":"Allow","direction":"Outbound","sourcePortRanges":[],"destinationPortRanges":[],"sourceAddressPrefixes":[],"destinationAddressPrefixes":[]}},{"name":"AllowInternetOutBound","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-test-rg/providers/Microsoft.Network/networkSecurityGroups/sigcomply-test-nsg/defaultSecurityRules/AllowInternetOutBound","etag":"W/\"ef9c8125-9d35-463d-b0c4-ecb34c50308a\"","type":"Microsoft.Network/networkSecurityGroups/defaultSecurityRules","properties":{"provisioningState":"Succeeded","sourcePortRange":"*","destinationPortRange":"*","sourceAddressPrefix":"*","destinationAddressPrefix":"Internet","priority":65001,"description":"Allow outbound traffic from all VMs to Internet","protocol":"*","access":"Allow","direction":"Outbound","sourcePortRanges":[],"destinationPortRanges":[],"sourceAddressPrefixes":[],"destinationAddressPrefixes":[]}},{"name":"DenyAllOutBound","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-test-rg/providers/Microsoft.Network/networkSecurityGroups/sigcomply-test-nsg/defaultSecurityRules/DenyAllOutBound","etag":"W/\"ef9c8125-9d35-463d-b0c4-ecb34c50308a\"","type":"Microsoft.Network/networkSecurityGroups/defaultSecurityRules","properties":{"provisioningState":"Succeeded","sourcePortRange":"*","destinationPortRange":"*","sourceAddressPrefix":"*","destinationAddressPrefix":"*","priority":65500,"description":"Deny all outbound traffic","protocol":"*","access":"Deny","direction":"Outbound","sourcePortRanges":[],"destinationPortRanges":[],"sourceAddressPrefixes":[],"destinationAddressPrefixes":[]}}]}}]}'
         headers:
             Cache-Control:
                 - no-cache
             Content-Length:
-                - "5647"
+                - "5664"
             Content-Type:
                 - application/json; charset=utf-8
             Date:
-                - Sun, 26 Jul 2026 17:38:27 GMT
+                - Sun, 01 Nov 2026 18:39:41 GMT
             Expires:
                 - "-1"
             Pragma:
@@ -46,26 +46,26 @@ interactions:
             X-Content-Type-Options:
                 - nosniff
             X-Ms-Arm-Service-Request-Id:
-                - 7b48fc40-c6d5-4133-94b6-025ab15585cd
+                - da04c11f-57c7-4712-98dc-e280b053b3ef
             X-Ms-Correlation-Request-Id:
-                - 6377132b-1b66-446d-8be3-86198155dce0
+                - 9ee1c3a3-8a4b-4490-8886-34eb0dc23b0b
             X-Ms-Original-Request-Ids:
-                - ca85848e-f1d2-435f-b91d-b026f9034878
+                - 5fdbae1d-fa76-4437-97bc-ed66e09d5199
             X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
                 - "3749"
             X-Ms-Ratelimit-Remaining-Subscription-Reads:
                 - "249"
             X-Ms-Request-Id:
-                - 6377132b-1b66-446d-8be3-86198155dce0
+                - 9ee1c3a3-8a4b-4490-8886-34eb0dc23b0b
             X-Ms-Routing-Request-Id:
-                - SOUTHINDIA:20260726T173828Z:6377132b-1b66-446d-8be3-86198155dce0
+                - JIOINDIACENTRAL:20261101T183942Z:9ee1c3a3-8a4b-4490-8886-34eb0dc23b0b
             X-Ms-Throttle-Levels:
-                - operationConcurrencyPct=0.5, subscriptionReadRatePct=0.2, etc
+                - operationConcurrencyPct=0.5, etc
             X-Msedge-Ref:
-                - 'Ref A: 1D0B916F70EC40C3985F9F1702810916 Ref B: MAA201060513053 Ref C: 2026-07-26T17:38:27Z'
+                - 'Ref A: 22F36368A49F46BB9E01CD55786E4BF2 Ref B: MAA201060516053 Ref C: 2026-11-01T18:39:40Z'
         status: 200 OK
         code: 200
-        duration: 1.17206625s
+        duration: 1.837118334s
     - id: 1
       request:
         proto: HTTP/1.1
@@ -82,24 +82,24 @@ interactions:
             Authorization:
                 - REDACTED
             User-Agent:
-                - azsdk-go-armnetwork/v9.0.0 (go1.25.8; darwin)
+                - azsdk-go-armnetwork/v12.1.0 (go1.27.3; darwin)
         url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/virtualNetworks?api-version=2026-03-01
         method: GET
       response:
         proto: HTTP/2.0
         proto_major: 2
         proto_minor: 0
-        content_length: 1078
-        body: '{"value":[{"name":"sigcomply-e2e-vnet","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.Network/virtualNetworks/sigcomply-e2e-vnet","etag":"W/\"327e09bd-200f-419c-b312-11efdd91b610\"","type":"Microsoft.Network/virtualNetworks","location":"eastus","properties":{"provisioningState":"Succeeded","resourceGuid":"e30e7100-9fc5-418e-94be-2895365a2cbd","addressSpace":{"addressPrefixes":["10.0.0.0/16"]},"privateEndpointVNetPolicies":"Disabled","subnets":[{"name":"default","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.Network/virtualNetworks/sigcomply-e2e-vnet/subnets/default","etag":"W/\"327e09bd-200f-419c-b312-11efdd91b610\"","properties":{"provisioningState":"Succeeded","addressPrefix":"10.0.0.0/24","delegations":[],"privateEndpointNetworkPolicies":"Disabled","privateLinkServiceNetworkPolicies":"Enabled","defaultOutboundAccess":false},"type":"Microsoft.Network/virtualNetworks/subnets"}],"virtualNetworkPeerings":[],"enableDdosProtection":false}}]}'
+        content_length: 1475
+        body: '{"value":[{"name":"sigcomply-test-vnet","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-test-rg/providers/Microsoft.Network/virtualNetworks/sigcomply-test-vnet","etag":"W/\"e4ca1922-7174-4845-ae48-e61b2d7d9522\"","type":"Microsoft.Network/virtualNetworks","location":"eastus","properties":{"provisioningState":"Succeeded","resourceGuid":"258ec6ec-3d15-4f7c-b9fc-ebdaa15ab296","addressSpace":{"addressPrefixes":["10.0.0.0/16"]},"privateEndpointVNetPolicies":"Disabled","subnets":[{"name":"default","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-test-rg/providers/Microsoft.Network/virtualNetworks/sigcomply-test-vnet/subnets/default","etag":"W/\"e4ca1922-7174-4845-ae48-e61b2d7d9522\"","properties":{"provisioningState":"Succeeded","resourceGuid":"ba5fa024-a9c0-477a-b0ac-83cdccc2b6df","addressPrefix":"10.0.0.0/24","delegations":[],"privateEndpointNetworkPolicies":"Disabled","privateLinkServiceNetworkPolicies":"Enabled","defaultOutboundAccess":false},"type":"Microsoft.Network/virtualNetworks/subnets"}],"virtualNetworkPeerings":[],"flowLogs":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/NetworkWatcherRG/providers/Microsoft.Network/networkWatchers/NetworkWatcher_eastus/flowLogs/sigcomply-test-vnet"}],"enableDdosProtection":false,"flowLogConfiguration":{"flowLogGuid":"f6f79c65-6e7b-4d67-b53f-b8956d5e6821","enabledFlowLogCategories":3874,"forceFlowLogConfig":false}}}]}'
         headers:
             Cache-Control:
                 - no-cache
             Content-Length:
-                - "1078"
+                - "1475"
             Content-Type:
                 - application/json; charset=utf-8
             Date:
-                - Sun, 26 Jul 2026 17:38:30 GMT
+                - Sun, 01 Nov 2026 18:39:45 GMT
             Expires:
                 - "-1"
             Pragma:
@@ -111,23 +111,153 @@ interactions:
             X-Content-Type-Options:
                 - nosniff
             X-Ms-Arm-Service-Request-Id:
-                - d8172ca4-329c-4e7d-b967-f6a06c2c5b0f
+                - ba1c9bee-06fe-4b1e-9223-36773dabb3f6
             X-Ms-Correlation-Request-Id:
-                - be799ac5-e536-46c2-a981-090fa65195cc
+                - eb670b8a-ef48-4eba-b384-6ec74af30398
             X-Ms-Original-Request-Ids:
-                - df66bc50-fb84-4d89-ac2d-0b7d58906aa8
+                - 6d1b44ef-3b15-4fb6-adac-224f0b4e2990
             X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
                 - "3749"
             X-Ms-Ratelimit-Remaining-Subscription-Reads:
                 - "249"
             X-Ms-Request-Id:
-                - be799ac5-e536-46c2-a981-090fa65195cc
+                - eb670b8a-ef48-4eba-b384-6ec74af30398
             X-Ms-Routing-Request-Id:
-                - WESTINDIA:20260726T173831Z:be799ac5-e536-46c2-a981-090fa65195cc
+                - WESTINDIA:20261101T183946Z:eb670b8a-ef48-4eba-b384-6ec74af30398
             X-Ms-Throttle-Levels:
-                - operationConcurrencyPct=0.5, subscriptionReadRatePct=0.2, etc
+                - operationConcurrencyPct=0.5, etc
             X-Msedge-Ref:
-                - 'Ref A: 36F9E5551B5D44BB8F2C0A16F692E609 Ref B: MAA201060513053 Ref C: 2026-07-26T17:38:30Z'
+                - 'Ref A: DA7C3AD512B24B85886D339552173015 Ref B: MAA201060516053 Ref C: 2026-11-01T18:39:44Z'
         status: 200 OK
         code: 200
-        duration: 1.428808792s
+        duration: 1.435161125s
+    - id: 2
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: management.azure.com
+        form:
+            api-version:
+                - "2026-03-01"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armnetwork/v12.1.0 (go1.27.3; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/networkWatchers?api-version=2026-03-01
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 388
+        body: '{"value":[{"name":"NetworkWatcher_eastus","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/NetworkWatcherRG/providers/Microsoft.Network/networkWatchers/NetworkWatcher_eastus","etag":"W/\"9adabab1-9b3b-4dff-aa87-90c2e0d2e7c8\"","type":"Microsoft.Network/networkWatchers","location":"eastus","properties":{"provisioningState":"Succeeded","runningOperationIds":[]}}]}'
+        headers:
+            Cache-Control:
+                - no-cache
+            Content-Length:
+                - "388"
+            Content-Type:
+                - application/json; charset=utf-8
+            Date:
+                - Sun, 01 Nov 2026 18:39:49 GMT
+            Expires:
+                - "-1"
+            Pragma:
+                - no-cache
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Arm-Service-Request-Id:
+                - 5c2c53e6-073d-4ccb-aa8a-280c8006e1dd
+            X-Ms-Correlation-Request-Id:
+                - 420d706c-535c-4c4f-a5c1-0a7f667bbd4b
+            X-Ms-Original-Request-Ids:
+                - a557c119-9bf6-4a19-b31b-9175439a6572
+            X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
+                - "3749"
+            X-Ms-Ratelimit-Remaining-Subscription-Reads:
+                - "249"
+            X-Ms-Request-Id:
+                - 420d706c-535c-4c4f-a5c1-0a7f667bbd4b
+            X-Ms-Routing-Request-Id:
+                - CENTRALINDIA:20261101T183949Z:420d706c-535c-4c4f-a5c1-0a7f667bbd4b
+            X-Ms-Throttle-Levels:
+                - operationConcurrencyPct=0.5, subscriptionListRatePct=0.1, etc
+            X-Msedge-Ref:
+                - 'Ref A: 0C397A8A5A7B464E88FF6F6B44E5BE74 Ref B: MAA201060516053 Ref C: 2026-11-01T18:39:47Z'
+        status: 200 OK
+        code: 200
+        duration: 1.833466667s
+    - id: 3
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: management.azure.com
+        form:
+            api-version:
+                - "2026-03-01"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armnetwork/v12.1.0 (go1.27.3; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/NetworkWatcherRG/providers/Microsoft.Network/networkWatchers/NetworkWatcher_eastus/flowLogs?api-version=2026-03-01
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 1029
+        body: '{"value":[{"name":"sigcomply-test-vnet","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/NetworkWatcherRG/providers/Microsoft.Network/networkWatchers/NetworkWatcher_eastus/flowLogs/sigcomply-test-vnet","etag":"W/\"9adabab1-9b3b-4dff-aa87-90c2e0d2e7c8\"","properties":{"provisioningState":"Succeeded","resourceGuid":"f6f79c65-6e7b-4d67-b53f-b8956d5e6821","targetResourceId":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-test-rg/providers/Microsoft.Network/virtualNetworks/sigcomply-test-vnet","targetResourceGuid":"258ec6ec-3d15-4f7c-b9fc-ebdaa15ab296","storageId":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-test-rg/providers/Microsoft.Storage/storageAccounts/sigcomplytest9dffa2","enabled":true,"flowAnalyticsConfiguration":{},"retentionPolicy":{"days":0,"enabled":false},"format":{"type":"FlowLogJSON","version":2},"enabledFilteringCriteria":"","recordTypes":""},"type":"Microsoft.Network/networkWatchers/flowLogs","location":"eastus"}]}'
+        headers:
+            Cache-Control:
+                - no-cache
+            Content-Length:
+                - "1029"
+            Content-Type:
+                - application/json; charset=utf-8
+            Date:
+                - Sun, 01 Nov 2026 18:39:52 GMT
+            Expires:
+                - "-1"
+            Pragma:
+                - no-cache
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Arm-Service-Request-Id:
+                - bad29602-c7ce-4866-b822-de5eb2d020f2
+            X-Ms-Correlation-Request-Id:
+                - 9d1fe214-9a7a-419c-b8af-b980b99517b2
+            X-Ms-Original-Request-Ids:
+                - b5ee3737-dc45-47a9-8652-0246fa2865fa
+            X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
+                - "3749"
+            X-Ms-Ratelimit-Remaining-Subscription-Reads:
+                - "249"
+            X-Ms-Request-Id:
+                - 9d1fe214-9a7a-419c-b8af-b980b99517b2
+            X-Ms-Routing-Request-Id:
+                - EASTUS:20261101T183952Z:9d1fe214-9a7a-419c-b8af-b980b99517b2
+            X-Ms-Throttle-Levels:
+                - operationConcurrencyPct=0.5, subscriptionListRatePct=0.1, etc
+            X-Msedge-Ref:
+                - 'Ref A: 4B62358AC62644A392247B88CB874369 Ref B: MAA201060516053 Ref C: 2026-11-01T18:39:52Z'
+        status: 200 OK
+        code: 200
+        duration: 999.836459ms

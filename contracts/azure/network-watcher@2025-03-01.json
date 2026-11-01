@@ -1,0 +1,155 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Azure Network Watcher (slice)",
+    "version": "2025-03-01",
+    "x-source": "Azure/azure-rest-api-specs network/resource-manager/Microsoft.Network/Network/stable/2025-03-01/networkWatcher.json",
+    "x-slice": "network: VNet flow logs"
+  },
+  "definitions": {
+    "FlowLog": {
+      "properties": {
+        "properties": {
+          "x-ms-client-flatten": true,
+          "$ref": "#/definitions/FlowLogPropertiesFormat"
+        },
+        "etag": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "identity": {
+          "$ref": "./network.json#/definitions/ManagedServiceIdentity"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "./network.json#/definitions/Resource"
+        }
+      ]
+    },
+    "FlowLogFormatParameters": {
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "JSON"
+          ],
+          "x-ms-enum": {
+            "name": "FlowLogFormatType",
+            "modelAsString": true
+          }
+        },
+        "version": {
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        }
+      }
+    },
+    "FlowLogPropertiesFormat": {
+      "required": [
+        "targetResourceId",
+        "storageId"
+      ],
+      "properties": {
+        "targetResourceId": {
+          "type": "string"
+        },
+        "targetResourceGuid": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "storageId": {
+          "type": "string"
+        },
+        "enabledFilteringCriteria": {
+          "type": "string"
+        },
+        "recordTypes": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "retentionPolicy": {
+          "$ref": "#/definitions/RetentionPolicyParameters"
+        },
+        "format": {
+          "$ref": "#/definitions/FlowLogFormatParameters"
+        },
+        "flowAnalyticsConfiguration": {
+          "$ref": "#/definitions/TrafficAnalyticsProperties"
+        },
+        "provisioningState": {
+          "readOnly": true,
+          "$ref": "./network.json#/definitions/ProvisioningState"
+        }
+      }
+    },
+    "NetworkWatcher": {
+      "properties": {
+        "etag": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "properties": {
+          "x-ms-client-flatten": true,
+          "$ref": "#/definitions/NetworkWatcherPropertiesFormat"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "./network.json#/definitions/Resource"
+        }
+      ]
+    },
+    "NetworkWatcherPropertiesFormat": {
+      "properties": {
+        "provisioningState": {
+          "readOnly": true,
+          "$ref": "./network.json#/definitions/ProvisioningState"
+        }
+      }
+    },
+    "RetentionPolicyParameters": {
+      "properties": {
+        "days": {
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "TrafficAnalyticsConfigurationProperties": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "workspaceId": {
+          "type": "string"
+        },
+        "workspaceRegion": {
+          "type": "string"
+        },
+        "workspaceResourceId": {
+          "type": "string"
+        },
+        "trafficAnalyticsInterval": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "TrafficAnalyticsProperties": {
+      "properties": {
+        "networkWatcherFlowAnalyticsConfiguration": {
+          "$ref": "#/definitions/TrafficAnalyticsConfigurationProperties"
+        }
+      }
+    }
+  }
+}
