@@ -11,7 +11,8 @@ import (
 )
 
 // keyvault_conformance_test.go: azure kms_key + secret L1+L2 (WU-2.12).
-// Hand-authored: one HSM key with a rotation policy + one secret. Run per type.
+// Recorded live: one key with a rotate-after-1-year policy + one secret. Run
+// per type.
 func TestAzureKeyvaultConformance(t *testing.T) {
 	fixedNow := time.Date(2026, 6, 28, 0, 0, 0, 0, time.UTC)
 	newPlugin := func() core.SourcePlugin {
@@ -38,9 +39,9 @@ func TestAzureKeyvaultConformance(t *testing.T) {
 	if err := json.Unmarshal(keys[0].Payload, &k); err != nil {
 		t.Fatal(err)
 	}
-	// An auto-rotate policy is not asserted (the seeded key has a notify-only
-	// policy); the key is customer-managed and enabled.
-	if !k.IsCustomerManaged || !k.Enabled {
-		t.Errorf("key = %+v; want customer-managed + enabled", k)
+	// The management plane returns the action type as "Rotate", not the SDK
+	// constant's "rotate".
+	if !k.IsCustomerManaged || !k.Enabled || !k.RotationEnabled || k.RotationPeriod != "P1Y" {
+		t.Errorf("key = %+v; want customer-managed, enabled, rotating every P1Y", k)
 	}
 }

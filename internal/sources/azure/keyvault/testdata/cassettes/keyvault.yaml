@@ -17,24 +17,24 @@ interactions:
             Authorization:
                 - REDACTED
             User-Agent:
-                - azsdk-go-armkeyvault/v2.0.2 (go1.25.8; darwin)
+                - azsdk-go-armkeyvault/v2.1.0 (go1.27.3; darwin)
         url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.KeyVault/vaults?api-version=2026-05-15
         method: GET
       response:
         proto: HTTP/2.0
         proto_major: 2
         proto_minor: 0
-        content_length: 1659
-        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.KeyVault/vaults/sigcomply-e2e-kv-1cd7","name":"sigcomply-e2e-kv-1cd7","type":"Microsoft.KeyVault/vaults","location":"eastus","tags":{},"systemData":{"createdBy":"user-ae0e86b080bc@example.com","createdByType":"User","createdAt":"2026-07-26T17:36:18.156Z","lastModifiedBy":"user-ae0e86b080bc@example.com","lastModifiedByType":"User","lastModifiedAt":"2026-07-26T17:36:18.156Z"},"properties":{"sku":{"family":"A","name":"standard"},"tenantId":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","accessPolicies":[{"tenantId":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","objectId":"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb","permissions":{"keys":["all"],"secrets":["all"],"certificates":["all"],"storage":["all"]}}],"enabledForDeployment":false,"enabledForDiskEncryption":false,"enabledForTemplateDeployment":false,"enableSoftDelete":true,"softDeleteRetentionInDays":7,"enableRbacAuthorization":false,"enablePurgeProtection":true,"vaultUri":"https://sigcomply-e2e-kv-1cd7.vault.azure.net/","provisioningState":"Succeeded","publicNetworkAccess":"Enabled"}}],"nextLink":"https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.KeyVault/vaults?api-version=2026-05-15&%24skiptoken=3ZDNaoQwAITfJZSeNkZTf1ZBitA%2fWr1Ut1LxEmPWumqUJNp1xXevW%2foUvcxhGL5hZgGcnVVY80YCbwGPQZwcYuCBL6UG6SHUEU4q1jGuNHIZBdNo3yE5FpKKelB1zyUyaOlg27AhJWYJTcchcG%2b5LqTYtCzK7H1pHNEg%2bqkumZAoqqnoZX9U2hubP8jYKjRdVd6ToYbTFtmoPtaxDXUMdeP2RjZbVd8w7lPc8k%2fsKvp8tsL0MGexMWd35wtJy1OBje%2fipVFZ8tqGqcJh8nTKHqgP1h0goguqSrCKKFYmV9Q2MXiPwO53fkREw8RmLfnfAznw8n%2f0QQ5WsP4A"}'
+        content_length: 1967
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-test-rg/providers/Microsoft.KeyVault/vaults/sigcomply-test-kv-9dffa2","name":"sigcomply-test-kv-9dffa2","type":"Microsoft.KeyVault/vaults","location":"eastus","tags":{},"systemData":{"createdBy":"user-ae0e86b080bc@example.com","createdByType":"User","createdAt":"2026-10-31T17:59:05.871Z","lastModifiedBy":"dddddddd-dddd-dddd-dddd-dddddddddddd","lastModifiedByType":"Application","lastModifiedAt":"2026-11-01T17:17:57.796Z"},"properties":{"sku":{"family":"A","name":"standard"},"tenantId":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","accessPolicies":[{"tenantId":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","objectId":"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb","permissions":{"keys":["create","getrotationpolicy","setrotationpolicy","list","get"],"secrets":["list","get","set"],"certificates":["all"],"storage":["all"]}},{"tenantId":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","objectId":"cccccccc-cccc-cccc-cccc-cccccccccccc","permissions":{"keys":["list","get","create","setrotationpolicy","getrotationpolicy"],"secrets":["set","get","list"]}}],"enabledForDeployment":false,"enabledForDiskEncryption":false,"enabledForTemplateDeployment":false,"enableSoftDelete":true,"softDeleteRetentionInDays":7,"enableRbacAuthorization":false,"enablePurgeProtection":true,"vaultUri":"https://sigcomply-test-kv-9dffa2.vault.azure.net/","provisioningState":"Succeeded","publicNetworkAccess":"Enabled"}}],"nextLink":"https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.KeyVault/vaults?api-version=2026-05-15&%24skiptoken=3ZBBT4MwHMW%2fS2M8rRS7dQLJYjgsHhwxsk2d4fKnFGyghbSFbBK%2bu8x49BN4eYeXl%2ffyfiPS4ux2UtcWRSPaxvvDcY8i9OlcZyNCFGiohBLaefDVG%2bHxVhHb55Yb2TnZakvCoiyB5jmm1Ae88mmOIbgPMKOUFauQrX0aks60gyyEsSSR3LS2LZ33JC6v0DeODFe1D9BJPMyRuXVDfbrGPsN37PbG1vNUWwu94bTRJxo6%2fnhmu%2fe04csXx1UR%2fOXD8uSe31L1obYXNC0QGBVXlREVOFEcrnXzzThN0OIHQQKmFma2xuyXQoai7J9xyNCEpm8%3d"}'
         headers:
             Cache-Control:
                 - no-cache
             Content-Length:
-                - "1659"
+                - "1967"
             Content-Type:
                 - application/json; charset=utf-8
             Date:
-                - Sun, 26 Jul 2026 17:38:11 GMT
+                - Sun, 01 Nov 2026 18:39:56 GMT
             Pragma:
                 - no-cache
             Strict-Transport-Security:
@@ -46,26 +46,26 @@ interactions:
             X-Content-Type-Options:
                 - nosniff
             X-Ms-Client-Request-Id:
-                - c6756335-ef42-4c38-b751-99c69c482168
+                - 8a72ae91-aa5f-432c-935c-280534decdbf
             X-Ms-Correlation-Request-Id:
-                - 752ee795-58a0-4808-8dae-afe20c5f89f9
+                - 541e8e77-6894-4c9a-b2be-717a25bdd204
             X-Ms-Keyvault-Service-Version:
-                - 2.2.981.0
+                - 2.2.1271.0
             X-Ms-Original-Request-Ids:
-                - c2646304-b4b7-4bb3-9895-fcef7410d4b0
+                - 7c4a1ffa-1d9b-4d82-a283-1017251bea65
             X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
                 - "3749"
             X-Ms-Ratelimit-Remaining-Subscription-Reads:
                 - "249"
             X-Ms-Request-Id:
-                - 752ee795-58a0-4808-8dae-afe20c5f89f9
+                - 541e8e77-6894-4c9a-b2be-717a25bdd204
             X-Ms-Routing-Request-Id:
-                - SOUTHINDIA:20260726T173812Z:752ee795-58a0-4808-8dae-afe20c5f89f9
+                - WESTINDIA:20261101T183957Z:541e8e77-6894-4c9a-b2be-717a25bdd204
             X-Msedge-Ref:
-                - 'Ref A: 92895FBB958342C887AB374B5C2AD3F1 Ref B: MAA211070115029 Ref C: 2026-07-26T17:38:11Z'
+                - 'Ref A: 7AE7E7FECD5B4F52859303269F0EF25D Ref B: MAA211070112060 Ref C: 2026-11-01T18:39:56Z'
         status: 200 OK
         code: 200
-        duration: 1.159441334s
+        duration: 1.135447375s
     - id: 1
       request:
         proto: HTTP/1.1
@@ -75,15 +75,15 @@ interactions:
         host: management.azure.com
         form:
             $skiptoken:
-                - 3ZDNaoQwAITfJZSeNkZTf1ZBitA/Wr1Ut1LxEmPWumqUJNp1xXevW/oUvcxhGL5hZgGcnVVY80YCbwGPQZwcYuCBL6UG6SHUEU4q1jGuNHIZBdNo3yE5FpKKelB1zyUyaOlg27AhJWYJTcchcG+5LqTYtCzK7H1pHNEg+qkumZAoqqnoZX9U2hubP8jYKjRdVd6ToYbTFtmoPtaxDXUMdeP2RjZbVd8w7lPc8k/sKvp8tsL0MGexMWd35wtJy1OBje/ipVFZ8tqGqcJh8nTKHqgP1h0goguqSrCKKFYmV9Q2MXiPwO53fkREw8RmLfnfAznw8n/0QQ5WsP4A
+                - 3ZBBT4MwHMW/S2M8rRS7dQLJYjgsHhwxsk2d4fKnFGyghbSFbBK+u8x49BN4eYeXl/fyfiPS4ux2UtcWRSPaxvvDcY8i9OlcZyNCFGiohBLaefDVG+HxVhHb55Yb2TnZakvCoiyB5jmm1Ae88mmOIbgPMKOUFauQrX0aks60gyyEsSSR3LS2LZ33JC6v0DeODFe1D9BJPMyRuXVDfbrGPsN37PbG1vNUWwu94bTRJxo6/nhmu/e04csXx1UR/OXD8uSe31L1obYXNC0QGBVXlREVOFEcrnXzzThN0OIHQQKmFma2xuyXQoai7J9xyNCEpm8=
             api-version:
                 - "2026-05-15"
         headers:
             Authorization:
                 - REDACTED
             User-Agent:
-                - azsdk-go-armkeyvault/v2.0.2 (go1.25.8; darwin)
-        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.KeyVault/vaults?%24skiptoken=3ZDNaoQwAITfJZSeNkZTf1ZBitA%2FWr1Ut1LxEmPWumqUJNp1xXevW%2FoUvcxhGL5hZgGcnVVY80YCbwGPQZwcYuCBL6UG6SHUEU4q1jGuNHIZBdNo3yE5FpKKelB1zyUyaOlg27AhJWYJTcchcG%2B5LqTYtCzK7H1pHNEg%2BqkumZAoqqnoZX9U2hubP8jYKjRdVd6ToYbTFtmoPtaxDXUMdeP2RjZbVd8w7lPc8k%2FsKvp8tsL0MGexMWd35wtJy1OBje%2FipVFZ8tqGqcJh8nTKHqgP1h0goguqSrCKKFYmV9Q2MXiPwO53fkREw8RmLfnfAznw8n%2F0QQ5WsP4A&api-version=2026-05-15
+                - azsdk-go-armkeyvault/v2.1.0 (go1.27.3; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.KeyVault/vaults?%24skiptoken=3ZBBT4MwHMW%2FS2M8rRS7dQLJYjgsHhwxsk2d4fKnFGyghbSFbBK%2Bu8x49BN4eYeXl%2FfyfiPS4ux2UtcWRSPaxvvDcY8i9OlcZyNCFGiohBLaefDVG%2BHxVhHb55Yb2TnZakvCoiyB5jmm1Ae88mmOIbgPMKOUFauQrX0aks60gyyEsSSR3LS2LZ33JC6v0DeODFe1D9BJPMyRuXVDfbrGPsN37PbG1vNUWwu94bTRJxo6%2Fnhmu%2Fe04csXx1UR%2FOXD8uSe31L1obYXNC0QGBVXlREVOFEcrnXzzThN0OIHQQKmFma2xuyXQoai7J9xyNCEpm8%3D&api-version=2026-05-15
         method: GET
       response:
         proto: HTTP/2.0
@@ -99,7 +99,7 @@ interactions:
             Content-Type:
                 - application/json; charset=utf-8
             Date:
-                - Sun, 26 Jul 2026 17:38:14 GMT
+                - Sun, 01 Nov 2026 18:39:58 GMT
             Pragma:
                 - no-cache
             Strict-Transport-Security:
@@ -111,26 +111,26 @@ interactions:
             X-Content-Type-Options:
                 - nosniff
             X-Ms-Client-Request-Id:
-                - f5222a26-c734-4ecc-9f33-51c51bae3c85
+                - 25c1c432-b650-4980-823b-d5ad7818d756
             X-Ms-Correlation-Request-Id:
-                - b0cc4352-8552-44ed-bf7b-ab4c70dca91f
+                - 360d1bb7-3088-4195-809b-4a836ccb8eaf
             X-Ms-Keyvault-Service-Version:
-                - 2.2.981.0
+                - 2.2.1271.0
             X-Ms-Original-Request-Ids:
-                - a9e24095-e334-4718-9cb1-b507e99b2823
+                - 40a558bb-ea3a-4225-889c-4640780a1e60
             X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
-                - "3749"
+                - "3748"
             X-Ms-Ratelimit-Remaining-Subscription-Reads:
-                - "249"
+                - "248"
             X-Ms-Request-Id:
-                - b0cc4352-8552-44ed-bf7b-ab4c70dca91f
+                - 360d1bb7-3088-4195-809b-4a836ccb8eaf
             X-Ms-Routing-Request-Id:
-                - CENTRALINDIA:20260726T173814Z:b0cc4352-8552-44ed-bf7b-ab4c70dca91f
+                - WESTINDIA:20261101T183959Z:360d1bb7-3088-4195-809b-4a836ccb8eaf
             X-Msedge-Ref:
-                - 'Ref A: 37182796128D44D7BF411BD0A7B5B9EF Ref B: MAA211070115029 Ref C: 2026-07-26T17:38:13Z'
+                - 'Ref A: 782FB85860C04297BEF04FD165753D4D Ref B: MAA211070112060 Ref C: 2026-11-01T18:39:58Z'
         status: 200 OK
         code: 200
-        duration: 1.13606425s
+        duration: 808.931833ms
     - id: 2
       request:
         proto: HTTP/1.1
@@ -147,24 +147,24 @@ interactions:
             Authorization:
                 - REDACTED
             User-Agent:
-                - azsdk-go-armkeyvault/v2.0.2 (go1.25.8; darwin)
-        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.KeyVault/vaults/sigcomply-e2e-kv-1cd7/keys?api-version=2026-05-15
+                - azsdk-go-armkeyvault/v2.1.0 (go1.27.3; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-test-rg/providers/Microsoft.KeyVault/vaults/sigcomply-test-kv-9dffa2/keys?api-version=2026-05-15
         method: GET
       response:
         proto: HTTP/2.0
         proto_major: 2
         proto_minor: 0
-        content_length: 468
-        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.KeyVault/vaults/sigcomply-e2e-kv-1cd7/keys/e2e-key","name":"e2e-key","type":"Microsoft.KeyVault/vaults/keys","location":"eastus","properties":{"attributes":{"enabled":true,"created":1785087414,"updated":1785087414,"recoveryLevel":"CustomizedRecoverable","exportable":false},"keyUri":"https://sigcomply-e2e-kv-1cd7.vault.azure.net/keys/e2e-key"}}]}'
+        content_length: 496
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-test-rg/providers/Microsoft.KeyVault/vaults/sigcomply-test-kv-9dffa2/keys/sigcomply-test","name":"sigcomply-test","type":"Microsoft.KeyVault/vaults/keys","location":"eastus","properties":{"attributes":{"enabled":true,"created":1793469589,"updated":1793469589,"recoveryLevel":"CustomizedRecoverable","exportable":false},"keyUri":"https://sigcomply-test-kv-9dffa2.vault.azure.net/keys/sigcomply-test"}}]}'
         headers:
             Cache-Control:
                 - no-cache
             Content-Length:
-                - "468"
+                - "496"
             Content-Type:
                 - application/json; charset=utf-8
             Date:
-                - Sun, 26 Jul 2026 17:38:17 GMT
+                - Sun, 01 Nov 2026 18:40:00 GMT
             Expires:
                 - "-1"
             Pragma:
@@ -178,26 +178,26 @@ interactions:
             X-Content-Type-Options:
                 - nosniff
             X-Ms-Client-Request-Id:
-                - e9541f85-b81d-47d8-9180-a7797146b1cf
+                - db41d06d-9ae3-4cfc-8fe2-933bc3a7753a
             X-Ms-Correlation-Request-Id:
-                - f01ac7fd-ff56-4bc7-8c03-8b210030aae8
+                - 9bed76ff-a515-4c1c-8e0b-4ea447b2a70a
             X-Ms-Keyvault-Service-Version:
-                - 2.2.981.0
+                - 2.2.1271.0
             X-Ms-Operation-Identifier:
-                - tenantId=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,objectId=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/eastus/04042d8d-612b-4aa9-b326-73a1833b56b9
+                - tenantId=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,objectId=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/eastus/a6bb4115-8043-4765-8d39-ec086c073dde
             X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
                 - "3749"
             X-Ms-Ratelimit-Remaining-Subscription-Reads:
                 - "249"
             X-Ms-Request-Id:
-                - 736b5ab4-df91-4efd-87e5-9c449ccda311
+                - 7b37338a-f634-4fef-b21a-f3cbfaf172c5
             X-Ms-Routing-Request-Id:
-                - EASTUS:20260726T173817Z:f01ac7fd-ff56-4bc7-8c03-8b210030aae8
+                - EASTUS:20261101T184001Z:9bed76ff-a515-4c1c-8e0b-4ea447b2a70a
             X-Msedge-Ref:
-                - 'Ref A: EE990CF026CB4408AF547D42F33801A3 Ref B: MAA211070115029 Ref C: 2026-07-26T17:38:16Z'
+                - 'Ref A: BEF68139A0154CBBB475CD9AF03A1816 Ref B: MAA211070112060 Ref C: 2026-11-01T18:40:00Z'
         status: 200 OK
         code: 200
-        duration: 1.411489833s
+        duration: 1.235868167s
     - id: 3
       request:
         proto: HTTP/1.1
@@ -214,24 +214,24 @@ interactions:
             Authorization:
                 - REDACTED
             User-Agent:
-                - azsdk-go-armkeyvault/v2.0.2 (go1.25.8; darwin)
-        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.KeyVault/vaults/sigcomply-e2e-kv-1cd7/keys/e2e-key?api-version=2026-05-15
+                - azsdk-go-armkeyvault/v2.1.0 (go1.27.3; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-test-rg/providers/Microsoft.KeyVault/vaults/sigcomply-test-kv-9dffa2/keys/sigcomply-test?api-version=2026-05-15
         method: GET
       response:
         proto: HTTP/2.0
         proto_major: 2
         proto_minor: 0
-        content_length: 849
-        body: '{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.KeyVault/vaults/sigcomply-e2e-kv-1cd7/keys/e2e-key","name":"e2e-key","type":"Microsoft.KeyVault/vaults/keys","location":"eastus","properties":{"attributes":{"enabled":true,"created":1785087414,"updated":1785087414,"recoveryLevel":"CustomizedRecoverable","exportable":false},"rotationPolicy":{"lifetimeActions":[{"trigger":{"timeBeforeExpiry":"P30D"},"action":{"type":"Notify"}}],"attributes":{"created":1785087415,"updated":1785087415,"expiryTime":"P90D"}},"kty":"RSA","keyOps":["encrypt","decrypt","sign","verify","wrapKey","unwrapKey"],"keySize":2048,"keyUri":"https://sigcomply-e2e-kv-1cd7.vault.azure.net/keys/e2e-key","keyUriWithVersion":"https://sigcomply-e2e-kv-1cd7.vault.azure.net/keys/e2e-key/58a5becb63af4a72ae9a85ddf013640a"}}'
+        content_length: 951
+        body: '{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-test-rg/providers/Microsoft.KeyVault/vaults/sigcomply-test-kv-9dffa2/keys/sigcomply-test","name":"sigcomply-test","type":"Microsoft.KeyVault/vaults/keys","location":"eastus","properties":{"attributes":{"enabled":true,"created":1793469589,"updated":1793469589,"recoveryLevel":"CustomizedRecoverable","exportable":false},"rotationPolicy":{"lifetimeActions":[{"trigger":{"timeAfterCreate":"P1Y"},"action":{"type":"Rotate"}},{"trigger":{"timeBeforeExpiry":"P30D"},"action":{"type":"Notify"}}],"attributes":{"created":1793508651,"updated":1793508651,"expiryTime":"P2Y"}},"kty":"RSA","keyOps":["encrypt","decrypt","sign","verify","wrapKey","unwrapKey"],"keySize":2048,"keyUri":"https://sigcomply-test-kv-9dffa2.vault.azure.net/keys/sigcomply-test","keyUriWithVersion":"https://sigcomply-test-kv-9dffa2.vault.azure.net/keys/sigcomply-test/f6cd7edd0c324b32a70ac54fa0de06cd"}}'
         headers:
             Cache-Control:
                 - no-cache
             Content-Length:
-                - "849"
+                - "951"
             Content-Type:
                 - application/json; charset=utf-8
             Date:
-                - Sun, 26 Jul 2026 17:38:20 GMT
+                - Sun, 01 Nov 2026 18:40:03 GMT
             Expires:
                 - "-1"
             Pragma:
@@ -245,26 +245,26 @@ interactions:
             X-Content-Type-Options:
                 - nosniff
             X-Ms-Client-Request-Id:
-                - b3055263-b55e-4d54-adda-1549a42efb81
+                - 3bc71744-abf5-4b8b-b263-64132976c09a
             X-Ms-Correlation-Request-Id:
-                - 0deff9af-325d-4853-bd4a-155e1b175523
+                - c21e6610-d69c-41a0-af55-1a1d9dbb1bd8
             X-Ms-Keyvault-Service-Version:
-                - 2.2.981.0
+                - 2.2.1271.0
             X-Ms-Operation-Identifier:
-                - tenantId=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,objectId=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/eastus/81fa6f12-c4bd-4597-89a7-1dcc1a1ce8a5
+                - tenantId=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,objectId=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/eastus/ba22c02d-7e74-42d3-a2a5-b9f4cff42002
             X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
                 - "3749"
             X-Ms-Ratelimit-Remaining-Subscription-Reads:
                 - "249"
             X-Ms-Request-Id:
-                - 80a659fe-9460-49ea-bef1-49847e634679
+                - 39555a70-fee3-440d-afb1-1b36f2b60042
             X-Ms-Routing-Request-Id:
-                - EASTUS:20260726T173820Z:0deff9af-325d-4853-bd4a-155e1b175523
+                - EASTUS:20261101T184004Z:c21e6610-d69c-41a0-af55-1a1d9dbb1bd8
             X-Msedge-Ref:
-                - 'Ref A: EF41944C4995438DBA8475C5E6C10832 Ref B: MAA211070115029 Ref C: 2026-07-26T17:38:19Z'
+                - 'Ref A: AC527998BF29410BB2BCC88DABC20C1B Ref B: MAA211070112060 Ref C: 2026-11-01T18:40:03Z'
         status: 200 OK
         code: 200
-        duration: 1.829814458s
+        duration: 1.51723225s
     - id: 4
       request:
         proto: HTTP/1.1
@@ -281,24 +281,24 @@ interactions:
             Authorization:
                 - REDACTED
             User-Agent:
-                - azsdk-go-armkeyvault/v2.0.2 (go1.25.8; darwin)
-        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.KeyVault/vaults/sigcomply-e2e-kv-1cd7/secrets?api-version=2026-05-15
+                - azsdk-go-armkeyvault/v2.1.0 (go1.27.3; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-test-rg/providers/Microsoft.KeyVault/vaults/sigcomply-test-kv-9dffa2/secrets?api-version=2026-05-15
         method: GET
       response:
         proto: HTTP/2.0
         proto_major: 2
         proto_minor: 0
-        content_length: 586
-        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.KeyVault/vaults/sigcomply-e2e-kv-1cd7/secrets/e2e-secret","name":"e2e-secret","type":"Microsoft.KeyVault/vaults/secrets","location":"eastus","tags":{"file-encoding":"utf-8"},"properties":{"attributes":{"enabled":true,"created":1785087418,"updated":1785087418},"secretUri":"https://sigcomply-e2e-kv-1cd7.vault.azure.net/secrets/e2e-secret","secretUriWithVersion":"https://sigcomply-e2e-kv-1cd7.vault.azure.net/secrets/e2e-secret/5ee1398a062647b48942fd11e19de1dd"}}]}'
+        content_length: 612
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-test-rg/providers/Microsoft.KeyVault/vaults/sigcomply-test-kv-9dffa2/secrets/sigcomply-test","name":"sigcomply-test","type":"Microsoft.KeyVault/vaults/secrets","location":"eastus","tags":{"file-encoding":"utf-8"},"properties":{"attributes":{"enabled":true,"created":1793469594,"updated":1793469594},"secretUri":"https://sigcomply-test-kv-9dffa2.vault.azure.net/secrets/sigcomply-test","secretUriWithVersion":"https://sigcomply-test-kv-9dffa2.vault.azure.net/secrets/sigcomply-test/ba63408afd364caba02c618377706806"}}]}'
         headers:
             Cache-Control:
                 - no-cache
             Content-Length:
-                - "586"
+                - "612"
             Content-Type:
                 - application/json; charset=utf-8
             Date:
-                - Sun, 26 Jul 2026 17:38:22 GMT
+                - Sun, 01 Nov 2026 18:40:06 GMT
             Expires:
                 - "-1"
             Pragma:
@@ -312,23 +312,23 @@ interactions:
             X-Content-Type-Options:
                 - nosniff
             X-Ms-Client-Request-Id:
-                - 281260e8-4f81-4c18-be27-d485adc52abf
+                - 8755d456-e21b-4040-b576-9d464005e261
             X-Ms-Correlation-Request-Id:
-                - 8ace49e4-7821-4a7d-8154-3eba72e5172f
+                - 98e8b271-1fc3-4a5c-8291-874f90f879d0
             X-Ms-Keyvault-Service-Version:
-                - 2.2.981.0
+                - 2.2.1271.0
             X-Ms-Operation-Identifier:
-                - tenantId=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,objectId=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/eastus/4b0cf92b-1e1a-419c-9fd0-515812c0413f
+                - tenantId=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,objectId=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/eastus/8004f843-7125-437b-ab7a-c75404607ccc
             X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
-                - "3748"
+                - "3749"
             X-Ms-Ratelimit-Remaining-Subscription-Reads:
-                - "248"
+                - "249"
             X-Ms-Request-Id:
-                - 193f2422-cad3-4960-859c-9504be1ffc45
+                - b3ecde63-7ee2-4d01-b8d5-543d467756e5
             X-Ms-Routing-Request-Id:
-                - EASTUS:20260726T173823Z:8ace49e4-7821-4a7d-8154-3eba72e5172f
+                - EASTUS:20261101T184007Z:98e8b271-1fc3-4a5c-8291-874f90f879d0
             X-Msedge-Ref:
-                - 'Ref A: 88226CD9D46842A18FD37054942ED2D6 Ref B: MAA211070115029 Ref C: 2026-07-26T17:38:23Z'
+                - 'Ref A: 9401D95885BA4E449403C23B1BE388B7 Ref B: MAA211070112060 Ref C: 2026-11-01T18:40:06Z'
         status: 200 OK
         code: 200
-        duration: 275.665208ms
+        duration: 1.020706459s

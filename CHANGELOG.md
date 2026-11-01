@@ -22,6 +22,9 @@ this file lists the changes a user notices.
   `ApiVulnerabilities`); misconfiguration and exposed-secret recommendations are not findings.
   Each finding is now per vulnerable package and lists all its CVEs in `cve_ids`. The Reader role
   still covers it.
+- `azure.keyvault` reports `rotation_enabled: true` for a key whose rotation policy rotates it.
+  Azure returns the action type as `Rotate` and the CLI matched only `rotate`, so every Key Vault
+  key failed `soc2.cc6.7.kms_key_rotation_enabled`.
 
 ## [0.89.0 to 1.0.0] - 2026-10-28 to 2026-10-31
 

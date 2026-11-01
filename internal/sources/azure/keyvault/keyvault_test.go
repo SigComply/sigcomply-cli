@@ -468,6 +468,7 @@ func TestRotationEnabled(t *testing.T) {
 		{"rotate with trigger", rotatingHSMKey("rg", "v", "k"), true},
 		{"notify only", notify, false},
 		{"rotate no trigger", rotateNoTrigger, false},
+		{"rotate as ARM returns it (\"Rotate\")", armCasedRotate, true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -475,6 +476,14 @@ func TestRotationEnabled(t *testing.T) {
 				t.Errorf("rotationEnabled = %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+// TestRotationPeriod_ARMCasing: the management plane returns action types
+// capitalized ("Rotate", "Notify") although the SDK constants are lowercase.
+func TestRotationPeriod_ARMCasing(t *testing.T) {
+	if got := rotationPeriod(armCasedRotate.Properties.RotationPolicy); got != "P1Y" {
+		t.Errorf("rotationPeriod = %q, want P1Y", got)
 	}
 }
 
@@ -684,3 +693,18 @@ func TestCaveats_DeclaresTheRotationGap(t *testing.T) {
 		t.Error("a caveat with no detail tells the operator nothing to act on")
 	}
 }
+
+// armCasedRotate is a rotation policy as the Key Vault management plane
+// returns it: action types capitalized, unlike the SDK's lowercase constants.
+var armCasedRotate = &armkeyvault.Key{Properties: &armkeyvault.KeyProperties{RotationPolicy: &armkeyvault.RotationPolicy{
+	LifetimeActions: []*armkeyvault.LifetimeAction{
+		{
+			Action:  &armkeyvault.Action{Type: to.Ptr(armkeyvault.KeyRotationPolicyActionType("Rotate"))},
+			Trigger: &armkeyvault.Trigger{TimeAfterCreate: to.Ptr("P1Y")},
+		},
+		{
+			Action:  &armkeyvault.Action{Type: to.Ptr(armkeyvault.KeyRotationPolicyActionType("Notify"))},
+			Trigger: &armkeyvault.Trigger{TimeBeforeExpiry: to.Ptr("P30D")},
+		},
+	},
+}}}

@@ -375,13 +375,20 @@ func rotationEnabled(k *armkeyvault.Key) bool {
 		if la == nil || la.Action == nil || la.Action.Type == nil {
 			continue
 		}
-		if *la.Action.Type == armkeyvault.KeyRotationPolicyActionTypeRotate &&
+		if isRotateAction(*la.Action.Type) &&
 			la.Trigger != nil &&
 			(la.Trigger.TimeAfterCreate != nil || la.Trigger.TimeBeforeExpiry != nil) {
 			return true
 		}
 	}
 	return false
+}
+
+// isRotateAction reports whether a lifetime action type is "rotate". The
+// management plane returns it capitalized ("Rotate") while the SDK constant is
+// lowercase, so the match ignores case.
+func isRotateAction(t armkeyvault.KeyRotationPolicyActionType) bool {
+	return strings.EqualFold(string(t), string(armkeyvault.KeyRotationPolicyActionTypeRotate))
 }
 
 // rotationPeriod returns the ISO-8601 trigger duration of the rotate action (an
@@ -394,7 +401,7 @@ func rotationPeriod(rp *armkeyvault.RotationPolicy) string {
 		if la == nil || la.Action == nil || la.Action.Type == nil {
 			continue
 		}
-		if *la.Action.Type == armkeyvault.KeyRotationPolicyActionTypeRotate && la.Trigger != nil {
+		if isRotateAction(*la.Action.Type) && la.Trigger != nil {
 			if la.Trigger.TimeAfterCreate != nil {
 				return *la.Trigger.TimeAfterCreate
 			}
