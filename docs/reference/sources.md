@@ -220,6 +220,9 @@ locally. All `gcp.*` sources share one identity per run.
 - When GCP reports that a zone or region was unreachable during a listing, `gcp.gke`, `gcp.sql`,
   `gcp.firestore`, `gcp.backup` and `gcp.certs` fail instead of evaluating the partial list.
   Policies bound to them get status `error` for that run.
+- `gcp.asset` reports `all_resource_types` as `true` only when a Cloud Asset feed's asset types
+  include the wildcard `.*` (or `*`). A feed that lists asset names and no asset types watches
+  only those assets, so it counts as recording but not as covering all resource types.
 - `gcp.audit` reports `is_enabled` and `is_multi_region` as `true` because Admin Activity audit
   logs are always on and project-wide in GCP. It omits `log_file_validation_enabled`: GCP has no
   log file validation feature. The audit-log integrity policies check only trails that report

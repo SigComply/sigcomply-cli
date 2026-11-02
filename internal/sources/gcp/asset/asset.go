@@ -22,16 +22,17 @@
 // requires both sources to emit the same shape and cardinality so one
 // `all`/`none` policy behaves identically on either cloud. Feeds are
 // reduced to a single record: is_recording ← any feed exists;
-// all_resource_types ← any feed is unrestricted by asset type.
+// all_resource_types ← any feed matches every asset type.
 //
 // Field mapping (the policies read is_recording + all_resource_types, and
 // the evaluator errors on a referenced-but-absent field, so both — plus
 // the required id/name — are always emitted):
 //   - is_recording ← len(feeds) > 0.
-//   - all_resource_types ← at least one feed places no asset-type
-//     restriction (empty AssetTypes, or a catch-all wildcard) — the
-//     analog of AWS Config's allSupported. A type-filtered feed tracks a
-//     subset, so reports false.
+//   - all_resource_types ← at least one feed's AssetTypes holds a
+//     catch-all wildcard — the analog of AWS Config's allSupported. A
+//     type-filtered feed tracks a subset, so reports false. So does a feed
+//     with no AssetTypes: the API requires asset_names or asset_types, so
+//     such a feed lists AssetNames and watches only those assets.
 //   - id ← projects/{project}/configChangeTracking (synthetic, stable);
 //     name ← the project id. We deliberately do NOT derive id from a
 //     feed name: GCP normalizes Feed.Name to projects/{NUMBER}/feeds/{id}
@@ -205,14 +206,13 @@ func buildPayload(project string, feeds []*cloudasset.Feed) trackingPayload {
 	}
 }
 
-// feedCoversAllTypes reports whether a feed places no asset-type
-// restriction: an empty AssetTypes list, or a catch-all wildcard entry
-// (".*" / "*"). This is the GCP analog of AWS Config's allSupported. A
-// feed listing specific asset types tracks only that subset → false.
+// feedCoversAllTypes reports whether a feed matches every asset type: an
+// AssetTypes entry that is a catch-all wildcard (".*" / "*"). This is the
+// GCP analog of AWS Config's allSupported. A feed listing specific asset
+// types tracks only that subset → false. Empty AssetTypes is not "no
+// restriction": the API rejects a feed with neither asset_names nor
+// asset_types, so such a feed watches only its named assets → false.
 func feedCoversAllTypes(f *cloudasset.Feed) bool {
-	if len(f.AssetTypes) == 0 {
-		return true
-	}
 	for _, t := range f.AssetTypes {
 		switch strings.TrimSpace(t) {
 		case ".*", "*":

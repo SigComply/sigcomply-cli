@@ -22,6 +22,7 @@ import (
 const (
 	testAssetTypeInstance = "compute.googleapis.com/Instance"
 	testProjectID         = "proj-1"
+	testProjectAssetName  = "//cloudresourcemanager.googleapis.com/projects/proj-1"
 )
 
 // fakeAPI drives the plugin without hitting GCP. It records the project
@@ -165,13 +166,35 @@ func TestCollect_ScopedOnly(t *testing.T) {
 	}
 }
 
+// TestCollect_NamesOnlyFeed covers a project whose only feed watches named
+// assets (Google's IAM-policy feed pattern): it records, but only those
+// assets, so all_resource_types is false.
+func TestCollect_NamesOnlyFeed(t *testing.T) {
+	fake := &fakeAPI{feeds: []*cloudasset.Feed{
+		{Name: "projects/123/feeds/iam-watch", AssetNames: []string{testProjectAssetName}, ContentType: "IAM_POLICY"},
+	}}
+	p := New(Options{API: fake, ProjectID: testProjectID})
+	records, err := p.Collect(context.Background(), assetReq())
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	got := decodePayload(t, &records[0])
+	if !got.IsRecording || got.AllResourceTypes || got.FeedCount != 1 {
+		t.Errorf("got is_recording=%v all_types=%v count=%d; want true/false/1", got.IsRecording, got.AllResourceTypes, got.FeedCount)
+	}
+}
+
 func TestFeedCoversAllTypes(t *testing.T) {
 	cases := []struct {
 		name string
 		feed *cloudasset.Feed
 		want bool
 	}{
-		{"empty asset types", &cloudasset.Feed{}, true},
+		// The API rejects a feed with neither asset_names nor asset_types,
+		// so empty AssetTypes means a names-only feed: a subset.
+		{"names-only feed", &cloudasset.Feed{AssetNames: []string{testProjectAssetName}, ContentType: "IAM_POLICY"}, false},
+		{"empty asset types", &cloudasset.Feed{}, false},
+		{"names plus wildcard", &cloudasset.Feed{AssetNames: []string{testProjectAssetName}, AssetTypes: []string{".*"}}, true},
 		{"dot-star wildcard", &cloudasset.Feed{AssetTypes: []string{".*"}}, true},
 		{"star wildcard", &cloudasset.Feed{AssetTypes: []string{"*"}}, true},
 		{"wildcard with padding", &cloudasset.Feed{AssetTypes: []string{" .* "}}, true},
