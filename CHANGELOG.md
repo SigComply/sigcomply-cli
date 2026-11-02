@@ -29,6 +29,59 @@ this file lists the changes a user notices.
   VNet lists its flow logs only as references with no enabled state, so the CLI now also lists
   each Network Watcher's flow logs and matches them to the VNet they target. Before, every VNet
   failed `soc2.cc6.6.vpc_flow_logs_enabled`. The Reader role still covers it.
+- `aws.security_alert` no longer counts the CIS console-sign-in-without-MFA filter
+  (`userIdentity.type = "IAMUser"`) as a root-usage alarm. It counts every alarm on a metric, not
+  only the last one listed. An alarm whose actions are disabled has no notification target. Before,
+  a silent alarm could hide a notifying one and fail the CC7.2 alarm policies, and a disabled alarm
+  passed them.
+- `aws.iam` leaves out `last_login_at` and `created_at` when AWS does not report them, instead of
+  recording `0001-01-01T00:00:00Z`.
+- `azure.compute` reads each VM's profile from a full VM list and its power state from the status
+  list. The status list alone has no network profile, so every VM reported `has_public_ip: false`
+  and empty `vm_size`, `os_type` and disk encryption fields, and `iso27001.8.22` passed VMs with a
+  public IP.
+- `azure.policy` ignores the policy assignments Microsoft creates and hides
+  (`SystemHidden`). It counts an assignment at a management group that contains the subscription
+  as full coverage, and reports `management_group_scoped_count`. Before, a subscription with no
+  customer policy passed `config_recording_enabled`, and a management-group layout failed
+  `config_all_resource_types`.
+- `gcp.asset` no longer reports `all_resource_types: true` for a feed that lists asset names but
+  no asset types.
+- `gcp.compute` identifies VMs by their selfLink. Same-named VMs in different zones shared one ID,
+  so their violations merged and a `resource_id` exception for one waived both. A `resource_id`
+  exception for a GCP VM must now use the selfLink.
+- `gcp.network` skips proxy-only subnets (`REGIONAL_MANAGED_PROXY`, `INTERNAL_HTTPS_LOAD_BALANCER`,
+  `GLOBAL_MANAGED_PROXY`) in `flow_logs_enabled`. GCP doesn't allow flow logs on them, so any VPC
+  with a regional Application Load Balancer failed `vpc_flow_logs_enabled`.
+- `github` fails the source when it can't read a member's org role (server error, rate limit,
+  timeout). It used to report the member as a non-admin, so an org owner without 2FA passed the
+  admin-MFA policies.
+- `gitlab` changes:
+  - `required_reviewers_count` counts only approval rules that apply to the default branch.
+  - Merge requests merged in the period into projects archived later are now collected.
+  - A fast-forward merge without squash reports its head commit as `merge_commit_sha`, so its
+    deployments trace back to the approved change.
+- The deployment-traceability policies (`soc2.cc8.1`, `iso27001.8.32`) read merged changes from
+  90 days before the period, so a deployment of a change merged just before the period no longer
+  fails as untraceable. A period with production deployments and no merged change now fails each
+  deployment instead of skipping. These policies, and vendor fan-out policies, re-evaluate once on
+  the next `--scheduled` run.
+- `check --scheduled` re-evaluates vendor fan-out policies when `experimental.vendors` changes,
+  and reads the saved state of project-local policies, which re-ran on every scheduled run.
+- Unquoted `YYYY-MM-DD` dates in `experimental.scope`, `vendors` and `risks` load instead of failing
+  with exit 3.
+- A policy waived by an exception reports the number of waived resources in its message, not
+  "0 of N resources affected". An `any` condition's `violation_message` is reported when records
+  exist but none match.
+- Manual evidence: lossy WebP and 16-bit PNG and TIFF uploads convert instead of failing with
+  `conversion_failed`. A single PDF whose pages sit in a compressed object stream is accepted.
+- A local vault rooted at `.` (`--vault .`, `vault.path: .`) reads and writes keys instead of
+  rejecting every key as escaping the root.
+- `report --view coverage` counts carried-forward manual passes as on file. From the second
+  scheduled run of a period, they were listed as missing.
+- The GitLab scheduled template runs `evidence due` when `check` fails, then exits with `check`'s
+  code.
+- `init-ci` ignores an inline `# comment` on the `framework:` line.
 
 ## [0.89.0 to 1.0.0] - 2026-10-28 to 2026-10-31
 
