@@ -858,10 +858,15 @@ func (s *sdkAPI) mapProject(ctx context.Context, proj *gitlab.Project) (Repo, er
 	}
 
 	// Required reviewer count: the maximum approvals_required across the
-	// project's approval rules (free tier exposes a single rule).
+	// approval rules that apply to the default branch (free tier exposes a
+	// single rule). A rule scoped to another branch says nothing about
+	// default-branch merges.
 	if rules, _, err := s.client.Projects.GetProjectApprovalRules(
 		proj.ID, &gitlab.GetProjectApprovalRulesListsOptions{}, gitlab.WithContext(ctx)); err == nil {
 		for _, rule := range rules {
+			if !approvalRuleApplies(rule, proj.DefaultBranch, r.ProtectionOn) {
+				continue
+			}
 			if int(rule.ApprovalsRequired) > r.RequiredReviews {
 				r.RequiredReviews = int(rule.ApprovalsRequired)
 			}
@@ -980,6 +985,27 @@ func (s *sdkAPI) projectIndex(ctx context.Context) (paths map[int64]string, ids 
 	}
 	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
 	return paths, ids, nil
+}
+
+// approvalRuleApplies reports whether GitLab enforces rule on merges into
+// branch. A rule with no branch scope covers every branch; one scoped to
+// "all protected branches" covers branch only when it is protected; otherwise
+// branch must be named. A default branch protected only by a wildcard rule
+// reads as unprotected here (see mapProject), which can only drop a rule,
+// never add one.
+func approvalRuleApplies(rule *gitlab.ProjectApprovalRule, branch string, protected bool) bool {
+	if rule.AppliesToAllProtectedBranches {
+		return protected
+	}
+	if len(rule.ProtectedBranches) == 0 {
+		return true
+	}
+	for _, pb := range rule.ProtectedBranches {
+		if pb != nil && pb.Name == branch {
+			return true
+		}
+	}
+	return false
 }
 
 // ListMergedPullRequests lists the group's merged merge requests via the

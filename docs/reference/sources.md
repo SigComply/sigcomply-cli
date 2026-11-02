@@ -391,6 +391,10 @@ Caveats:
   [Source caveats](#source-caveats).
 - On Free tier, approval rules read as zero required approvals. The approver list is readable on
   Free, and GitLab records no approval time, so an approval counts as before the merge.
+- `required_reviewers_count` is the highest approval count among the rules that apply to the
+  default branch: rules with no branch scope, rules for all protected branches when the default
+  branch has its own protection rule, and rules that name the default branch. Rules scoped to
+  other branches are not counted.
 - Member email is returned only to privileged tokens, so `email` may be absent.
 - `pull_request` and `deployment` list only merge requests merged and deployments created in the
   audit period, except that the `changes` slot of the two

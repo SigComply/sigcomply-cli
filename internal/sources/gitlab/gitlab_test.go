@@ -37,6 +37,9 @@ const (
 
 	pathGroupProjects       = "/api/v4/groups/acme/projects"
 	pathProject7Deployments = "/api/v4/projects/7/deployments"
+	pathProject7MainProtect = "/api/v4/projects/7/protected_branches/main"
+	pathProject7Rules       = "/api/v4/projects/7/approval_rules"
+	pathGroupMergeRequests  = "/api/v4/groups/acme/merge_requests"
 )
 
 // fakeAPI drives the plugin without real network calls.
@@ -370,12 +373,12 @@ func TestSDKAPI_ListRepos_HappyPath(t *testing.T) {
 			`{"id":8,"path_with_namespace":"acme/api","default_branch":"main",` +
 			`"visibility":"public","archived":false,"merge_method":"merge",` +
 			`"pre_receive_secret_detection_enabled":false}]`,
-		"/api/v4/projects/7/protected_branches/main": `{"name":"main","allow_force_push":false,"code_owner_approval_required":true}`,
-		"/api/v4/projects/7/approval_rules":          `[{"id":1,"rule_type":"any_approver","approvals_required":2}]`,
-		"/api/v4/projects/8/approval_rules":          `[]`,
-		"/api/v4/projects/7/approvals":               `{"reset_approvals_on_push":true}`,
-		"/api/v4/projects/8/approvals":               `{"reset_approvals_on_push":false}`,
-		"/api/v4/projects/7/push_rule":               `{"id":1,"reject_unsigned_commits":true}`,
+		pathProject7MainProtect:             `{"name":"main","allow_force_push":false,"code_owner_approval_required":true}`,
+		pathProject7Rules:                   `[{"id":1,"rule_type":"any_approver","approvals_required":2}]`,
+		"/api/v4/projects/8/approval_rules": `[]`,
+		"/api/v4/projects/7/approvals":      `{"reset_approvals_on_push":true}`,
+		"/api/v4/projects/8/approvals":      `{"reset_approvals_on_push":false}`,
+		"/api/v4/projects/7/push_rule":      `{"id":1,"reject_unsigned_commits":true}`,
 	}
 	notFound := map[string]bool{
 		"/api/v4/projects/8/protected_branches/main": true,
@@ -459,10 +462,94 @@ func TestSDKAPI_ListRepos_HappyPath(t *testing.T) {
 func TestSDKAPI_ListRepos_ProtectionReadDeniedErrors(t *testing.T) {
 	api := newTestSDKAPI(t, map[string]string{
 		pathGroupProjects: `[{"id":7,"path_with_namespace":"acme/web","default_branch":"main"}]`,
-	}, map[string]bool{"/api/v4/projects/7/protected_branches/main": true})
+	}, map[string]bool{pathProject7MainProtect: true})
 	_, err := api.ListRepos(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "acme/web") {
 		t.Fatalf("ListRepos err = %v; want an error naming acme/web", err)
+	}
+}
+
+// required_reviewers_count covers default-branch merges only, so an approval
+// rule counts only when GitLab applies it to the default branch. A rule scoped
+// to another protected branch must not lend its count to the default branch.
+func TestSDKAPI_ListRepos_ApprovalRuleScope(t *testing.T) {
+	const protectedMain = `{"name":"main","allow_force_push":false}`
+	cases := []struct {
+		name      string
+		rules     string
+		protected bool // whether main carries an exact-name protection rule
+		want      int
+	}{
+		{
+			name: "scoped to another branch",
+			rules: `[{"id":1,"approvals_required":2,"applies_to_all_protected_branches":false,` +
+				`"protected_branches":[{"id":3,"name":"production"}]}]`,
+			protected: true, want: 0,
+		},
+		{
+			name: "scoped to the default branch",
+			rules: `[{"id":1,"approvals_required":2,` +
+				`"protected_branches":[{"id":3,"name":"production"},{"id":4,"name":"main"}]}]`,
+			protected: true, want: 2,
+		},
+		{
+			name:      "all protected branches, default protected",
+			rules:     `[{"id":1,"approvals_required":2,"applies_to_all_protected_branches":true}]`,
+			protected: true, want: 2,
+		},
+		{
+			name:      "all protected branches, default unprotected",
+			rules:     `[{"id":1,"approvals_required":2,"applies_to_all_protected_branches":true}]`,
+			protected: false, want: 0,
+		},
+		{
+			name:      "unscoped rule applies to every branch",
+			rules:     `[{"id":1,"rule_type":"any_approver","approvals_required":1,"protected_branches":[]}]`,
+			protected: false, want: 1,
+		},
+		{
+			name: "max over the rules that apply",
+			rules: `[{"id":1,"approvals_required":1},` +
+				`{"id":2,"approvals_required":3,"protected_branches":[{"id":3,"name":"production"}]},` +
+				`{"id":3,"approvals_required":2,"protected_branches":[{"id":4,"name":"main"}]}]`,
+			protected: true, want: 2,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			responses := map[string]string{
+				pathGroupProjects:              `[{"id":7,"path_with_namespace":"acme/web","default_branch":"main"}]`,
+				pathProject7Rules:              tc.rules,
+				"/api/v4/projects/7/approvals": `{"reset_approvals_on_push":false}`,
+				"/api/v4/projects/7/push_rule": `{"id":1}`,
+			}
+			if tc.protected {
+				responses[pathProject7MainProtect] = protectedMain
+			}
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if body, ok := responses[r.URL.Path]; ok {
+					_, _ = w.Write([]byte(body)) //nolint:errcheck // test handler
+					return
+				}
+				http.Error(w, "404 Not Found", http.StatusNotFound)
+			}))
+			defer srv.Close()
+			client, err := gitlab.NewClient("tok", gitlab.WithBaseURL(srv.URL))
+			if err != nil {
+				t.Fatalf("NewClient: %v", err)
+			}
+			api := &sdkAPI{client: client, group: testGroup}
+			repos, err := api.ListRepos(context.Background())
+			if err != nil {
+				t.Fatalf("ListRepos: %v", err)
+			}
+			if len(repos) != 1 {
+				t.Fatalf("len = %d; want 1", len(repos))
+			}
+			if got := repos[0].RequiredReviews; got != tc.want {
+				t.Errorf("RequiredReviews = %d; want %d", got, tc.want)
+			}
+		})
 	}
 }
 
@@ -894,7 +981,7 @@ func TestSDKAPI_ListMergedPullRequests_HappyPath(t *testing.T) {
 		pathGroupProjects: `[` +
 			`{"id":7,"path_with_namespace":"acme/web"},` +
 			`{"id":8,"path_with_namespace":"acme/api"}]`,
-		"/api/v4/groups/acme/merge_requests": `[` +
+		pathGroupMergeRequests: `[` +
 			`{"iid":42,"project_id":7,"target_branch":"main","author":{"username":"bob"},` +
 			`"merge_user":{"username":"carol"},"merged_at":"2026-03-01T12:00:00Z",` +
 			`"merge_commit_sha":"abc123"},` +
