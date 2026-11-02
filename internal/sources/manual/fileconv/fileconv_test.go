@@ -5,11 +5,13 @@ import (
 	"image"
 	"image/color"
 	"image/gif"
+	"image/png"
 	"strings"
 	"testing"
 
 	"golang.org/x/image/bmp"
 	"golang.org/x/image/tiff"
+	"golang.org/x/image/webp"
 
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual/fileconv"
 )
@@ -276,5 +278,89 @@ func minimalPNG() []byte {
 		0x00, 0x00, 0x00, 0x00, // IEND length
 		0x49, 0x45, 0x4E, 0x44, // IEND
 		0xAE, 0x42, 0x60, 0x82, // CRC
+	}
+}
+
+// lossyWebP is a 16x16 lossy (VP8) WebP written by `cwebp -q 80`
+// (libwebp 1.6.0). x/image/webp decodes it to *image.YCbCr; lossless
+// (VP8L) WebPs decode to *image.NRGBA instead.
+var lossyWebP = []byte{
+	0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,
+	0x56, 0x50, 0x38, 0x20, 0x18, 0x00, 0x00, 0x00, 0x30, 0x01, 0x00, 0x9d,
+	0x01, 0x2a, 0x10, 0x00, 0x10, 0x00, 0x01, 0x40, 0x26, 0x25, 0xa4, 0x00,
+	0x03, 0x70, 0x00, 0xfe, 0xfc, 0xf4, 0x00, 0x00,
+}
+
+// TestToPDF_DeepAndYCbCrImages covers decoded color models that image/png
+// would re-encode at 16 bits per channel, which gofpdf refuses ("16-bit
+// depth not supported in PNG file"): YCbCr from lossy WebP, 16-bit
+// greyscale and color from PNG and TIFF scans, and 16-bit with alpha.
+func TestToPDF_DeepAndYCbCrImages(t *testing.T) {
+	if img, err := webp.Decode(bytes.NewReader(lossyWebP)); err != nil {
+		t.Fatalf("lossy webp fixture does not decode: %v", err)
+	} else if _, ok := img.(*image.YCbCr); !ok {
+		t.Fatalf("lossy webp decoded to %T; want *image.YCbCr", img)
+	}
+
+	r := image.Rect(0, 0, 8, 8)
+	gray16 := image.NewGray16(r)
+	rgba64 := image.NewRGBA64(r)
+	nrgba64 := image.NewNRGBA64(r)
+	cmyk := image.NewCMYK(r)
+	nycbcra := image.NewNYCbCrA(r, image.YCbCrSubsampleRatio420)
+	for y := uint16(0); y < 8; y++ {
+		for x := uint16(0); x < 8; x++ {
+			px, py := int(x), int(y)
+			gray16.SetGray16(px, py, color.Gray16{Y: x * y * 1000})
+			rgba64.SetRGBA64(px, py, color.RGBA64{R: x * 8000, G: y * 8000, B: 0x1234, A: 0xffff})
+			nrgba64.SetNRGBA64(px, py, color.NRGBA64{R: 0xffff, G: x * 8000, B: 0, A: y * 8000})
+			cmyk.SetCMYK(px, py, color.CMYK{C: 30, M: 60, Y: 10, K: 20})
+		}
+	}
+	for i := range nycbcra.A {
+		nycbcra.A[i] = uint8(i * 4)
+	}
+	encPNG := func(img image.Image) []byte {
+		var b bytes.Buffer
+		if err := png.Encode(&b, img); err != nil {
+			t.Fatalf("encode png: %v", err)
+		}
+		return b.Bytes()
+	}
+	encTIFF := func(img image.Image) []byte {
+		var b bytes.Buffer
+		if err := tiff.Encode(&b, img, nil); err != nil {
+			t.Fatalf("encode tiff: %v", err)
+		}
+		return b.Bytes()
+	}
+
+	cases := []struct {
+		name string
+		ext  string
+		data []byte
+	}{
+		{"screenshot.webp", extWebP, lossyWebP},
+		{"gray16.png", extPNG, encPNG(gray16)},
+		{"rgb48.png", extPNG, encPNG(rgba64)},
+		{"rgba64-alpha.png", extPNG, encPNG(nrgba64)},
+		// image/png writes CMYK and NYCbCrA as 16-bit RGB(A), so these
+		// stand in for those decoded models.
+		{"cmyk.png", extPNG, encPNG(cmyk)},
+		{"ycbcr-alpha.png", extPNG, encPNG(nycbcra)},
+		{"gray16-scan.tif", extTIF, encTIFF(gray16)},
+		{"rgb48-scan.tiff", extTIFF, encTIFF(rgba64)},
+		{"rgba64-scan.tiff", extTIFF, encTIFF(nrgba64)},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			out, converted, err := fileconv.ToPDF(c.name, c.ext, c.data)
+			if err != nil {
+				t.Fatalf("ToPDF: %v", err)
+			}
+			if !converted || !isPDFBytes(out) {
+				t.Errorf("converted=%v pdf=%v; want a converted PDF", converted, isPDFBytes(out))
+			}
+		})
 	}
 }

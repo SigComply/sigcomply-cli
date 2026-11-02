@@ -5,12 +5,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"image"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
 	"time"
+
+	"golang.org/x/image/tiff"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual/fileconv"
@@ -327,6 +330,37 @@ func TestCollect_ImageOnlyFolder(t *testing.T) {
 	}
 	if len(m.SourceFiles) != 1 || !m.SourceFiles[0].Converted {
 		t.Errorf("expected one converted source file; got %+v", m.SourceFiles)
+	}
+}
+
+// TestCollect_SixteenBitScanPasses: a 16-bit greyscale TIFF scan, the
+// only file in its folder, converts and passes. image/png re-encoded it
+// at 16 bits, which gofpdf refused, so it failed with conversion_failed.
+func TestCollect_SixteenBitScanPasses(t *testing.T) {
+	img := image.NewGray16(image.Rect(0, 0, 8, 8))
+	for i := range img.Pix {
+		img.Pix[i] = uint8(i * 3)
+	}
+	var tif bytes.Buffer
+	if err := tiff.Encode(&tif, img, nil); err != nil {
+		t.Fatalf("encode tiff: %v", err)
+	}
+	p := newTestPlugin(map[string]InMemoryFile{
+		"manual/access_review_quarterly/2026-Q1/signed_review_scan.tif": {
+			Data:       tif.Bytes(),
+			UploadedAt: mustTime("2026-02-15T10:00:00Z"),
+		},
+	})
+	records, err := p.Collect(context.Background(), baseReq(testPeriodID, nil))
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	m := unmarshalManifest(t, records)
+	if !m.FileValid || len(m.ValidationFailures) != 0 {
+		t.Errorf("file_valid=%v validation_failures=%v; want valid", m.FileValid, m.ValidationFailures)
+	}
+	if !m.InTemporalWindow || m.FileHash == "" {
+		t.Errorf("in_window=%v file_hash=%q; want in window and merged", m.InTemporalWindow, m.FileHash)
 	}
 }
 

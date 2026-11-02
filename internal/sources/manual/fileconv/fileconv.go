@@ -18,6 +18,8 @@ import (
 	"bytes"
 	"fmt"
 	"image"
+	"image/color"
+	"image/draw"
 	_ "image/gif"  // registers GIF for image.DecodeConfig
 	_ "image/jpeg" // registers JPEG for image.DecodeConfig
 	"image/png"
@@ -248,8 +250,34 @@ func reencodeAsPNG(data []byte) ([]byte, error) {
 		return nil, err
 	}
 	var buf bytes.Buffer
-	if err := png.Encode(&buf, img); err != nil {
+	if err := png.Encode(&buf, to8Bit(img)); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// to8Bit returns img in a color model that image/png writes at 8 bits
+// per channel. png.Encode writes 16-bit output for every other model
+// (YCbCr from lossy WebP, Gray16/RGBA64/NRGBA64 from 16-bit PNG and
+// TIFF, CMYK), and gofpdf refuses any PNG deeper than 8 bits.
+func to8Bit(img image.Image) image.Image {
+	if _, ok := img.(image.PalettedImage); ok {
+		if _, ok := img.ColorModel().(color.Palette); ok {
+			return img
+		}
+	}
+	b := img.Bounds()
+	var dst draw.Image
+	switch img.ColorModel() {
+	case color.GrayModel, color.RGBAModel, color.NRGBAModel, color.AlphaModel:
+		return img
+	case color.Gray16Model:
+		dst = image.NewGray(b)
+	default:
+		// RGBA rather than NRGBA: draw has fast paths into RGBA (YCbCr
+		// among them), and image/png un-premultiplies on encode.
+		dst = image.NewRGBA(b)
+	}
+	draw.Draw(dst, b, img, b.Min, draw.Src)
+	return dst
 }

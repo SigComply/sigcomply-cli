@@ -69,7 +69,10 @@ in `src/lib/storage-path.ts`; change both together.
    megapixels) is refused before any decoder allocates its pixel buffer, and a panic inside a
    decoder is recovered into the error. A PNG is decoded with `image/png` and re-encoded before
    `gofpdf` sees it, because `gofpdf` inflates a PNG's whole data stream with no limit; `image/png`
-   reads no more pixel data than the header declares.
+   reads no more pixel data than the header declares. The re-encode path (PNG, TIFF, WebP, BMP)
+   first converts any colour model `image/png` would write at 16 bits per channel (YCbCr from
+   lossy WebP, 16-bit greyscale or colour from PNG and TIFF) to 8 bits, since `gofpdf` refuses
+   deeper PNGs.
 4. Merge all PDF parts (`pdfmerge.Merge`, pdfcpu with its stateless configuration, so it never
    reads or writes a config directory). Each part is read and validated on its own first; a
    part pdfcpu cannot read, or whose object numbers exceed `pdfmerge.MaxObjects` (1,000,000;
