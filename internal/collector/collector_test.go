@@ -25,7 +25,22 @@ const (
 	testSlotDoc           = "doc"
 	testParamPeriodID     = "period_id"
 	testRunPeriodQ4       = "2026-Q4"
+	testParamPeriodStart  = "period_start"
+	testTypeDeployment    = "deployment"
+	testSlotChanges       = "changes"
+	testTypePullRequest   = "pull_request"
 )
+
+// paramTime returns a time-valued slot param, failing the test when it is
+// absent or of another type.
+func paramTime(t *testing.T, params map[string]any, key string) time.Time {
+	t.Helper()
+	v, ok := params[key].(time.Time)
+	if !ok {
+		t.Fatalf("%s = %v (%T); want a time.Time", key, params[key], params[key])
+	}
+	return v
+}
 
 // stubSource lets us drive Collect with canned records / errors.
 type stubSource struct {
@@ -417,11 +432,11 @@ func TestCollect_ManualBindingPeriodOverridesRunExtras(t *testing.T) {
 		Vault:   newMemVault(),
 		RunRoot: "r",
 		SlotParamsExtras: map[string]any{
-			testParamPeriodID: testRunPeriodQ4,
-			"prior_period_id": "2026-Q3",
-			"period_start":    time.Date(2026, time.October, 1, 0, 0, 0, 0, time.UTC),
-			"period_end":      time.Date(2026, time.December, 31, 23, 59, 59, 0, time.UTC),
-			"now":             start,
+			testParamPeriodID:    testRunPeriodQ4,
+			"prior_period_id":    "2026-Q3",
+			testParamPeriodStart: time.Date(2026, time.October, 1, 0, 0, 0, 0, time.UTC),
+			"period_end":         time.Date(2026, time.December, 31, 23, 59, 59, 0, time.UTC),
+			"now":                start,
 		},
 	})
 	if err != nil {
@@ -434,8 +449,8 @@ func TestCollect_ManualBindingPeriodOverridesRunExtras(t *testing.T) {
 	if got["prior_period_id"] != "2025" {
 		t.Errorf("prior_period_id = %v; want 2025", got["prior_period_id"])
 	}
-	if ps, ok := got["period_start"].(time.Time); !ok || !ps.Equal(start) {
-		t.Errorf("period_start = %v; want %s", got["period_start"], start)
+	if ps, ok := got[testParamPeriodStart].(time.Time); !ok || !ps.Equal(start) {
+		t.Errorf("period_start = %v; want %s", got[testParamPeriodStart], start)
 	}
 	if pe, ok := got["period_end"].(time.Time); !ok || !pe.Equal(end) {
 		t.Errorf("period_end = %v; want %s", got["period_end"], end)
@@ -476,6 +491,75 @@ func TestCollect_AutomatedBindingKeepsRunPeriod(t *testing.T) {
 	}
 	if got := src.lastReq.Params[testParamPeriodID]; got != testRunPeriodQ4 {
 		t.Errorf("period_id = %v; want the run's 2026-Q4", got)
+	}
+}
+
+// A join-only slot with a Lookback reads changes from before the run period
+// so a deployment inside the period can trace to one merged just before it.
+// Only that slot widens: the slot under evaluation keeps the run window, and
+// period_end is never moved.
+func TestCollect_SlotLookbackWidensOnlyThatSlotsStart(t *testing.T) {
+	deploys := &stubSource{id: "deploys", emits: []string{testTypeDeployment}}
+	changes := &stubSource{id: testSlotChanges, emits: []string{testTypePullRequest}}
+	reg := registry.NewSet()
+	mustRegister(t, reg.Sources.Register(deploys))
+	mustRegister(t, reg.Sources.Register(changes))
+	start := time.Date(2026, time.October, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, time.December, 31, 23, 59, 59, 0, time.UTC)
+	lookback := 90 * 24 * time.Hour
+	pp := planner.PlannedPolicy{
+		Spec: core.Policy{
+			ID: "p1",
+			Slots: map[string]core.Slot{
+				"deployments":   {Accepts: []string{testTypeDeployment}, Cardinality: core.SlotOneOrMore, Required: true},
+				testSlotChanges: {Accepts: []string{testTypePullRequest}, Cardinality: core.SlotOneOrMore, Lookback: lookback},
+			},
+		},
+		Bindings: map[string][]planner.Binding{
+			"deployments":   {{SourceID: "deploys", AcceptedTypes: []string{testTypeDeployment}}},
+			testSlotChanges: {{SourceID: testSlotChanges, AcceptedTypes: []string{testTypePullRequest}}},
+		},
+		ShouldEvaluate: true,
+	}
+	_, err := Collect(context.Background(), &Input{
+		Plan:             &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
+		Sources:          reg.Sources,
+		Vault:            newMemVault(),
+		RunRoot:          "r",
+		SlotParamsExtras: map[string]any{testParamPeriodID: testRunPeriodQ4, testParamPeriodStart: start, "period_end": end},
+	})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if got := paramTime(t, changes.lastReq.Params, testParamPeriodStart); !got.Equal(start.Add(-lookback)) {
+		t.Errorf("changes period_start = %s; want %s", got, start.Add(-lookback))
+	}
+	if got := paramTime(t, changes.lastReq.Params, "period_end"); !got.Equal(end) {
+		t.Errorf("changes period_end = %s; want the run's %s", got, end)
+	}
+	if got := changes.lastReq.Params[testParamPeriodID]; got != testRunPeriodQ4 {
+		t.Errorf("changes period_id = %v; want the run's %s", got, testRunPeriodQ4)
+	}
+	if got := paramTime(t, deploys.lastReq.Params, testParamPeriodStart); !got.Equal(start) {
+		t.Errorf("deployments period_start = %s; want the run's %s", got, start)
+	}
+}
+
+// A manual binding's window is its folder's cadence period, so a lookback
+// never moves it, and a run with no period_start has nothing to widen.
+func TestCollect_SlotLookbackIgnoredWithoutRunStart(t *testing.T) {
+	pp := &planner.PlannedPolicy{Spec: core.Policy{ID: "p1", Slots: map[string]core.Slot{
+		testSlotChanges: {Accepts: []string{testTypePullRequest}, Lookback: 24 * time.Hour},
+	}}}
+	manualStart := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+	manual := &planner.Binding{SourceID: "s", Period: &planner.Period{ID: "2026", Start: manualStart}}
+	req := buildSlotRequest(pp, testSlotChanges, manual, map[string]any{testParamPeriodStart: manualStart.AddDate(0, 6, 0)})
+	if got := paramTime(t, req.Params, testParamPeriodStart); !got.Equal(manualStart) {
+		t.Errorf("manual binding period_start = %s; want its own %s", got, manualStart)
+	}
+	req = buildSlotRequest(pp, testSlotChanges, &planner.Binding{SourceID: "s"}, map[string]any{})
+	if v, ok := req.Params[testParamPeriodStart]; ok {
+		t.Errorf("period_start = %v; want absent when the run supplies none", v)
 	}
 }
 

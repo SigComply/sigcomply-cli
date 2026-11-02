@@ -242,6 +242,12 @@ func buildSlotRequest(pp *planner.PlannedPolicy, slotName string, b *planner.Bin
 		params["prior_period_id"] = b.Period.PriorID
 		params["period_start"] = b.Period.Start
 		params["period_end"] = b.Period.End
+	} else if lb := pp.Spec.Slots[slotName].Lookback; lb > 0 {
+		// Only the start moves: period_id and period_end still name the
+		// run period, and the slot's records stay a lookup table.
+		if start, ok := params["period_start"].(time.Time); ok && !start.IsZero() {
+			params["period_start"] = start.Add(-lb)
+		}
 	}
 	return core.SlotRequest{
 		PolicyID:      pp.Spec.ID,

@@ -3,6 +3,7 @@ package core
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 // ---------------------------------------------------------------------
@@ -365,6 +366,11 @@ func TestPolicyContentHash_NonPassWhenChangesRotateHash(t *testing.T) {
 		{"slot fail_when_empty", func(p *Policy) {
 			s := p.Slots[testSlotRoster]
 			s.FailWhenEmpty = true
+			p.Slots[testSlotRoster] = s
+		}},
+		{"slot lookback", func(p *Policy) {
+			s := p.Slots[testSlotRoster]
+			s.Lookback = 24 * time.Hour
 			p.Slots[testSlotRoster] = s
 		}},
 		{"slot added", func(p *Policy) {

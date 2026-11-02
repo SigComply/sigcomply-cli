@@ -110,6 +110,28 @@ source still skips. Shipped policies set it through the `presence` field of `aut
 framework's `builders.go`; for-all policies leave it unset and keep skipping on zero records. It
 is part of the policy content hash. Project-local YAML policies cannot set it.
 
+### Lookup-slot lookback (`Lookback`)
+
+`core.Slot.Lookback` moves one slot's `period_start` that far before the run period's start, in
+`collector.buildSlotRequest`. `period_id` and `period_end` keep the run period's values, and a
+manual binding keeps its own cadence window. It is meant only for a slot that a `matches_in`
+reads as its `in_slot`: those records are a lookup table, not counted as resources, so reading
+further back widens what a resource can match without widening what is evaluated. Sources that
+filter by period (`github`, `gitlab`) apply the start they receive. It is part of the policy
+content hash. Project-local YAML policies cannot set it.
+
+The shipped user is the `changes` slot of `soc2.cc8.1.production_deploys_from_approved_changes`
+and `iso27001.8.32.production_deploys_from_approved_changes`, set to 90 days. Without it, a
+production deployment in the period of a change approved and merged just before the period
+(merged on the last day of a quarter, deployed on the first day of the next), or a rollback to a
+recent release, matched nothing and failed. 90 days is one default (`calendar_quarter`) period:
+it covers those cases while roughly doubling that one slot's change reads on that period (four
+API calls per change on GitHub). A longer window multiplies the API cost for the rarer case of
+shipping a change merged months earlier; that deployment still fails and is waived with a scoped
+exception.
+The slot is also `required: false`, so a period with production deployments and no merged change
+fails each deployment instead of skipping.
+
 ### Multiple bound sources
 
 The evaluator gets the union of all bound sources' records, each tagged with `type` and

@@ -141,7 +141,7 @@ IsDue(cadence, state, now):
 `PolicyContentHash` is the SHA-256 of a hand-built canonical projection (`canonicalizePolicy`,
 `internal/core/policy_state.go`) of: `id`, primary control, `rule`, the whole `pass_when` tree,
 `severity`, `cadence`, `on_push`, slots (sorted `accepts`, cardinality, required, role,
-`fail_when_empty`), parameters (type + default), and the digests of every registered
+`fail_when_empty`, `lookback`), parameters (type + default), and the digests of every registered
 evidence-type schema, not only the ones the policy accepts. A schema bump therefore re-evaluates
 every policy under `--scheduled`; that errs on the safe side.
 

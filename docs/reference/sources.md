@@ -344,7 +344,10 @@ Caveats:
   the source, and the policies bound to it report `error`. The source never reads a failed
   request as a setting that is off.
 - `pull_request` and `deployment` list only changes merged and deployments created in the audit
-  period. Each merged change costs four API calls (details, reviews, check runs and commit
+  period. The exception is the `changes` slot of the two
+  `production_deploys_from_approved_changes` policies, which also reads changes merged in the 90
+  days before the period, so a deployment can trace to a change merged before it started. Each
+  merged change costs four API calls (details, reviews, check runs and commit
   status) on top of the listing pages, and each deployment one. Every policy bound to the source
   collects again, so a run costs that many calls once per bound policy, against GitHub's 5,000
   requests per hour for a token (1,000 for `GITHUB_TOKEN` in Actions). A large organization can
@@ -378,6 +381,10 @@ Caveats:
 - On Free tier, approval rules read as zero required approvals. The approver list is readable on
   Free, and GitLab records no approval time, so an approval counts as before the merge.
 - Member email is returned only to privileged tokens, so `email` may be absent.
+- `pull_request` and `deployment` list only merge requests merged and deployments created in the
+  audit period, except that the `changes` slot of the two
+  `production_deploys_from_approved_changes` policies also reads merge requests merged in the 90
+  days before it.
 - `directory_user` lists the members of the configured group: direct members, members inherited
   from its parent groups, and invited groups. People who are members only of a subgroup or of a
   single project are not listed, so MFA and admin policies do not cover them.

@@ -1,5 +1,7 @@
 package core
 
+import "time"
+
 // Policy is the fully-resolved spec used by the planner and evaluator.
 // Specs are loaded from policy.yaml files at L0; this is the in-memory
 // shape with the rule reference still as a string ID — the registry
@@ -88,6 +90,13 @@ type Slot struct {
 	// for-all question ("every bucket is encrypted") over an estate with
 	// nothing in it. A slot with no bound source still skips either way.
 	FailWhenEmpty bool
+	// Lookback moves this slot's period_start that far before the run
+	// period's start. It is only for a slot that a matches_in reads as
+	// its in_slot (a lookup table, never counted as resources): the
+	// record it is matched against can predate the period, such as a
+	// change merged just before the deployment that shipped it. A manual
+	// binding keeps its own cadence window. Zero means the run period.
+	Lookback time.Duration
 }
 
 // SlotRole is the part a slot plays in roster matching.

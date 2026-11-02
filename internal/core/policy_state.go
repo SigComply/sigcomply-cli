@@ -168,6 +168,10 @@ func canonicalizePolicy(p *Policy, schemaDigests map[string]string) any {
 			// verdict on an empty source, so a cadence must re-evaluate.
 			slot["fail_when_empty"] = true
 		}
+		if s.Lookback > 0 {
+			// Only when set. It changes which records the join sees.
+			slot["lookback"] = s.Lookback.String()
+		}
 		sortedSlots = append(sortedSlots, kv{K: name, V: slot})
 	}
 	sort.Slice(sortedSlots, func(i, j int) bool { return sortedSlots[i].K < sortedSlots[j].K })

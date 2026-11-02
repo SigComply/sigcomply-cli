@@ -1,6 +1,20 @@
 package iso27001
 
-import "github.com/sigcomply/sigcomply-cli/internal/core"
+import (
+	"time"
+
+	"github.com/sigcomply/sigcomply-cli/internal/core"
+)
+
+// changeLookback is how far before the run period the deployment
+// traceability policy reads merged changes, so a deployment can trace to
+// a change merged before the period: a release merged at the end of one
+// quarter and deployed at the start of the next, or a rollback to a recent
+// release. 90 days is one default (calendar_quarter) period, which covers
+// those cases while roughly doubling this one slot's change reads (four
+// API calls per change on GitHub) on that period. A deployment of an older
+// change still fails; a scoped exception waives it.
+const changeLookback = 90 * 24 * time.Hour
 
 // changeEvidencePolicies — A.8.32 change management, evidenced from the
 // changes themselves rather than from the guardrail configured around
@@ -50,7 +64,7 @@ func changeEvidencePolicies() []core.Policy {
 			EvidenceMode: core.EvidenceModeAutomated,
 			Slots: map[string]core.Slot{
 				"deployments": {Accepts: []string{"deployment"}, Cardinality: core.SlotOneOrMore, Required: true, Description: "deployments performed during the period"},
-				"changes":     {Accepts: []string{etPullRequest}, Cardinality: core.SlotOneOrMore, Required: false, Description: "changes merged during the period"},
+				"changes":     {Accepts: []string{etPullRequest}, Cardinality: core.SlotOneOrMore, Required: false, Lookback: changeLookback, Description: "changes merged during the period or the 90 days before it"},
 			},
 			// Traceability, not segregation of duties between merger and
 			// deployer: comparing two fields across two slots is not
