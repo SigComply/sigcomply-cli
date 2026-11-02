@@ -175,8 +175,9 @@ func TestCollect_HappyPath(t *testing.T) {
 }
 
 // Several alarms can watch one metric. Any one that notifies is enough,
-// whatever order DescribeAlarms returns them in, and an alarm on a
-// same-named metric in another namespace does not count.
+// whatever order DescribeAlarms returns them in. An alarm on a same-named
+// metric in another namespace does not count, and an alarm whose actions are
+// disabled notifies no one.
 func TestCollect_AlarmsOnSameMetric(t *testing.T) {
 	notifying := cwtypes.MetricAlarm{
 		AlarmName:    ptr("root-usage-page-secops"),
@@ -191,6 +192,10 @@ func TestCollect_AlarmsOnSameMetric(t *testing.T) {
 	}
 	otherNamespace := notifying
 	otherNamespace.Namespace = ptr("Other")
+	actionsDisabled := notifying
+	actionsDisabled.ActionsEnabled = ptr(false)
+	actionsEnabled := notifying
+	actionsEnabled.ActionsEnabled = ptr(true)
 
 	tests := []struct {
 		name        string
@@ -203,6 +208,9 @@ func TestCollect_AlarmsOnSameMetric(t *testing.T) {
 		{"silent only", []cwtypes.MetricAlarm{silent}, true, false},
 		{"notifying alarm in another namespace", []cwtypes.MetricAlarm{otherNamespace}, false, false},
 		{"silent here, notifying in another namespace", []cwtypes.MetricAlarm{silent, otherNamespace}, true, false},
+		{"actions disabled", []cwtypes.MetricAlarm{actionsDisabled}, true, false},
+		{"actions explicitly enabled", []cwtypes.MetricAlarm{actionsEnabled}, true, true},
+		{"actions disabled, another alarm notifies", []cwtypes.MetricAlarm{actionsDisabled, notifying}, true, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

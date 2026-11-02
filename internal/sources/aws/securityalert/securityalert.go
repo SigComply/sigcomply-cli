@@ -321,8 +321,19 @@ func indexAlarms(out map[metricKey]alarmInfo, alarms []cwtypes.MetricAlarm) {
 		}
 		key := metricKey{namespace: safeStr(alarms[i].Namespace), name: metric}
 		prev := out[key]
-		out[key] = alarmInfo{hasNotificationTarget: prev.hasNotificationTarget || len(alarms[i].AlarmActions) > 0}
+		out[key] = alarmInfo{hasNotificationTarget: prev.hasNotificationTarget || notifies(&alarms[i])}
 	}
+}
+
+// notifies reports whether the alarm runs an action when it fires. With
+// ActionsEnabled false (DisableAlarmActions, or actions_enabled = false in
+// Terraform) CloudWatch runs none of its AlarmActions. AWS defaults the
+// field to true, so an absent value counts as enabled.
+func notifies(a *cwtypes.MetricAlarm) bool {
+	if a.ActionsEnabled != nil && !*a.ActionsEnabled {
+		return false
+	}
+	return len(a.AlarmActions) > 0
 }
 
 func safeStr(s *string) string {

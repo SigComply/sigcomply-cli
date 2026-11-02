@@ -31,7 +31,7 @@
     },
     "has_notification_target": {
       "type": "boolean",
-      "description": "True when the alert is configured to notify at least one target (e.g. an SNS topic) when it fires."
+      "description": "True when the alert is configured to notify at least one target (e.g. an SNS topic) when it fires. An alert whose notifications are switched off does not count."
     }
   },
   "additionalProperties": true
