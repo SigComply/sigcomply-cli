@@ -140,7 +140,7 @@ type instancePayload struct {
 
 // Collect lists instances in the configured project and emits one
 // compute_instance record per VM. Records are sorted by ID (instance
-// name) before return so envelope bytes are stable across runs against
+// selfLink) before return so envelope bytes are stable across runs against
 // stable project state.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
 	if !req.Accepts(EvidenceTypeID) {
@@ -158,8 +158,9 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 			continue
 		}
 		emails := serviceAccountEmails(inst)
+		id := instanceID(inst)
 		payload := instancePayload{
-			ID:                  inst.Name,
+			ID:                  id,
 			Name:                inst.Name,
 			Provider:            "gcp",
 			Region:              regionFromZone(inst.Zone),
@@ -184,7 +185,7 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		}
 		records = append(records, core.EvidenceRecord{
 			Type:        EvidenceTypeID,
-			ID:          inst.Name,
+			ID:          id,
 			Payload:     body,
 			SourceID:    SourceID,
 			CollectedAt: now,
@@ -193,6 +194,19 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	}
 	sort.Slice(records, func(i, j int) bool { return records[i].ID < records[j].ID })
 	return records, nil
+}
+
+// instanceID is the record ID: the instance selfLink. Instance names are
+// unique per zone, not per project, so a bare name would give same-named
+// VMs in two zones one ID; the evaluator would then merge their violations
+// and one resource_id waiver would cover both.
+func instanceID(inst *gce.Instance) string {
+	if inst.SelfLink != "" {
+		return inst.SelfLink
+	}
+	// SelfLink is always set by the API; fall back to name only so a
+	// hand-built fake without a SelfLink still yields a stable ID.
+	return inst.Name
 }
 
 func serviceAccountEmails(inst *gce.Instance) []string {

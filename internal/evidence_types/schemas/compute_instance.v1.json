@@ -7,7 +7,7 @@
   "type": "object",
   "required": ["id", "name", "has_public_ip", "is_running", "root_volume_encrypted"],
   "properties": {
-    "id":                     { "type": "string", "description": "Unique stable identifier (AWS: instance-id, GCP: instance name, Azure: resource ID)." },
+    "id":                     { "type": "string", "description": "Unique stable identifier (AWS: instance-id, GCP: instance selfLink, Azure: resource ID)." },
     "name":                   { "type": "string", "description": "Human-readable name (tag Name for AWS, instance name for GCP)." },
     "provider":               { "type": "string", "description": "Cloud provider short name: aws, gcp, azure." },
     "region":                 { "type": "string", "description": "Region or zone the instance runs in." },

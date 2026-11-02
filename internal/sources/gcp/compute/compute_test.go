@@ -11,6 +11,14 @@ import (
 	gce "google.golang.org/api/compute/v1"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/evaluator"
+	"github.com/sigcomply/sigcomply-cli/internal/planner"
+)
+
+// Shared fixture literals, named so goconst stays quiet.
+const (
+	testStatusRunning = "RUNNING"
+	testBastion       = "bastion"
 )
 
 // fakeAPI lets tests drive the plugin without real GCE calls.
@@ -52,9 +60,10 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 		{
 			Name:        "zeta-vm",
 			Id:          2,
+			SelfLink:    "https://www.googleapis.com/compute/v1/projects/p/zones/us-central1-a/instances/zeta-vm",
 			Zone:        "https://www.googleapis.com/compute/v1/projects/p/zones/us-central1-a",
 			MachineType: "https://.../machineTypes/n1-standard-1",
-			Status:      "RUNNING",
+			Status:      testStatusRunning,
 			ServiceAccounts: []*gce.ServiceAccount{
 				{Email: "12345-compute@developer.gserviceaccount.com"},
 			},
@@ -62,9 +71,10 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 		{
 			Name:        "alpha-vm",
 			Id:          1,
+			SelfLink:    "https://www.googleapis.com/compute/v1/projects/p/zones/europe-west1-b/instances/alpha-vm",
 			Zone:        "projects/p/zones/europe-west1-b",
 			MachineType: "projects/p/zones/europe-west1-b/machineTypes/n2-standard-2",
-			Status:      "RUNNING",
+			Status:      testStatusRunning,
 			ServiceAccounts: []*gce.ServiceAccount{
 				{Email: "custom@p.iam.gserviceaccount.com"},
 			},
@@ -85,8 +95,9 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	if len(records) != 2 {
 		t.Fatalf("len(records) = %d; want 2", len(records))
 	}
-	// Sorted by ID (= Name): alpha-vm before zeta-vm.
-	if records[0].ID != "alpha-vm" || records[1].ID != "zeta-vm" {
+	// Sorted by ID (= selfLink): europe-west1-b/alpha-vm before
+	// us-central1-a/zeta-vm.
+	if records[0].ID != fake.instances[1].SelfLink || records[1].ID != fake.instances[0].SelfLink {
 		t.Errorf("records not sorted by ID: got %v", []string{records[0].ID, records[1].ID})
 	}
 	assertCommonRecordFields(t, records, now)
@@ -156,6 +167,95 @@ func assertZetaPayload(t *testing.T, rec *core.EvidenceRecord) {
 	}
 	if zeta.ShieldedVMEnabled {
 		t.Errorf("zeta.ShieldedVMEnabled = true; want false (no config)")
+	}
+}
+
+// TestCollect_SameNameInTwoZonesGetsDistinctIDs covers two VMs named
+// "bastion" in different zones of one project. Instance names are unique
+// per zone only, so each record must carry its own ID; otherwise the
+// evaluator merges their violations and one resource_id waiver covers both.
+func TestCollect_SameNameInTwoZonesGetsDistinctIDs(t *testing.T) {
+	publicNIC := []*gce.NetworkInterface{{AccessConfigs: []*gce.AccessConfig{{NatIP: "34.1.2.3"}}}}
+	const linkPrefix = "https://www.googleapis.com/compute/v1/projects/p/zones/"
+	api := &fakeAPI{instances: []*gce.Instance{
+		{Id: 111, Name: testBastion, Zone: "projects/p/zones/us-central1-a", SelfLink: linkPrefix + "us-central1-a/instances/bastion", Status: testStatusRunning, NetworkInterfaces: publicNIC},
+		{Id: 222, Name: testBastion, Zone: "projects/p/zones/europe-west1-b", SelfLink: linkPrefix + "europe-west1-b/instances/bastion", Status: testStatusRunning, NetworkInterfaces: publicNIC},
+	}}
+	now := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	p := New(Options{API: api, ProjectID: "p", Now: func() time.Time { return now }})
+	recs, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(recs) != 2 {
+		t.Fatalf("records = %d; want 2", len(recs))
+	}
+	if recs[0].ID == recs[1].ID {
+		t.Fatalf("two VMs in different zones share record ID %q", recs[0].ID)
+	}
+	for i := range recs {
+		var payload instancePayload
+		if err := json.Unmarshal(recs[i].Payload, &payload); err != nil {
+			t.Fatal(err)
+		}
+		if payload.ID != recs[i].ID || payload.Name != testBastion {
+			t.Errorf("record %d: payload id=%q name=%q; want id=%q name=bastion", i, payload.ID, payload.Name, recs[i].ID)
+		}
+	}
+
+	// The same clause as iso27001.8.22.no_public_compute_instances.
+	pp := planner.PlannedPolicy{
+		Spec: core.Policy{
+			ID:           "p1",
+			Controls:     []core.ControlRef{{ControlID: "A.8.22"}},
+			Severity:     core.SeverityHigh,
+			EvidenceMode: core.EvidenceModeAutomated,
+			Slots:        map[string]core.Slot{"s": {Accepts: []string{EvidenceTypeID}, Cardinality: core.SlotOneOrMore, Required: true}},
+			PassWhen: &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
+				Slot:         "s",
+				Quantifier:   core.QuantifierAll,
+				Filter:       &core.PassWhenCondition{Op: "eq", Field: "payload.is_running", Value: true},
+				Condition:    &core.PassWhenCondition{Op: "eq", Field: "payload.has_public_ip", Value: false},
+				ViolationMsg: "instance {{.payload.name}} has a public IP address",
+			}}},
+		},
+		Parameters:     map[string]any{},
+		ShouldEvaluate: true,
+	}
+	evaluate := func() *core.PolicyResult {
+		t.Helper()
+		res, err := evaluator.Evaluate(context.Background(), &evaluator.Input{
+			Plan:            &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
+			RecordsByPolicy: map[string]map[string][]core.EvidenceRecord{"p1": {"s": recs}},
+			Now:             now,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return &res[0]
+	}
+	if r := evaluate(); r.ResourcesEvaluated != 2 || r.ResourcesFailed != 2 || len(r.Violations) != 2 {
+		t.Errorf("both public VMs fail: got evaluated=%d failed=%d violations=%d; want 2/2/2",
+			r.ResourcesEvaluated, r.ResourcesFailed, len(r.Violations))
+	}
+
+	// A waiver for the us-central1-a VM must not waive the europe-west1-b one.
+	pp.Exceptions = []*planner.Exception{{State: core.StatusWaived, ResourceID: api.instances[0].SelfLink, Reason: "approved jump host"}}
+	if r := evaluate(); r.Status != core.StatusFail {
+		t.Errorf("waiver for one VM: status = %q; want fail (the other zone's public VM is not waived)", r.Status)
+	}
+}
+
+// TestCollect_IDFallsBackToNameWithoutSelfLink keeps the ID stable for an
+// instance without a selfLink, which the API never returns.
+func TestCollect_IDFallsBackToNameWithoutSelfLink(t *testing.T) {
+	p := New(Options{API: &fakeAPI{instances: []*gce.Instance{{Name: "a"}}}})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if records[0].ID != "a" {
+		t.Errorf("ID = %q; want a", records[0].ID)
 	}
 }
 

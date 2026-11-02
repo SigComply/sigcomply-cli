@@ -37,6 +37,11 @@ func TestGCPComputeConformance(t *testing.T) {
 	if len(recs) != 1 {
 		t.Fatalf("compute_instance records = %d, want 1", len(recs))
 	}
+	// The record ID is the zonal selfLink, not the bare name (names are
+	// unique per zone only).
+	if want := "https://www.googleapis.com/compute/v1/projects/e2e-project/zones/us-east1-b/instances/sigcomply-e2e-vm"; recs[0].ID != want {
+		t.Errorf("ID = %q; want %q", recs[0].ID, want)
+	}
 	var p instancePayload
 	if err := json.Unmarshal(recs[0].Payload, &p); err != nil {
 		t.Fatal(err)
