@@ -2,9 +2,12 @@ package manual
 
 import (
 	"bytes"
+	"compress/zlib"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"image"
 	"os"
 	"path/filepath"
@@ -13,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pdfcpu/pdfcpu/pkg/api"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	"golang.org/x/image/tiff"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
@@ -59,6 +64,77 @@ func realPDF(t *testing.T) []byte {
 		t.Fatalf("realPDF: %v", err)
 	}
 	return pdf
+}
+
+// objStmPDF builds a valid one-page PDF 1.5 laid out the way pdf-lib's
+// default save(), qpdf --object-streams=generate and iText full
+// compression write it: the Catalog, Pages and Page dictionaries sit in a
+// Flate-compressed object stream and the trailer is a cross-reference
+// stream, so the literal "/Page" never appears in the raw bytes.
+func objStmPDF(t *testing.T) []byte {
+	t.Helper()
+	flate := func(b []byte) []byte {
+		var buf bytes.Buffer
+		w := zlib.NewWriter(&buf)
+		if _, err := w.Write(b); err != nil {
+			t.Fatal(err)
+		}
+		if err := w.Close(); err != nil {
+			t.Fatal(err)
+		}
+		return buf.Bytes()
+	}
+
+	// Objects 1-3 go into the object stream (object 5).
+	compressed := []string{
+		"<< /Type /Catalog /Pages 2 0 R >>",
+		"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+		"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Contents 4 0 R >>",
+	}
+	var header, body bytes.Buffer
+	for i, obj := range compressed {
+		fmt.Fprintf(&header, "%d %d ", i+1, body.Len())
+		body.WriteString(obj)
+		body.WriteString("\n")
+	}
+	objStmData := append(header.Bytes(), body.Bytes()...)
+	first := header.Len()
+
+	content := flate([]byte("0 0 1 rg 100 100 200 200 re f\n"))
+	objStm := flate(objStmData)
+
+	var out bytes.Buffer
+	out.WriteString("%PDF-1.5\n%\xe2\xe3\xcf\xd3\n")
+	off4 := out.Len()
+	fmt.Fprintf(&out, "4 0 obj\n<< /Length %d /Filter /FlateDecode >>\nstream\n", len(content))
+	out.Write(content)
+	out.WriteString("\nendstream\nendobj\n")
+	off5 := out.Len()
+	fmt.Fprintf(&out, "5 0 obj\n<< /Type /ObjStm /N %d /First %d /Length %d /Filter /FlateDecode >>\nstream\n", len(compressed), first, len(objStm))
+	out.Write(objStm)
+	out.WriteString("\nendstream\nendobj\n")
+	off6 := out.Len()
+
+	// Cross-reference stream, /W [1 4 2].
+	var xref []byte
+	row := func(typ byte, f2 uint32, f3 uint16) {
+		xref = append(xref, typ)
+		xref = binary.BigEndian.AppendUint32(xref, f2)
+		xref = binary.BigEndian.AppendUint16(xref, f3)
+	}
+	row(0, 0, 65535)
+	row(2, 5, 0)            // 1: catalog, in objstm 5 index 0
+	row(2, 5, 1)            // 2: pages
+	row(2, 5, 2)            // 3: page
+	row(1, uint32(off4), 0) //nolint:gosec // offsets within a sub-kilobyte fixture
+	row(1, uint32(off5), 0) //nolint:gosec // offsets within a sub-kilobyte fixture
+	row(1, uint32(off6), 0) //nolint:gosec // offsets within a sub-kilobyte fixture
+	xrefData := flate(xref)
+	fmt.Fprintf(&out, "6 0 obj\n<< /Type /XRef /Size 7 /W [1 4 2] /Root 1 0 R /Length %d /Filter /FlateDecode >>\nstream\n", len(xrefData))
+	out.Write(xrefData)
+	out.WriteString("\nendstream\nendobj\n")
+	fmt.Fprintf(&out, "startxref\n%d\n%%%%EOF\n", off6)
+	return out.Bytes()
 }
 
 // fakePDF returns a payload that passes validatePDF: starts with the
@@ -578,6 +654,7 @@ func TestValidatePDF_Cases(t *testing.T) {
 		{"too_small_with_header", []byte("%PDF-1.4"), 2},
 		{"large_but_no_header", append([]byte("not a pdf "), bytes.Repeat([]byte("x"), minPDFBytes)...), 2},
 		{"header_but_no_pages", headerOnly, 1},
+		{"pages_in_object_stream", objStmPDF(t), 0},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -586,6 +663,38 @@ func TestValidatePDF_Cases(t *testing.T) {
 				t.Errorf("validatePDF: got %d failures (%v); want %d", len(got), got, tc.wantFailures)
 			}
 		})
+	}
+}
+
+// TestCollect_ObjectStreamPDFAlonePasses: a valid one-page PDF whose page
+// dictionaries are all in a compressed object stream passes as the only
+// file in its folder. A lone PDF reaches validatePDF unmerged, and the
+// check used to fail it with no_pages while the same file passed next to
+// a second upload (pdfcpu rewrites merged output in plain text).
+func TestCollect_ObjectStreamPDFAlonePasses(t *testing.T) {
+	pdf := objStmPDF(t)
+	if bytes.Contains(pdf, pdfPageMarker) {
+		t.Fatal("fixture unexpectedly contains a plaintext /Page")
+	}
+	conf := model.NewStatelessConfiguration()
+	conf.ValidationMode = model.ValidationStrict
+	if _, err := api.ReadAndValidate(context.Background(), bytes.NewReader(pdf), conf); err != nil {
+		t.Fatalf("fixture is not a valid PDF per pdfcpu (strict): %v", err)
+	}
+	if n, err := api.PageCount(context.Background(), bytes.NewReader(pdf), model.NewStatelessConfiguration()); err != nil || n != 1 {
+		t.Fatalf("fixture page count = %d (%v); want 1", n, err)
+	}
+
+	p := newTestPlugin(map[string]InMemoryFile{
+		testEvidencePathQ1: {Data: pdf, UploadedAt: mustTime("2026-02-15T10:00:00Z")},
+	})
+	records, err := p.Collect(context.Background(), baseReq(testPeriodID, nil))
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	m := unmarshalManifest(t, records)
+	if !m.FileValid || len(m.ValidationFailures) != 0 {
+		t.Errorf("file_valid=%v validation_failures=%v; want valid", m.FileValid, m.ValidationFailures)
 	}
 }
 

@@ -79,8 +79,10 @@ in `src/lib/storage-path.ts`; change both together.
    pdfcpu sizes a table by the highest object number), adds `merge_failed` naming the file. A
    panic inside pdfcpu is recovered into the same failure. `FuzzToPDF` and `FuzzMerge` exercise
    both packages; a crasher is kept under the package's `testdata/fuzz/` so `go test` replays it.
-5. Run `validatePDF` on the merged bytes: at least 100 bytes, a `%PDF-` prefix, at least one
-   `/Page` marker. Stdlib byte checks only, no PDF parser.
+5. Run `validatePDF` on the merged bytes: at least 100 bytes, a `%PDF-` prefix, and a `/Page`
+   or `/ObjStm` marker. An object stream counts because a PDF 1.5+ file can compress its Page
+   dictionaries inside one, and a single PDF reaches this check unmerged. Stdlib byte checks only,
+   no PDF parser.
 6. Temporal window: the latest upload time must lie in
    `[period_start, period_end + grace]` (`isInTemporalWindow`). Grace comes from the catalog
    entry (`manualcatalog.GraceForCadence`: 15 days for quarterly, 30 days otherwise).

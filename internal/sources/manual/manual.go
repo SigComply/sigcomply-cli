@@ -52,9 +52,16 @@ const minPDFBytes = 100
 // with these bytes is not a PDF.
 var pdfMagic = []byte("%PDF-")
 
-// pdfPageMarker appears in the object dictionary of every PDF that has
-// at least one page.
+// pdfPageMarker appears in the page dictionaries of a PDF with at least
+// one page, unless those dictionaries are compressed inside an object
+// stream (pdfObjStmMarker).
 var pdfPageMarker = []byte("/Page")
+
+// pdfObjStmMarker marks a PDF 1.5+ object stream. pdf-lib, qpdf and iText
+// can put the Catalog, Pages and Page dictionaries in one, Flate
+// compressed, where no byte check can see "/Page". Its presence stands in
+// for the page marker; a header-only or truncated file has neither.
+var pdfObjStmMarker = []byte("/ObjStm")
 
 // validatePDF runs cheap, stdlib-only sanity checks on the merged PDF
 // and returns the list of failed checks (empty = valid). These are NOT
@@ -68,7 +75,7 @@ func validatePDF(data []byte) []string {
 	if !bytes.HasPrefix(data, pdfMagic) {
 		failures = append(failures, "missing_pdf_header (file does not start with %PDF-)")
 	}
-	if !bytes.Contains(data, pdfPageMarker) {
+	if !bytes.Contains(data, pdfPageMarker) && !bytes.Contains(data, pdfObjStmMarker) {
 		failures = append(failures, "no_pages (PDF contains no /Page object — header-only or truncated)")
 	}
 	return failures
