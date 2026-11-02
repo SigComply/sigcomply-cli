@@ -179,6 +179,42 @@ func TestCollect_NoSubnetsNotLogged(t *testing.T) {
 	}
 }
 
+// TestCollect_ProxyOnlySubnets verifies proxy-only subnetworks, where GCP
+// rejects flow logs, neither fail nor satisfy the network's flow-logs
+// verdict, and still count toward subnet_count.
+func TestCollect_ProxyOnlySubnets(t *testing.T) {
+	const netURL = "projects/p/global/networks/vpc"
+	logged := &gce.Subnetwork{Network: netURL, Purpose: "PRIVATE", LogConfig: &gce.SubnetworkLogConfig{Enable: true}}
+	unlogged := &gce.Subnetwork{Network: netURL, Purpose: "PRIVATE"}
+	proxy := func(purpose string) *gce.Subnetwork {
+		return &gce.Subnetwork{Network: netURL, Purpose: purpose, Role: "ACTIVE"}
+	}
+	cases := []struct {
+		name    string
+		subnets []*gce.Subnetwork
+		want    bool
+	}{
+		{"regional proxy subnet ignored", []*gce.Subnetwork{logged, proxy("REGIONAL_MANAGED_PROXY")}, true},
+		{"legacy proxy purpose ignored", []*gce.Subnetwork{logged, proxy("INTERNAL_HTTPS_LOAD_BALANCER")}, true},
+		{"global proxy subnet ignored", []*gce.Subnetwork{proxy("GLOBAL_MANAGED_PROXY"), logged}, true},
+		{"unlogged regular subnet still fails", []*gce.Subnetwork{logged, unlogged, proxy("REGIONAL_MANAGED_PROXY")}, false},
+		{"proxy-only network not vacuously logged", []*gce.Subnetwork{proxy("REGIONAL_MANAGED_PROXY")}, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fake := &fakeAPI{networks: []*gce.Network{{Name: "vpc"}}, subnets: c.subnets}
+			records, err := New(Options{API: fake}).Collect(context.Background(), netReq())
+			if err != nil {
+				t.Fatalf("Collect: %v", err)
+			}
+			got := decodePayload(t, &records[0])
+			if got.FlowLogsEnabled != c.want || got.SubnetCount != len(c.subnets) {
+				t.Errorf("got flow_logs=%v subnets=%d; want %v, %d", got.FlowLogsEnabled, got.SubnetCount, c.want, len(c.subnets))
+			}
+		})
+	}
+}
+
 // TestCollect_LegacyFlagAndFallback verifies a legacy network (IPv4Range
 // set) is flagged is_legacy with cidr_block populated, and that the legacy
 // EnableFlowLogs bool is honored when LogConfig is absent.

@@ -227,6 +227,10 @@ locally. All `gcp.*` sources share one identity per run.
   `https://www.googleapis.com/compute/v1/projects/p/zones/us-central1-a/instances/bastion`,
   because instance names are unique only within a zone. A `resource_id` exception for a VM must
   use that form.
+- `gcp.network` reports `flow_logs_enabled` as `true` when every subnet of the VPC that supports
+  flow logs has them on. It skips proxy-only subnets (purpose `REGIONAL_MANAGED_PROXY`,
+  `INTERNAL_HTTPS_LOAD_BALANCER` or `GLOBAL_MANAGED_PROXY`), where GCP does not support flow
+  logs. A VPC with only proxy-only subnets reports `false`.
 - `gcp.audit` reports `is_enabled` and `is_multi_region` as `true` because Admin Activity audit
   logs are always on and project-wide in GCP. It omits `log_file_validation_enabled`: GCP has no
   log file validation feature. The audit-log integrity policies check only trails that report

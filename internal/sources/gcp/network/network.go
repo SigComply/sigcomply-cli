@@ -9,11 +9,15 @@
 // network spans many regional subnetworks, each with its own
 // LogConfig.Enable. The network-level flow_logs_enabled bool is therefore
 // aggregated conservatively — true only when the network has at least one
-// subnetwork and *every* subnetwork has flow logs on. The compliance
-// intent ("all network traffic is logged") makes a single un-logged
-// subnet a gap, so ALL-must-be-on is the correct semantics; a network
-// with no subnetworks (legacy, or custom-mode with none added) reports
-// false rather than vacuously true.
+// subnetwork that can carry flow logs and *every* such subnetwork has them
+// on. The compliance intent ("all network traffic is logged") makes a
+// single un-logged subnet a gap, so ALL-must-be-on is the correct
+// semantics; a network with no loggable subnetworks (legacy, custom-mode
+// with none added, or proxy-only subnets alone) reports false rather than
+// vacuously true. Proxy-only subnets (purpose REGIONAL_MANAGED_PROXY, its
+// legacy name INTERNAL_HTTPS_LOAD_BALANCER, or GLOBAL_MANAGED_PROXY) are
+// skipped: GCP rejects flow logs on them, so they are not a gap the
+// customer can close. SubnetCount still counts every subnetwork.
 //
 // GCP networks are global, so there is no region field. The "default"
 // network is identified by convention — a network literally named
@@ -233,19 +237,34 @@ func bucketSubnetworks(subnets []*gce.Subnetwork) map[string][]*gce.Subnetwork {
 }
 
 // allSubnetsLogged reports whether the network's traffic is fully logged:
-// true only when there is at least one subnetwork and every subnetwork has
-// flow logs enabled. A network with no subnetworks (legacy, or custom-mode
-// with none added) is not vacuously compliant — nothing is being logged.
+// true only when there is at least one subnetwork that supports flow logs
+// and every such subnetwork has them enabled. Proxy-only subnetworks are
+// skipped (see flowLogsUnsupported). A network with no loggable
+// subnetworks is not vacuously compliant — nothing is being logged.
 func allSubnetsLogged(subnets []*gce.Subnetwork) bool {
-	if len(subnets) == 0 {
-		return false
-	}
+	loggable := 0
 	for _, sub := range subnets {
+		if flowLogsUnsupported(sub) {
+			continue
+		}
+		loggable++
 		if !subnetFlowLogsOn(sub) {
 			return false
 		}
 	}
-	return true
+	return loggable > 0
+}
+
+// flowLogsUnsupported reports whether GCP refuses flow logs on the
+// subnetwork: proxy-only subnets hold Envoy proxies, not VMs, and the API
+// rejects logConfig on them (compute/v1 SubnetworkLogConfig.Enable; VPC
+// Flow Logs docs).
+func flowLogsUnsupported(sub *gce.Subnetwork) bool {
+	switch sub.Purpose {
+	case "REGIONAL_MANAGED_PROXY", "INTERNAL_HTTPS_LOAD_BALANCER", "GLOBAL_MANAGED_PROXY":
+		return true
+	}
+	return false
 }
 
 // subnetFlowLogsOn reads a subnetwork's flow-logs flag, preferring the
