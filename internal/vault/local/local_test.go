@@ -41,6 +41,46 @@ func TestLocalVault_RejectsEscapingKey(t *testing.T) {
 	}
 }
 
+// TestLocalVault_DotRoot: a vault rooted at "." or "./" (vault.path: "."
+// or `report --vault .` from inside a vault folder) reads and writes keys
+// below the working directory. Every key used to be refused as escaping
+// the root, because no cleaned path starts with "./". Escapes stay refused.
+func TestLocalVault_DotRoot(t *testing.T) {
+	for _, root := range []string{".", "./"} {
+		t.Run(root, func(t *testing.T) {
+			t.Chdir(t.TempDir())
+			ctx := context.Background()
+			v := local.New(root)
+			if err := v.Init(ctx); err != nil {
+				t.Fatalf("Init: %v", err)
+			}
+			const key = "soc2/2026-Q4/run_x/summary.json"
+			if err := v.PutBinary(ctx, key, []byte("x"), nil); err != nil {
+				t.Fatalf("PutBinary(%q): %v", key, err)
+			}
+			got, err := v.GetBinary(ctx, key)
+			if err != nil {
+				t.Fatalf("GetBinary(%q): %v", key, err)
+			}
+			if string(got) != "x" {
+				t.Fatalf("GetBinary = %q; want x", got)
+			}
+			keys, err := v.List(ctx, "soc2/")
+			if err != nil {
+				t.Fatalf("List(soc2/): %v", err)
+			}
+			if len(keys) != 1 || keys[0] != key {
+				t.Fatalf("List(soc2/) = %v; want [%s]", keys, key)
+			}
+			for _, k := range []string{"../escape.txt", "foo/../../escape.txt", "..", "/absolute.txt"} {
+				if err := v.PutBinary(ctx, k, []byte("x"), nil); err == nil {
+					t.Errorf("PutBinary(%q) = nil; expected escape error", k)
+				}
+			}
+		})
+	}
+}
+
 func TestLocalVault_InitRejectsEmptyRoot(t *testing.T) {
 	v := local.New("")
 	if err := v.Init(context.Background()); err == nil {

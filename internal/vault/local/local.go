@@ -207,12 +207,13 @@ func (v *Vault) resolve(key string) (string, error) {
 	if strings.HasPrefix(key, "/") {
 		return "", fmt.Errorf("local vault: key %q must be relative, not absolute", key)
 	}
-	cleanedRoot := filepath.Clean(v.Root)
-	cleaned := filepath.Clean(filepath.Join(cleanedRoot, filepath.FromSlash(key)))
-	if cleaned != cleanedRoot && !strings.HasPrefix(cleaned, cleanedRoot+string(filepath.Separator)) {
+	// Judge the key on its own, not by a string prefix on Root: a root of
+	// "." cleans to ".", and no joined path starts with "./".
+	rel := filepath.Clean(filepath.FromSlash(key))
+	if filepath.IsAbs(rel) || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return "", fmt.Errorf("local vault: key %q escapes vault root", key)
 	}
-	return filepath.Rel(cleanedRoot, cleaned)
+	return rel, nil
 }
 
 // Compile-time assertion that *Vault satisfies core.Vault.
