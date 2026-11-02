@@ -14,6 +14,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -229,7 +230,7 @@ func classify(pattern string) string {
 	switch {
 	case strings.Contains(pattern, "Unauthorized"):
 		return classUnauthorizedAPICalls
-	case strings.Contains(pattern, "RootAccount") || strings.Contains(pattern, "userIdentity.type"):
+	case strings.Contains(pattern, "RootAccount") || rootTypeTest.MatchString(pattern):
 		return classRootAccountUsage
 	case containsAny(pattern, "DeleteGroupPolicy", "PutGroupPolicy", "AttachUserPolicy", "DetachUserPolicy"):
 		return classIAMPolicyChanges
@@ -247,6 +248,12 @@ func classify(pattern string) string {
 		return classOther
 	}
 }
+
+// rootTypeTest matches a filter that selects root by its identity type, in
+// both the spaced CIS form and the unspaced Security Hub form. Matching the
+// bare field name instead would also catch the CIS console-no-MFA filter,
+// which tests $.userIdentity.type = "IAMUser".
+var rootTypeTest = regexp.MustCompile(`\$\.userIdentity\.type\s*=\s*"?Root\b`)
 
 func containsAny(s string, subs ...string) bool {
 	for _, sub := range subs {
