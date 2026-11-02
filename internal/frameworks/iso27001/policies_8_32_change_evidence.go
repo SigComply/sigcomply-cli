@@ -50,13 +50,15 @@ func changeEvidencePolicies() []core.Policy {
 			EvidenceMode: core.EvidenceModeAutomated,
 			Slots: map[string]core.Slot{
 				"deployments": {Accepts: []string{"deployment"}, Cardinality: core.SlotOneOrMore, Required: true, Description: "deployments performed during the period"},
-				"changes":     {Accepts: []string{etPullRequest}, Cardinality: core.SlotOneOrMore, Required: true, Description: "changes merged during the period"},
+				"changes":     {Accepts: []string{etPullRequest}, Cardinality: core.SlotOneOrMore, Required: false, Description: "changes merged during the period"},
 			},
 			// Traceability, not segregation of duties between merger and
 			// deployer: comparing two fields across two slots is not
 			// expressible in the DSL, and matches_in tests membership only.
 			// An empty join key is skipped rather than matched loosely, so a
-			// vendor reporting no merge commit fails closed.
+			// vendor reporting no merge commit fails closed. `changes` is a
+			// lookup table, not Required: deployments with no merged change
+			// in the period fail rather than skip.
 			PassWhen: &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
 				Slot:       "deployments",
 				Quantifier: core.QuantifierAll,

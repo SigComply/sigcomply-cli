@@ -2459,10 +2459,12 @@
       ]
     },
     "sparse": {
-      "status": "skip",
-      "resources_evaluated": 0,
-      "resources_failed": 0,
-      "reason": "required slot has no records"
+      "status": "fail",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "violated": [
+        "deploy-s"
+      ]
     }
   },
   "iso27001.8.33.test_information_policy": {

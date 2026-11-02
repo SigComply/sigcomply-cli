@@ -143,6 +143,10 @@ func cc8ChangeEvidencePolicies() []core.Policy {
 //
 // Records whose join key is empty are skipped by matches_in rather than
 // matched loosely, so a vendor that reports no merge commit fails closed.
+//
+// `changes` is a lookup table, not the population under test, so it is not
+// Required: a period with production deployments and no merged change must
+// fail every deployment, not skip because the table is empty.
 func deploymentTraceabilityPolicy(id string, controls []core.ControlRef) core.Policy {
 	return core.Policy{
 		ID:           id,
@@ -156,7 +160,7 @@ func deploymentTraceabilityPolicy(id string, controls []core.ControlRef) core.Po
 		EvidenceMode: core.EvidenceModeAutomated,
 		Slots: map[string]core.Slot{
 			"deployments": {Accepts: []string{"deployment"}, Cardinality: core.SlotOneOrMore, Required: true, Description: "deployments performed during the period"},
-			"changes":     {Accepts: []string{etPullRequest}, Cardinality: core.SlotOneOrMore, Required: true, Description: "changes merged during the period"},
+			"changes":     {Accepts: []string{etPullRequest}, Cardinality: core.SlotOneOrMore, Required: false, Description: "changes merged during the period"},
 		},
 		PassWhen: &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
 			Slot:       "deployments",

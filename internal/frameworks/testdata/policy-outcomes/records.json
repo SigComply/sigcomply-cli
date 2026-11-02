@@ -969,7 +969,7 @@
       "type": "deployment",
       "id": "deploy-s",
       "source_id": "github",
-      "why": "no pull_request records: the join has nothing to match against",
+      "why": "no pull_request records: the empty lookup table fails the production deployment rather than skipping",
       "payload": {"repository": "acme/api", "deployed_by": "bob", "deployed_at": "2026-08-02T10:00:00Z", "status": "success", "deployment_id": "deploy-s", "environment": "production", "is_production": true, "commit_sha": "sha-1"}
     },
     {
