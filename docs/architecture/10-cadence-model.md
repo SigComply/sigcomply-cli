@@ -75,8 +75,8 @@ Why one file per policy:
   conditional puts.
 - Removing a policy from the bundle leaves one orphan file instead of a map entry to edit.
 
-`BulkReadPolicyStates` (`internal/orchestrator/state.go`) issues one GET per framework policy, 8 at
-a time. It does not list the prefix.
+`BulkReadPolicyStates` (`internal/orchestrator/state.go`) issues one GET per policy the run can
+plan, the framework's own and the project-local ones, 8 at a time. It does not list the prefix.
 
 ### Monotonic write rule
 

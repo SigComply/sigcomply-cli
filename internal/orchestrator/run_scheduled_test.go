@@ -208,3 +208,62 @@ func TestRun_ScheduledMode_DueAfterIntervalReEvaluates(t *testing.T) {
 		t.Errorf("source calls = %d; want 2 (re-collected after interval)", src.calls)
 	}
 }
+
+// A project-local policy joins the active framework like a shipped one,
+// so under --scheduled its state shard is read back and it carries
+// forward inside its cadence instead of re-collecting, and being
+// reported as a first run, on every run.
+func TestRun_ScheduledMode_ProjectLocalPolicyCarriesForward(t *testing.T) {
+	const localID = "acme.local.mfa_daily"
+	src := &schedSource{}
+	regs := schedRegistries(t, src)
+	local := schedPolicy()
+	local.ID = localID
+	if err := regs.Policies.Register(local); err != nil {
+		t.Fatal(err)
+	}
+	v := newListVault()
+	base := time.Date(2026, 5, 24, 9, 0, 0, 0, time.UTC)
+
+	run := func(now time.Time, logBuf *bytes.Buffer) Result {
+		cfg := schedConfig()
+		cfg.ProjectLocalPolicies = []core.PolicyRef{{PolicyID: localID}}
+		res, err := Run(context.Background(), &Options{
+			Config:        cfg,
+			Registries:    regs,
+			Vault:         v,
+			Mode:          ModeScheduled,
+			Stdout:        &bytes.Buffer{},
+			Logger:        log.New(logBuf, false),
+			CommitTime:    base,
+			Now:           func() time.Time { return now },
+			SubmitterOpts: submitter.Options{Disable: true},
+		})
+		if err != nil {
+			t.Fatalf("Run: %v", err)
+		}
+		return res
+	}
+
+	res1 := run(base, &bytes.Buffer{})
+	if res1.Summary.PoliciesPassed != 2 {
+		t.Fatalf("run1: PoliciesPassed = %d; want 2", res1.Summary.PoliciesPassed)
+	}
+	st, err := ReadPolicyState(context.Background(), v, testFramework, localID)
+	if err != nil || st == nil {
+		t.Fatalf("run1: project-local state not written: %v / %+v", err, st)
+	}
+	callsAfterRun1 := src.calls
+
+	log2 := &bytes.Buffer{}
+	res2 := run(base.Add(time.Minute), log2)
+	if res2.Summary.PoliciesCarriedForward != 2 {
+		t.Errorf("run2: PoliciesCarriedForward = %d; want 2 (the project-local daily policy passed 1 minute ago, same as the shipped one)", res2.Summary.PoliciesCarriedForward)
+	}
+	if src.calls != callsAfterRun1 {
+		t.Errorf("run2: source calls = %d; want %d (no re-collection on carry-forward)", src.calls, callsAfterRun1)
+	}
+	if bytes.Contains(log2.Bytes(), []byte("first-run")) {
+		t.Errorf("run2 logged a first-run notice although every policy has a shard:\n%s", log2.String())
+	}
+}

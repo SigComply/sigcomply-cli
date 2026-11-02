@@ -291,12 +291,12 @@ func resolveMode(ctx context.Context, opts *Options, _ time.Time) (planner.Filte
 	}
 }
 
-// loadPolicyStates fetches every policy state shard for the
-// configured framework. Errors are logged as warnings — a missing,
-// unreadable or future-dated (futureDated) shard degrades to "treat
-// as first run", which is
-// safe (the policy re-evaluates) and surfaces loudly via the
-// first-run warning at plan time.
+// loadPolicyStates fetches the state shard of every policy the run can
+// plan: the framework's own and the project-local ones. Errors are
+// logged as warnings — a missing, unreadable or future-dated
+// (futureDated) shard degrades to "treat as first run", which is safe
+// (the policy re-evaluates) and surfaces loudly via the first-run
+// warning at plan time.
 func loadPolicyStates(ctx context.Context, opts *Options) map[string]*core.PolicyState {
 	framework := opts.Config.Framework
 	policies, ok := opts.Registries.Frameworks.Lookup(framework)
@@ -304,8 +304,19 @@ func loadPolicyStates(ctx context.Context, opts *Options) map[string]*core.Polic
 		opts.Logger.Warnf("policy-state: framework %q not yet registered; skipping state load", framework)
 		return map[string]*core.PolicyState{}
 	}
-	ids := make([]string, 0, len(policies.Policies()))
-	for _, ref := range policies.Policies() {
+	// The same refs planPolicies plans: the framework's own plus the
+	// project-local ones, whose shards advancePolicyStates also writes.
+	refs := policies.Policies()
+	if opts.Config != nil {
+		refs = append(refs[:len(refs):len(refs)], opts.Config.ProjectLocalPolicies...)
+	}
+	ids := make([]string, 0, len(refs))
+	seen := make(map[string]struct{}, len(refs))
+	for _, ref := range refs {
+		if _, dup := seen[ref.PolicyID]; dup {
+			continue
+		}
+		seen[ref.PolicyID] = struct{}{}
 		ids = append(ids, ref.PolicyID)
 	}
 	states, errs := BulkReadPolicyStates(ctx, opts.Vault, framework, ids)
