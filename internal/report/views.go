@@ -130,7 +130,8 @@ type CoverageView struct {
 	AutomatedExcepted  int
 
 	// ManualOnFile and ManualMissing split the manual-assurance controls
-	// by whether their document actually exists for this period.
+	// by whether their document actually exists for this period. A
+	// carry-forward of an earlier pass counts as on file.
 	ManualOnFile  int
 	ManualMissing int
 

@@ -497,3 +497,68 @@ func TestBuildCoverage_CountsManagementSystemApart(t *testing.T) {
 		}
 	}
 }
+
+// TestBuildCoverage_CarriedForwardManualPassIsOnFile is the regression
+// for a daily `check --scheduled` emptying the manual tally. The first
+// run of the period evaluates a manual policy and passes; every later
+// run carries it forward, and the view reads the latest result. That
+// carry-forward stands for the earlier pass, so the document is still on
+// file, for catalog controls and management-system clauses alike. A
+// manual policy that failed stays missing.
+func TestBuildCoverage_CarriedForwardManualPassIsOnFile(t *testing.T) {
+	const (
+		ctrlManual  = "CC1.1"
+		ctrlMissing = "CC1.2"
+		ctrlClause  = "4.1"
+		polManual   = "p.manual"
+		polMissing  = "p.missing"
+		polClause   = "p.clause"
+	)
+	v, _ := makeVault(t, []runSeed{
+		{
+			framework: frameworkSOC2, periodID: testPeriodQ2, runID: "run-aaaa1111",
+			timestamp:   time.Date(2026, 4, 1, 2, 0, 0, 0, time.UTC),
+			completedAt: time.Date(2026, 4, 1, 2, 5, 0, 0, time.UTC),
+			policies: []core.PolicyResult{
+				{PolicyID: polManual, Status: core.StatusPass, EvidenceMode: core.EvidenceModeManual},
+				{PolicyID: polMissing, Status: core.StatusFail, EvidenceMode: core.EvidenceModeManual},
+				{PolicyID: polClause, Status: core.StatusPass, EvidenceMode: core.EvidenceModeManual},
+			},
+		},
+		{
+			framework: frameworkSOC2, periodID: testPeriodQ2, runID: "run-bbbb2222",
+			timestamp:   time.Date(2026, 4, 2, 2, 0, 0, 0, time.UTC),
+			completedAt: time.Date(2026, 4, 2, 2, 5, 0, 0, time.UTC),
+			policies: []core.PolicyResult{
+				{PolicyID: polManual, Status: core.StatusCarriedForward, EvidenceMode: core.EvidenceModeManual},
+				{PolicyID: polMissing, Status: core.StatusFail, EvidenceMode: core.EvidenceModeManual},
+				{PolicyID: polClause, Status: core.StatusCarriedForward, EvidenceMode: core.EvidenceModeManual},
+			},
+		},
+	})
+
+	snap, err := report.Build(context.Background(), &report.Input{
+		Vault: v, Framework: frameworkSOC2, PeriodID: testPeriodQ2, View: report.ViewCoverage,
+		Controls: []core.Control{
+			{ID: ctrlManual},
+			{ID: ctrlMissing},
+			{ID: ctrlClause, Kind: core.ControlKindManagementSystem},
+		},
+		Policies: []core.Policy{
+			{ID: polManual, EvidenceMode: core.EvidenceModeManual, Cadence: cadenceAnnual, Controls: []core.ControlRef{{ControlID: ctrlManual}}},
+			{ID: polMissing, EvidenceMode: core.EvidenceModeManual, Cadence: cadenceAnnual, Controls: []core.ControlRef{{ControlID: ctrlMissing}}},
+			{ID: polClause, EvidenceMode: core.EvidenceModeManual, Cadence: cadenceAnnual, Controls: []core.ControlRef{{ControlID: ctrlClause}}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cov := snap.Coverage
+	if cov.ManualOnFile != 1 || cov.ManualMissing != 1 {
+		t.Errorf("ManualOnFile/ManualMissing = %d/%d; want 1/1 (CC1.1 carried forward from a pass, CC1.2 failed)",
+			cov.ManualOnFile, cov.ManualMissing)
+	}
+	if cov.ManagementSystemOnFile != 1 {
+		t.Errorf("ManagementSystemOnFile = %d; want 1 (clause 4.1 carried forward from a pass)", cov.ManagementSystemOnFile)
+	}
+}

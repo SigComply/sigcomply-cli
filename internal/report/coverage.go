@@ -66,7 +66,7 @@ func buildCoverage(ctx context.Context, v core.Vault, runs []runRecord, controls
 
 	for i := range out.Rows {
 		if out.Rows[i].ManagementSystem {
-			if out.Rows[i].Status == statusPass {
+			if onFile(out.Rows[i].Status) {
 				out.ManagementSystemOnFile++
 			}
 			continue
@@ -103,11 +103,20 @@ func tallyRow(out *CoverageView, r *CoverageRow) {
 	if r.Assurance != string(core.AssuranceManual) {
 		return
 	}
-	if r.Status == statusPass {
+	if onFile(r.Status) {
 		out.ManualOnFile++
 		return
 	}
 	out.ManualMissing++
+}
+
+// onFile reports whether a manual row's status means its document is on
+// file for the period. A carry-forward counts: the planner carries
+// forward only an earlier pass, which found the document, and a daily
+// --scheduled run carries every passing manual policy forward after its
+// first evaluation in the period.
+func onFile(status string) bool {
+	return status == statusPass || status == string(core.StatusCarriedForward)
 }
 
 // tallyAutomated counts the automated catalog controls whose automated

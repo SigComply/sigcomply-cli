@@ -216,6 +216,9 @@ did:
   covers the whole policy. Neither collects anything.
 - not evaluated or errored: the rest.
 
+A manual control has evidence on file when its document checks ended `pass`, or
+`carried_forward` from an earlier pass, this period.
+
 Sample output from a SOC 2 project with only the manual evidence source configured:
 
 ```

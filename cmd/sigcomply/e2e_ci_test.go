@@ -128,7 +128,9 @@ func parseRunCounts(t *testing.T, stdout string) runCounts {
 // records per-policy state in the vault, and the next scheduled run reads
 // it and carries the passes forward instead of re-evaluating. Deleting the
 // state makes the next run a first run again, which proves the vault
-// state, not the process, carried them.
+// state, not the process, carried them. The coverage view must read a
+// carried-forward manual pass as a document on file, as it read the
+// first run's pass.
 func TestBinaryE2E_Check_ScheduledCarriesStateThroughVault(t *testing.T) {
 	p := newE2EProject(t)
 	seeded := len(seedAllManualEvidence(t, p))
@@ -151,8 +153,16 @@ func TestBinaryE2E_Check_ScheduledCarriesStateThroughVault(t *testing.T) {
 		t.Fatalf("state shards under %s = %d; want at least one per evaluated policy (%d)", stateDir, len(shards), seeded)
 	}
 
+	afterFirst := manualCoverageLine(t, p)
+	if !strings.HasSuffix(afterFirst, ", 0 without") {
+		t.Errorf("coverage after the first scheduled run: %q; want every manual control on file", afterFirst)
+	}
+
 	if c := scheduled(); c.carried != seeded || c.pass != 0 {
 		t.Errorf("second scheduled run: %+v; want all %d passes carried forward", c, seeded)
+	}
+	if got := manualCoverageLine(t, p); got != afterFirst {
+		t.Errorf("coverage after the carry-forward run: %q; want %q (nothing left the evidence store)", got, afterFirst)
 	}
 
 	if err := os.RemoveAll(filepath.Join(p.vault, "state")); err != nil {
@@ -161,6 +171,21 @@ func TestBinaryE2E_Check_ScheduledCarriesStateThroughVault(t *testing.T) {
 	if c := scheduled(); c.pass != seeded || c.carried != 0 {
 		t.Errorf("scheduled run after deleting state: %+v; want a first run again (%d passes)", c, seeded)
 	}
+}
+
+// manualCoverageLine returns the manual-controls headline of
+// `report --view coverage` for the E2E period.
+func manualCoverageLine(t *testing.T, p e2eProject) string {
+	t.Helper()
+	res := runSigcomply(t, p.dir, nil, "report", "--period", e2ePeriod, "--view", "coverage")
+	res.wantCode(t, 0)
+	for _, line := range strings.Split(res.stdout, "\n") {
+		if strings.Contains(line, "manual control(s) with evidence on file") {
+			return strings.TrimSpace(line)
+		}
+	}
+	t.Fatalf("no manual headline in coverage output:\n%s", res.stdout)
+	return ""
 }
 
 // TestBinaryE2E_Check_PRMode: --pr evaluates on_push policies only. No
