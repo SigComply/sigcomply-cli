@@ -279,6 +279,10 @@ Aliases and `non_human` entries match the record's `id`, `payload.username` or
 `{{.payload.<path>}}` and `{{.account.<field>}}` are substituted by regex (`renderMsg`), not by Go
 templates. Unresolved tokens stay verbatim. Parameters are not interpolated.
 
+An `any` clause fails once, with no record to blame, whether its set is empty or no record
+matched. Both report the message with tokens left unrendered, or `no record in slot "<slot>"
+satisfied the condition` when the clause has none.
+
 ### Multi-slot policies
 
 Each clause in a list names its own `slot:`. A condition reads another slot only through

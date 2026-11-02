@@ -255,6 +255,60 @@ func TestPassWhen_Any_NoneFail(t *testing.T) {
 	}
 }
 
+// An `any` clause fails the same way whether its set is empty or no
+// record matched, and both failures report the clause's own message:
+// shipped messages such as "no SIEM service is enabled" were written for
+// the disabled-service case, not only the missing one.
+func TestPassWhen_Any_FailureUsesViolationMessage(t *testing.T) {
+	const msg = "no SIEM service is enabled"
+	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
+		Slot:         slotEvidence,
+		Quantifier:   core.QuantifierAny,
+		Filter:       &core.PassWhenCondition{Op: "eq", Field: "payload.service_type", Value: "siem"},
+		Condition:    &core.PassWhenCondition{Op: "eq", Field: "payload.is_enabled", Value: true},
+		ViolationMsg: msg,
+	}}}
+	for name, rec := range map[string]core.EvidenceRecord{
+		"no record passes the filter": makeRecord("s1", map[string]any{"service_type": "dlp", "is_enabled": true}),
+		"matching record is disabled": makeRecord("s1", map[string]any{"service_type": "siem", "is_enabled": false}),
+	} {
+		t.Run(name, func(t *testing.T) {
+			result := evaluatePassWhen(spec, newEvalCtx(map[string][]core.EvidenceRecord{slotEvidence: {rec}}, nil, nil))
+			if result.Status != core.StatusFail || len(result.Violations) != 1 {
+				t.Fatalf("result = %+v; want fail with one violation", result)
+			}
+			if got := result.Violations[0].Reason; got != msg {
+				t.Errorf("reason = %q; want the clause's violation_message %q", got, msg)
+			}
+		})
+	}
+}
+
+// Without a violation_message, both `any` failures fall back to a reason
+// that names the slot rather than an empty string.
+func TestPassWhen_Any_FailureWithoutMessageNamesSlot(t *testing.T) {
+	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
+		Slot:       slotDetectors,
+		Quantifier: core.QuantifierAny,
+		Condition:  &core.PassWhenCondition{Op: "eq", Field: fieldPayloadEnabled, Value: true},
+	}}}
+	want := `no record in slot "` + slotDetectors + `" satisfied the condition`
+	for name, recs := range map[string][]core.EvidenceRecord{
+		"empty slot":       nil,
+		"no record passes": {makeRecord("d1", map[string]any{keyEnabled: false})},
+	} {
+		t.Run(name, func(t *testing.T) {
+			result := evaluatePassWhen(spec, newEvalCtx(map[string][]core.EvidenceRecord{slotDetectors: recs}, nil, nil))
+			if result.Status != core.StatusFail || len(result.Violations) != 1 {
+				t.Fatalf("result = %+v; want fail with one violation", result)
+			}
+			if got := result.Violations[0].Reason; got != want {
+				t.Errorf("reason = %q; want %q", got, want)
+			}
+		})
+	}
+}
+
 // ---- pass_when quantifier: count ----
 
 func TestPassWhen_Count_SufficientPercentage(t *testing.T) {

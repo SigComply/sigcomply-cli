@@ -151,14 +151,6 @@ func (ec *evalCtx) evaluateMatching(clause *core.PassWhenClause, records []core.
 
 // evaluateAny: policy passes iff at least one included record satisfies the condition.
 func (ec *evalCtx) evaluateAny(clause *core.PassWhenClause, records []core.EvidenceRecord) core.RuleResult {
-	if len(records) == 0 {
-		return core.RuleResult{
-			Status: core.StatusFail,
-			Violations: []core.Violation{
-				{Reason: ec.renderMsg(clause.ViolationMsg, nil)},
-			},
-		}
-	}
 	for i := range records {
 		ok, err := ec.evalCondition(clause.Condition, &records[i])
 		if err != nil {
@@ -168,11 +160,17 @@ func (ec *evalCtx) evaluateAny(clause *core.PassWhenClause, records []core.Evide
 			return core.RuleResult{Status: core.StatusPass}
 		}
 	}
+	// One failure, whether the set is empty or no record matched: the
+	// clause's message was written for both ("no SIEM service is enabled"
+	// covers a missing SIEM and a disabled one). The failure names no
+	// single record, so the message is not rendered against one.
+	reason := ec.renderMsg(clause.ViolationMsg, nil)
+	if reason == "" {
+		reason = fmt.Sprintf("no record in slot %q satisfied the condition", clause.Slot)
+	}
 	return core.RuleResult{
-		Status: core.StatusFail,
-		Violations: []core.Violation{
-			{Reason: fmt.Sprintf("no record in slot %q satisfied the condition", clause.Slot)},
-		},
+		Status:     core.StatusFail,
+		Violations: []core.Violation{{Reason: reason}},
 	}
 }
 
