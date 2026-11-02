@@ -131,6 +131,8 @@ func goldenPayload() core.SubmissionPayload {
 			},
 		},
 		{
+			// The shape a real scoped waiver produces: nothing left
+			// failed, and the waived count feeds the message.
 			PolicyID:           "soc2.cc1.4.background_checks",
 			EvidenceMode:       core.EvidenceModeManual,
 			Status:             core.StatusWaived,
@@ -138,7 +140,7 @@ func goldenPayload() core.SubmissionPayload {
 			Category:           "hr",
 			Controls:           []core.ControlRef{{Framework: testFrameworkSOC2, ControlID: "CC1.4", Relationship: core.RelationshipSupersetOf}},
 			ResourcesEvaluated: 5,
-			ResourcesFailed:    1,
+			ResourcesWaived:    1,
 		},
 		{
 			PolicyID: "soc2.cc6.1.password_policy",

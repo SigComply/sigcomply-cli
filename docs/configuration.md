@@ -200,9 +200,11 @@ the policy IDs it evaluated.
 
 Without a scope, the exception applies to the whole policy: the policy's status becomes `waived`
 or `na` and it is not evaluated. With a scope, matching failures are removed; if none remain, the
-status becomes `waived`. Every unexpired exception in the list applies, each to its own scope,
-so you can waive several resources with one entry each. An unexpired exception with no scope
-overrides the scoped ones; if several have no scope, the first one in the list applies.
+status becomes `waived`, `resources_failed` is 0, and the result message counts the waived
+resources, for example `Waived by exception (2 of 3 resources affected).` Every unexpired
+exception in the list applies, each to its own scope, so you can waive several resources with one
+entry each. An unexpired exception with no scope overrides the scoped ones; if several have no
+scope, the first one in the list applies.
 
 ### Cadence values
 

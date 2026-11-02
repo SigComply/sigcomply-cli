@@ -221,8 +221,11 @@ func generateMessage(r *core.PolicyResult) string {
 	case core.StatusNA:
 		return "Not applicable to this project."
 	case core.StatusWaived:
+		// A waived result has ResourcesFailed 0 by then; the count the
+		// exception covers is ResourcesWaived. Counts only, like every
+		// other message here.
 		return fmt.Sprintf("Waived by exception (%d of %d resources affected).",
-			r.ResourcesFailed, r.ResourcesEvaluated)
+			r.ResourcesWaived, r.ResourcesEvaluated)
 	case core.StatusCarriedForward:
 		return "Carried forward from a prior passing evaluation (cadence not yet due)."
 	}

@@ -300,6 +300,8 @@ func applyResourceExceptions(result *core.PolicyResult, excs []*planner.Exceptio
 		}
 		result.Diag["waived_count"] = waived
 	}
+	// waived counts violations; the waived message reports resources.
+	failedBefore := result.ResourcesFailed
 	switch {
 	case waived == 0:
 	case len(kept) == 0:
@@ -312,6 +314,7 @@ func applyResourceExceptions(result *core.PolicyResult, excs []*planner.Exceptio
 		// undercounts.
 		result.ResourcesFailed = failedResources(kept)
 	}
+	result.ResourcesWaived = failedBefore - result.ResourcesFailed
 }
 
 func matchesAnyScope(resourceID string, excs []*planner.Exception) bool {

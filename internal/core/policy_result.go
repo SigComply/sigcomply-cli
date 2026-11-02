@@ -19,9 +19,16 @@ type PolicyResult struct {
 	Violations         []Violation
 	ResourcesEvaluated int
 	ResourcesFailed    int
-	EvidenceEnvelopes  []string
-	RuleVersion        string
-	Diag               map[string]any
+
+	// ResourcesWaived is how many failed resources scoped exceptions
+	// took out of ResourcesFailed. A fully waived policy has a
+	// ResourcesFailed of 0, so this is the only place its affected count
+	// survives. Zero for a whole-policy waiver, which evaluates nothing.
+	ResourcesWaived int
+
+	EvidenceEnvelopes []string
+	RuleVersion       string
+	Diag              map[string]any
 
 	// EvidenceMode is how this result was actually reached: automated
 	// (live infrastructure was inspected) or manual (a document was

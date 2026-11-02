@@ -150,7 +150,7 @@
       "severity": "medium",
       "category": "hr",
       "resources_evaluated": 5,
-      "resources_failed": 1,
+      "resources_failed": 0,
       "message": "Waived by exception (1 of 5 resources affected).",
       "last_evaluated_at": "2026-06-22T10:00:00Z",
       "evidence_mode": "manual"

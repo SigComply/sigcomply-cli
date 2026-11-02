@@ -543,8 +543,9 @@ func TestEvaluate_ResourceWaiverRecountsUniqueResources(t *testing.T) {
 	if res[0].Status != core.StatusFail {
 		t.Fatalf("status = %q; want fail", res[0].Status)
 	}
-	if res[0].ResourcesFailed != 1 || res[0].ResourcesEvaluated != 3 {
-		t.Errorf("counts = %d evaluated, %d failed; want 3, 1", res[0].ResourcesEvaluated, res[0].ResourcesFailed)
+	if res[0].ResourcesFailed != 1 || res[0].ResourcesEvaluated != 3 || res[0].ResourcesWaived != 1 {
+		t.Errorf("counts = %d evaluated, %d failed, %d waived; want 3, 1, 1",
+			res[0].ResourcesEvaluated, res[0].ResourcesFailed, res[0].ResourcesWaived)
 	}
 }
 
@@ -559,9 +560,12 @@ func TestEvaluate_ResourceWaiverKeepsRuleSuppliedCounts(t *testing.T) {
 		waive      []string
 		wantStatus core.PolicyStatus
 		wantFailed int
+		wantWaived int
 	}{
-		{"one of two waived", []string{"A"}, core.StatusFail, 5},
-		{"all waived", []string{"A", "B"}, core.StatusWaived, 0},
+		{"one of two waived", []string{"A"}, core.StatusFail, 5, 1},
+		// A full waiver zeroes the failed count; the six it covered move
+		// to ResourcesWaived, which the waived wire message reports.
+		{"all waived", []string{"A", "B"}, core.StatusWaived, 0, 6},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -590,6 +594,9 @@ func TestEvaluate_ResourceWaiverKeepsRuleSuppliedCounts(t *testing.T) {
 			if res[0].Status != tc.wantStatus || res[0].ResourcesEvaluated != 10 || res[0].ResourcesFailed != tc.wantFailed {
 				t.Errorf("status %q, %d evaluated, %d failed; want %q, 10, %d",
 					res[0].Status, res[0].ResourcesEvaluated, res[0].ResourcesFailed, tc.wantStatus, tc.wantFailed)
+			}
+			if res[0].ResourcesWaived != tc.wantWaived {
+				t.Errorf("waived = %d; want %d", res[0].ResourcesWaived, tc.wantWaived)
 			}
 		})
 	}

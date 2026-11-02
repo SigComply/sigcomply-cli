@@ -1,12 +1,15 @@
 package aggregator
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/evaluator"
+	"github.com/sigcomply/sigcomply-cli/internal/planner"
 )
 
 const (
@@ -146,6 +149,81 @@ func TestBuild_MessagePerStatus(t *testing.T) {
 	// Unknown status returns empty string (not an identity leak).
 	if got := generateMessage(&core.PolicyResult{Status: "unknown"}); got != "" {
 		t.Errorf("unknown status: got %q; want empty", got)
+	}
+}
+
+// The waived message reports how many resources the exception covers.
+// A full waiver leaves resources_failed at 0, so the count comes from
+// ResourcesWaived; a whole-policy waiver evaluates nothing.
+func TestBuild_WaivedMessageCountsWaivedResources(t *testing.T) {
+	cases := []struct {
+		name string
+		r    core.PolicyResult
+		want string
+	}{
+		{"scoped waiver", core.PolicyResult{Status: core.StatusWaived, ResourcesEvaluated: 5, ResourcesWaived: 1},
+			"Waived by exception (1 of 5 resources affected)."},
+		{"whole-policy waiver", core.PolicyResult{Status: core.StatusWaived},
+			"Waived by exception (0 of 0 resources affected)."},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := generateMessage(&c.r); got != c.want {
+				t.Errorf("message = %q; want %q", got, c.want)
+			}
+		})
+	}
+}
+
+// End to end through the evaluator, as a run does it: two of three
+// buckets fail and both are waived by scoped exceptions. The wire row
+// carries resources_failed 0 and a message naming the two waived.
+func TestBuild_ScopedWaiverMessageFromEvaluator(t *testing.T) {
+	const bucketType = "object_storage_bucket"
+	mk := func(id string, enc bool) core.EvidenceRecord {
+		p, err := json.Marshal(map[string]any{"encrypted": enc})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return core.EvidenceRecord{ID: id, Type: bucketType, SourceID: "aws.s3", Payload: p}
+	}
+	pp := planner.PlannedPolicy{
+		Spec: core.Policy{
+			ID:           "p.bucket_encrypted",
+			EvidenceMode: core.EvidenceModeAutomated,
+			Slots: map[string]core.Slot{testSlotEvidence: {
+				Accepts: []string{bucketType}, Cardinality: core.SlotOneOrMore, Required: true,
+			}},
+			PassWhen: &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
+				Slot: testSlotEvidence, Quantifier: core.QuantifierAll,
+				Condition: &core.PassWhenCondition{Op: "eq", Field: "payload.encrypted", Value: true},
+			}}},
+		},
+		Bindings:       map[string][]planner.Binding{testSlotEvidence: {{SourceID: "aws.s3", AcceptedTypes: []string{bucketType}}}},
+		ShouldEvaluate: true,
+		Exceptions: []*planner.Exception{
+			{State: core.StatusWaived, ResourceID: "legacy-a"},
+			{State: core.StatusWaived, ResourceID: "legacy-b"},
+		},
+	}
+	res, err := evaluator.Evaluate(context.Background(), &evaluator.Input{
+		Plan: &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
+		RecordsByPolicy: map[string]map[string][]core.EvidenceRecord{
+			pp.Spec.ID: {testSlotEvidence: {mk("legacy-a", false), mk("legacy-b", false), mk("ok", true)}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res[0].Status != core.StatusWaived {
+		t.Fatalf("status = %q; want waived", res[0].Status)
+	}
+	row := Build(res, &Environment{Framework: testFrameworkSOC2}).Policies[0]
+	if row.ResourcesFailed != 0 || row.ResourcesEvaluated != 3 {
+		t.Errorf("counts = %d evaluated, %d failed; want 3, 0", row.ResourcesEvaluated, row.ResourcesFailed)
+	}
+	if want := "Waived by exception (2 of 3 resources affected)."; row.Message != want {
+		t.Errorf("message = %q; want %q", row.Message, want)
 	}
 }
 

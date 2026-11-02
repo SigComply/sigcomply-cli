@@ -88,7 +88,9 @@ not code, because a waiver is a governance decision an auditor must read, date a
   order, and the evaluator applies each scoped entry to its own resources. A live entry with no
   scope decides the whole result, so the planner keeps the first such entry alone.
 - A scoped `waived` exception runs the rule and reclassifies only the matching resource's
-  failure. An exception with no scope sets the whole policy to its state; `na` skips evaluation.
+  failure. The resources it takes out of `ResourcesFailed` are kept in `ResourcesWaived`, which
+  the waived wire message reports. An exception with no scope sets the whole policy to its state;
+  `na` skips evaluation.
 - An exception past its `expires_at` is ignored, so a stale waiver never keeps masking a
   failure.
 
