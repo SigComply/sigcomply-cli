@@ -186,13 +186,27 @@ func scanFrameworkLine(body string) string {
 		if !strings.HasPrefix(line, "framework:") {
 			continue
 		}
-		v := strings.TrimSpace(strings.TrimPrefix(line, "framework:"))
+		v := stripYAMLComment(strings.TrimPrefix(line, "framework:"))
 		v = strings.Trim(v, `"'`)
 		if v != "" {
 			return v
 		}
 	}
 	return ""
+}
+
+// stripYAMLComment drops an inline YAML comment from a scalar: a `#` at
+// the start or after a space or tab begins one, so `soc2  # note` reads as
+// soc2, as the spec loader reads it. Framework IDs never contain `#`, so
+// a quoted value needs no special case.
+func stripYAMLComment(v string) string {
+	for i := 0; i < len(v); i++ {
+		if v[i] == '#' && (i == 0 || v[i-1] == ' ' || v[i-1] == '\t') {
+			v = v[:i]
+			break
+		}
+	}
+	return strings.TrimSpace(v)
 }
 
 // scaffoldFile is one source → destination mapping in the scaffold.

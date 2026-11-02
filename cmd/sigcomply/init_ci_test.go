@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/sigcomply/sigcomply-cli/internal/orchestrator"
+	"github.com/sigcomply/sigcomply-cli/internal/spec"
 	"gopkg.in/yaml.v3"
 )
 
@@ -258,6 +259,11 @@ func TestScanFrameworkLine(t *testing.T) {
 		{"framework: iso27001\n", isoFW},
 		{"framework: \"soc2\"\n", defaultFW},
 		{"  framework:   soc2\nother: x\n", defaultFW},
+		{"framework: soc2  # SOC 2 Type II\n", defaultFW},
+		{"framework: \"iso27001\" # x\n", isoFW},
+		{"framework:\tsoc2\t#x\n", defaultFW},
+		{"framework: # x\n", ""},
+		{"framework: # x\nframework: iso27001\n", isoFW},
 		{"name: x\n", ""},
 		{"", ""},
 	}
@@ -265,6 +271,27 @@ func TestScanFrameworkLine(t *testing.T) {
 		if got := scanFrameworkLine(tc.body); got != tc.want {
 			t.Errorf("scanFrameworkLine(%q) = %q; want %q", tc.body, got, tc.want)
 		}
+	}
+}
+
+// TestInitCI_FrameworkLineWithInlineComment: a YAML comment on the
+// framework line is part of no value. check reads the line below as
+// soc2, so init-ci must scaffold it rather than refuse it with exit 3.
+func TestInitCI_FrameworkLineWithInlineComment(t *testing.T) {
+	body := "schema_version: project.v1\nframework: soc2  # SOC 2 Type II\n"
+	cfg, err := spec.LoadProjectConfig([]byte(body))
+	if err != nil {
+		t.Fatalf("the config is valid for check: %v", err)
+	}
+	if cfg.Framework != defaultFW {
+		t.Fatalf("spec reads framework %q; want %q", cfg.Framework, defaultFW)
+	}
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".sigcomply.yaml"), []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runInitCIIn(t, dir, "--ci", ciGitHub); err != nil {
+		t.Errorf("init-ci --ci github on a soc2 project: %v", err)
 	}
 }
 
