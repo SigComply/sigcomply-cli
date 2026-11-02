@@ -161,9 +161,14 @@ every policy under `--scheduled`; that errs on the safe side.
 The gate compares `PlannedPolicy.StateHash`, not the content hash. `planner.policyStateHash`
 folds the policy's effective project configuration into `PolicyContentHash`: resolved
 parameters, the resolved cadence, evidence mode and catalog entry, the source IDs bound to each
-slot, and the live exceptions (state, resource scope, expiry). Tightening a parameter, adding an
-account, adding or expiring a waiver, or switching a policy to manual therefore re-evaluates it on
-the next `--scheduled` run instead of carrying an old pass forward. `advancePolicyStates` writes
+slot, and the live exceptions (state, resource scope, expiry). For a manual policy whose catalog
+entry fans out over the vendor register (`experimental.vendors`), it also folds in the instances
+the register expands that entry into: each vendor's ID, name, tier, whether evidence is required,
+exemption reason and approver, and `assurance_period_end`. The instances are added only when the
+entry has some, so a policy that does not fan out, or a project with no register, keeps the same
+hash. Tightening a parameter, adding an account, adding or expiring a waiver, switching a policy
+to manual, or adding a vendor or raising its tier therefore re-evaluates it on the next
+`--scheduled` run instead of carrying an old pass forward. `advancePolicyStates` writes
 the state hash to `LastPolicyHash`. It stays in the vault; the wire's `policy_content_hash` is
 still the spec-only content hash, so no source ID or exception scope reaches the payload, even
 hashed. The first run after this was introduced re-evaluates every policy once.

@@ -10,8 +10,11 @@ import (
 	"time"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/frameworks"
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
+	"github.com/sigcomply/sigcomply-cli/internal/sources/manual"
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
+	"github.com/sigcomply/sigcomply-cli/internal/vendorfanout"
 )
 
 // Input collects everything the planner needs to compute a Plan.
@@ -185,6 +188,10 @@ func planPolicies(framework core.Framework, in *Input, roster *spec.RosterConfig
 		refs = append(refs, in.Config.ProjectLocalPolicies...)
 	}
 	catalogCadences := manualCatalogCadences(refs, in.Registries)
+	instances, err := fanOutInstances(in.Config)
+	if err != nil {
+		return nil, err
+	}
 	planned := make([]PlannedPolicy, 0, len(refs))
 	seen := make(map[string]struct{}, len(refs))
 	for _, ref := range refs {
@@ -199,7 +206,7 @@ func planPolicies(framework core.Framework, in *Input, roster *spec.RosterConfig
 		if !filterAccepts(&policy, &in.Filter, in.Config) {
 			continue
 		}
-		pp, err := planOne(&policy, in, roster, catalogCadences)
+		pp, err := planOne(&policy, in, roster, catalogCadences, instances)
 		if err != nil {
 			return nil, err
 		}
@@ -208,7 +215,7 @@ func planPolicies(framework core.Framework, in *Input, roster *spec.RosterConfig
 	return planned, nil
 }
 
-func planOne(policy *core.Policy, in *Input, roster *spec.RosterConfig, catalogCadences map[string]string) (PlannedPolicy, error) {
+func planOne(policy *core.Policy, in *Input, roster *spec.RosterConfig, catalogCadences map[string]string, instances map[string][]manual.Instance) (PlannedPolicy, error) {
 	// Apply project-level evidence_mode override before binding resolution.
 	// Work on a local copy so we never mutate the registry entry.
 	originalMode := policy.EvidenceMode
@@ -270,7 +277,11 @@ func planOne(policy *core.Policy, in *Input, roster *spec.RosterConfig, catalogC
 	cadence := resolveCadence(policy.ID, policy.Cadence, in.Config)
 
 	contentHash := core.PolicyContentHash(policy, in.SchemaDigests)
-	stateHash := policyStateHash(contentHash, policy, cadence, params, bindings, exceptions)
+	var policyInstances []manual.Instance
+	if policy.EvidenceMode == core.EvidenceModeManual {
+		policyInstances = instances[policy.CatalogEntry]
+	}
+	stateHash := policyStateHash(contentHash, policy, cadence, params, bindings, exceptions, policyInstances)
 	priorState := lookupState(in.PolicyStates, policy.ID)
 	shouldEvaluate, skipReason := decideEvaluation(&in.Filter, cadence, stateHash, priorState, in.Now)
 
@@ -296,15 +307,20 @@ func planOne(policy *core.Policy, in *Input, roster *spec.RosterConfig, catalogC
 // policyStateHash folds the policy's effective project configuration into
 // its content hash. The cadence gate compares it with the prior shard's
 // hash, so tightening a parameter, binding another source, adding or
-// expiring a waiver, overriding the cadence or switching the evidence
-// mode re-evaluates instead of carrying an old pass forward for up to a
+// expiring a waiver, overriding the cadence, switching the evidence
+// mode or editing the vendor register a fan-out entry checks
+// re-evaluates instead of carrying an old pass forward for up to a
 // year. Returns "" when the content hash is "" or the inputs cannot be
 // encoded, which the gate treats as "evaluate".
+//
+// instances is added only when non-empty, so a policy whose catalog
+// entry does not fan out, or a project with no register, keeps the hash
+// it had before the register was hashed.
 //
 // The result is a digest; it is written only to the vault's state shard,
 // never to the cloud payload, so the source IDs and exception scopes it
 // covers stay in the customer's storage (Sacred Invariant 1).
-func policyStateHash(contentHash string, policy *core.Policy, cadence string, params map[string]any, bindings map[string][]Binding, exceptions []*Exception) string {
+func policyStateHash(contentHash string, policy *core.Policy, cadence string, params map[string]any, bindings map[string][]Binding, exceptions []*Exception, instances []manual.Instance) string {
 	if contentHash == "" {
 		return ""
 	}
@@ -324,8 +340,7 @@ func policyStateHash(contentHash string, policy *core.Policy, cadence string, pa
 	for _, e := range exceptions {
 		excs = append(excs, exc{string(e.State), e.ResourceID, e.ResourcePattern, e.ExpiresAt})
 	}
-	// encoding/json sorts map keys, so the encoding is deterministic.
-	body, err := json.Marshal(map[string]any{
+	fields := map[string]any{
 		"content":       contentHash,
 		"cadence":       cadence,
 		"evidence_mode": string(policy.EvidenceMode),
@@ -333,7 +348,28 @@ func policyStateHash(contentHash string, policy *core.Policy, cadence string, pa
 		"parameters":    params,
 		"bindings":      slots,
 		"exceptions":    excs,
-	})
+	}
+	if len(instances) > 0 {
+		// Tagged so a Go field rename does not rotate the hash.
+		type inst struct {
+			ID                 string `json:"id"`
+			Name               string `json:"name"`
+			Tier               string `json:"tier"`
+			Required           bool   `json:"required"`
+			ExemptionReason    string `json:"exemption_reason"`
+			ApprovedBy         string `json:"approved_by"`
+			AssurancePeriodEnd string `json:"assurance_period_end"`
+		}
+		insts := make([]inst, 0, len(instances))
+		for i := range instances {
+			x := &instances[i]
+			insts = append(insts, inst{x.ID, x.Name, x.Tier, x.Required, x.ExemptionReason, x.ApprovedBy, x.AssurancePeriodEnd})
+		}
+		sort.Slice(insts, func(i, j int) bool { return insts[i].ID < insts[j].ID })
+		fields["instances"] = insts
+	}
+	// encoding/json sorts map keys, so the encoding is deterministic.
+	body, err := json.Marshal(fields)
 	if err != nil {
 		return ""
 	}
@@ -509,6 +545,34 @@ func resolveManualBinding(policy *core.Policy, in *Input, catalogCadences map[st
 			Period:        &period,
 		}},
 	}, nil
+}
+
+// fanOutInstances maps each fan-out catalog entry of the project's
+// framework to the per-vendor instances the register expands it into,
+// the same expansion check.go hands the manual.pdf plugin. Entries that
+// do not fan out, or that the register leaves unexpanded, are absent.
+// The planner hashes these instances because the register decides which
+// folders a fan-out policy reads, yet reaches the run only through the
+// plugin's catalog.
+func fanOutInstances(cfg *spec.ProjectConfig) (map[string][]manual.Instance, error) {
+	reg, err := spec.LoadVendorRegister(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("planner: %w", err)
+	}
+	if reg == nil {
+		return nil, nil
+	}
+	factory, ok := frameworks.Lookup(cfg.Framework)
+	if !ok || factory.ManualCatalog == nil {
+		return nil, nil
+	}
+	out := map[string][]manual.Instance{}
+	for id, entry := range vendorfanout.Apply(factory.ManualCatalog(), reg) {
+		if len(entry.Instances) > 0 {
+			out[id] = entry.Instances
+		}
+	}
+	return out, nil
 }
 
 // manualCatalogCadences maps each catalog entry to the declared cadence of
