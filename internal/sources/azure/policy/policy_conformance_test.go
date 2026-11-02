@@ -38,4 +38,7 @@ func TestAzurePolicyConformance(t *testing.T) {
 	if !p.IsRecording || p.AssignmentCount != 1 {
 		t.Errorf("tracking = %+v; want recording from the one customer assignment", p)
 	}
+	if !p.AllResourceTypes || p.SubscriptionScopedCount != 1 || p.ManagementGroupScopedCount != 0 {
+		t.Errorf("tracking = %+v; want full coverage from the subscription assignment alone", p)
+	}
 }

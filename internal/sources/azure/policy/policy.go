@@ -32,11 +32,13 @@
 //     cassette has one, a region-capacity restriction), so counting them would
 //     make is_recording true on a fresh subscription.
 //   - all_resource_types ← at least one assignment is scoped at the
-//     subscription root (/subscriptions/{id}). Azure Policy has no per-
+//     subscription root (/subscriptions/{id}) or at a management group that
+//     contains the subscription (the list returns those too), unless its
+//     notScopes may exclude the subscription. Azure Policy has no per-
 //     assignment resource-type list (the analog of AWS Config's allSupported
 //     or a GCP feed's empty AssetTypes), so coverage BREADTH is approximated by
-//     assignment SCOPE: a subscription-scoped assignment evaluates resources
-//     across the whole subscription, whereas resource-group-scoped assignments
+//     assignment SCOPE: a subscription- or management-group-scoped assignment
+//     evaluates resources across the whole subscription, whereas resource-group-scoped assignments
 //     cover only a subset. This is the honest available signal — not the AWS
 //     literal "records all supported types". A subscription whose only
 //     assignments are RG-scoped honestly reports false.
@@ -86,8 +88,8 @@ const SourceID = "azure.policy"
 // the real adapter wraps the armpolicy AssignmentsClient.
 type API interface {
 	// ListAssignments returns every policy assignment that applies to the
-	// subscription (subscription-scoped plus those of contained resource
-	// groups/resources).
+	// subscription: those of the management groups that contain it, of the
+	// subscription itself, and of its resource groups and resources.
 	ListAssignments(ctx context.Context) ([]*armpolicy.Assignment, error)
 }
 
@@ -159,8 +161,10 @@ type trackingPayload struct {
 	// EnforcedCount is the number of assignments in enforcing mode (Default),
 	// a governance signal distinct from audit-only (DoNotEnforce) assignments.
 	EnforcedCount int `json:"enforced_count"`
-	// SubscriptionScopedCount makes all_resource_types (> 0) auditable.
-	SubscriptionScopedCount int `json:"subscription_scoped_count"`
+	// SubscriptionScopedCount and ManagementGroupScopedCount make
+	// all_resource_types (sum > 0) auditable.
+	SubscriptionScopedCount    int `json:"subscription_scoped_count"`
+	ManagementGroupScopedCount int `json:"management_group_scoped_count"`
 }
 
 // Collect returns the single config_change_tracking record for the configured
@@ -200,6 +204,7 @@ func buildPayload(subscriptionID string, assignments []*armpolicy.Assignment) tr
 	count := 0
 	enforced := 0
 	subScoped := 0
+	mgScoped := 0
 	for _, a := range assignments {
 		if a == nil || systemHidden(a) {
 			continue
@@ -211,16 +216,20 @@ func buildPayload(subscriptionID string, assignments []*armpolicy.Assignment) tr
 		if assignmentSubscriptionScoped(a, wantScope) {
 			subScoped++
 		}
+		if assignmentManagementGroupScoped(a, wantScope) {
+			mgScoped++
+		}
 	}
 	return trackingPayload{
-		ID:                      fmt.Sprintf("subscriptions/%s/configChangeTracking", subscriptionID),
-		Name:                    subscriptionID,
-		Provider:                "azure",
-		IsRecording:             count > 0,
-		AllResourceTypes:        subScoped > 0,
-		AssignmentCount:         count,
-		EnforcedCount:           enforced,
-		SubscriptionScopedCount: subScoped,
+		ID:                         fmt.Sprintf("subscriptions/%s/configChangeTracking", subscriptionID),
+		Name:                       subscriptionID,
+		Provider:                   "azure",
+		IsRecording:                count > 0,
+		AllResourceTypes:           subScoped+mgScoped > 0,
+		AssignmentCount:            count,
+		EnforcedCount:              enforced,
+		SubscriptionScopedCount:    subScoped,
+		ManagementGroupScopedCount: mgScoped,
 	}
 }
 
@@ -255,6 +264,36 @@ func assignmentSubscriptionScoped(a *armpolicy.Assignment, wantScope string) boo
 	}
 	got := strings.ToLower(strings.TrimRight(*a.Properties.Scope, "/"))
 	return got == wantScope
+}
+
+// managementGroupScopePrefix is the lowercased scope prefix of an assignment
+// made at a management group.
+const managementGroupScopePrefix = "/providers/microsoft.management/managementgroups/"
+
+// assignmentManagementGroupScoped reports whether an assignment is made at a
+// management group and so evaluates the whole subscription. The subscription
+// list returns only management groups that contain the subscription, so
+// containment needs no further call. A notScope naming this subscription
+// excludes it; a notScope naming a management group might be one of the
+// subscription's ancestors, which can't be told without reading the hierarchy,
+// so it counts as excluded too. wantScope is as for assignmentSubscriptionScoped.
+func assignmentManagementGroupScoped(a *armpolicy.Assignment, wantScope string) bool {
+	if a.Properties == nil || a.Properties.Scope == nil {
+		return false
+	}
+	if !strings.HasPrefix(strings.ToLower(*a.Properties.Scope), managementGroupScopePrefix) {
+		return false
+	}
+	for _, ns := range a.Properties.NotScopes {
+		if ns == nil {
+			continue
+		}
+		n := strings.ToLower(strings.TrimRight(*ns, "/"))
+		if n == wantScope || strings.HasPrefix(n, managementGroupScopePrefix) {
+			return false
+		}
+	}
+	return true
 }
 
 // --- real Azure adapter ---

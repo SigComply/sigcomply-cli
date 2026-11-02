@@ -67,6 +67,7 @@ const (
 	subID    = "sub-1"
 	subScope = "/subscriptions/sub-1"
 	rgScope  = "/subscriptions/sub-1/resourceGroups/rg1"
+	mgScope  = "/providers/Microsoft.Management/managementGroups/corp"
 
 	changeTrackingID = "subscriptions/sub-1/configChangeTracking"
 )
@@ -197,6 +198,22 @@ func TestCollect_SystemHiddenSkippedBeforeEveryCount(t *testing.T) {
 	}
 }
 
+// The unfiltered list also returns assignments from the management groups that
+// contain the subscription (the Cloud Adoption Framework landing-zone layout).
+// Such an assignment evaluates every resource in the subscription.
+func TestCollect_ManagementGroupScopedCoversSubscription(t *testing.T) {
+	f := &fakeAPI{assignments: []*armpolicy.Assignment{assignment("mcsb", mgScope, nil)}}
+	recs, err := New(Options{API: f, SubscriptionID: subID}).Collect(context.Background(), req())
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	var got trackingPayload
+	mustUnmarshal(t, recs[0].Payload, &got)
+	if !got.IsRecording || !got.AllResourceTypes || got.ManagementGroupScopedCount != 1 || got.SubscriptionScopedCount != 0 {
+		t.Errorf("want recording with full coverage from the management group, got %+v", got)
+	}
+}
+
 func TestCollect_NilEntriesSkipped(t *testing.T) {
 	f := &fakeAPI{assignments: []*armpolicy.Assignment{
 		nil,
@@ -288,6 +305,40 @@ func TestAssignmentSubscriptionScoped(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := assignmentSubscriptionScoped(tc.a, want); got != tc.ok {
 				t.Errorf("assignmentSubscriptionScoped = %v, want %v", got, tc.ok)
+			}
+		})
+	}
+}
+
+func TestAssignmentManagementGroupScoped(t *testing.T) {
+	want := strings.ToLower("/subscriptions/sub-1")
+	withNotScopes := func(notScopes ...string) *armpolicy.Assignment {
+		a := assignment("x", mgScope, nil)
+		for _, n := range notScopes {
+			a.Properties.NotScopes = append(a.Properties.NotScopes, to.Ptr(n))
+		}
+		return a
+	}
+	cases := []struct {
+		name string
+		a    *armpolicy.Assignment
+		ok   bool
+	}{
+		{"management group scope", assignment("x", mgScope, nil), true},
+		{"mixed-case management group scope", assignment("x", "/providers/microsoft.management/MANAGEMENTGROUPS/corp/", nil), true},
+		{"subscription scope", assignment("x", subScope, nil), false},
+		{"rg scope", assignment("x", rgScope, nil), false},
+		{"notScopes excludes this subscription", withNotScopes("/subscriptions/SUB-1/"), false},
+		{"notScopes excludes a child management group", withNotScopes(mgScope + "-dev"), false},
+		{"notScopes excludes another subscription", withNotScopes("/subscriptions/sub-2"), true},
+		{"notScopes excludes a resource group", withNotScopes(rgScope), true},
+		{"nil scope", &armpolicy.Assignment{Properties: &armpolicy.AssignmentProperties{}}, false},
+		{"nil properties", &armpolicy.Assignment{}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := assignmentManagementGroupScoped(tc.a, want); got != tc.ok {
+				t.Errorf("assignmentManagementGroupScoped = %v, want %v", got, tc.ok)
 			}
 		})
 	}
