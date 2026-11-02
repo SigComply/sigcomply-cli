@@ -274,7 +274,7 @@ func LoadVendorRegister(cfg *ProjectConfig) (*VendorRegister, error) {
 		}
 	}
 
-	buf, err := yaml.Marshal(asMap)
+	buf, err := yaml.Marshal(yamlDatesToStrings(asMap))
 	if err != nil {
 		return nil, fmt.Errorf("project config: experimental.vendors: %w", err)
 	}

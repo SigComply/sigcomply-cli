@@ -306,3 +306,25 @@ func TestLoadRiskRegister_LevelNeverShedsAnObligation(t *testing.T) {
 		})
 	}
 }
+
+// An unquoted date inside experimental: decodes as a timestamp in
+// yaml.v3; the register must keep it as the YYYY-MM-DD the operator wrote.
+func TestLoadRiskRegister_UnquotedAssessedAt(t *testing.T) {
+	reg, err := loadRisks(t, risksBase+`experimental:
+  risks:
+    register:
+      - id: r-001
+        description: d
+        owner: o
+        level: high
+        residual_level: low
+        treatment: avoid
+        assessed_at: 2026-09-20
+`)
+	if err != nil {
+		t.Fatalf("unquoted assessed_at rejected: %v", err)
+	}
+	if got := reg.Risks[0].AssessedAt; got != "2026-09-20" {
+		t.Errorf("assessed_at = %q; want 2026-09-20", got)
+	}
+}

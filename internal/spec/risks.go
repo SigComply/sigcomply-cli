@@ -253,7 +253,7 @@ func LoadRiskRegister(cfg *ProjectConfig) (*RiskRegister, error) {
 		}
 	}
 
-	buf, err := yaml.Marshal(asMap)
+	buf, err := yaml.Marshal(yamlDatesToStrings(asMap))
 	if err != nil {
 		return nil, fmt.Errorf("project config: experimental.risks: %w", err)
 	}

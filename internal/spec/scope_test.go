@@ -213,3 +213,32 @@ pass_when:
 		t.Fatalf("valid policy rejected: %v", err)
 	}
 }
+
+// yaml.v3 decodes an unquoted date inside experimental: as a timestamp.
+// The loader must hand back the date the operator wrote, not reject its
+// own RFC 3339 rendering of it.
+func TestLoadScopeConfig_UnquotedDeclaredAt(t *testing.T) {
+	sc, err := loadScope(t, scopeBase+`experimental:
+  scope:
+    required_sources: [github]
+    declared_at: 2026-09-13
+`)
+	if err != nil {
+		t.Fatalf("unquoted declared_at rejected: %v", err)
+	}
+	if sc.DeclaredAt != "2026-09-13" {
+		t.Errorf("declared_at = %q; want 2026-09-13", sc.DeclaredAt)
+	}
+}
+
+// Only a bare date is restored: an unquoted datetime is still not a date.
+func TestLoadScopeConfig_UnquotedDatetimeRejected(t *testing.T) {
+	_, err := spec.LoadProjectConfig([]byte(scopeBase + `experimental:
+  scope:
+    required_sources: [github]
+    declared_at: 2026-09-13T10:30:00Z
+`))
+	if err == nil || !strings.Contains(err.Error(), `"2026-09-13T10:30:00Z" is not an ISO 8601 date`) {
+		t.Fatalf("err = %v; want the unquoted datetime rejected as not a date", err)
+	}
+}

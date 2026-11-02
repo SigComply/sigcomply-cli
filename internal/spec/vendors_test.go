@@ -244,3 +244,24 @@ func TestLoadVendorRegister_Errors(t *testing.T) {
 		})
 	}
 }
+
+// An unquoted date inside experimental: decodes as a timestamp in
+// yaml.v3; the register must keep it as the YYYY-MM-DD the operator wrote,
+// as policies.<id>.exceptions[].expires_at already does.
+func TestLoadVendorRegister_UnquotedDates(t *testing.T) {
+	reg, err := loadVendors(t, vendorsBase+`experimental:
+  vendors:
+    declared_at: 2026-09-01
+    register:
+      - {id: acme, name: Acme, tier: high, assurance_period_end: 2026-06-30}
+`)
+	if err != nil {
+		t.Fatalf("unquoted dates rejected: %v", err)
+	}
+	if reg.DeclaredAt != "2026-09-01" {
+		t.Errorf("declared_at = %q; want 2026-09-01", reg.DeclaredAt)
+	}
+	if got := reg.Vendors[0].AssurancePeriodEnd; got != "2026-06-30" {
+		t.Errorf("assurance_period_end = %q; want 2026-06-30", got)
+	}
+}

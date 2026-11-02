@@ -690,3 +690,40 @@ func validateOptionalDate(s string) error {
 	}
 	return nil
 }
+
+// yamlDatesToStrings returns a copy of an experimental block with every
+// time.Time put back into the text the operator wrote. Inside
+// map[string]any, yaml.v3 decodes an unquoted 2026-06-30 as a time.Time,
+// and the marshal round-trip the register loaders use would render it as
+// "2026-06-30T00:00:00Z", which validateOptionalDate rejects. A bare date
+// decodes as midnight UTC and goes back to YYYY-MM-DD; any other instant
+// keeps its full timestamp, so an unquoted datetime is still refused.
+func yamlDatesToStrings(v any) any {
+	switch t := v.(type) {
+	case time.Time:
+		if t.Location() == time.UTC && t.Equal(t.Truncate(24*time.Hour)) {
+			return t.Format("2006-01-02")
+		}
+		return t.Format(time.RFC3339Nano)
+	case map[string]any:
+		out := make(map[string]any, len(t))
+		for k, val := range t {
+			out[k] = yamlDatesToStrings(val)
+		}
+		return out
+	case map[any]any:
+		out := make(map[any]any, len(t))
+		for k, val := range t {
+			out[k] = yamlDatesToStrings(val)
+		}
+		return out
+	case []any:
+		out := make([]any, len(t))
+		for i, val := range t {
+			out[i] = yamlDatesToStrings(val)
+		}
+		return out
+	default:
+		return v
+	}
+}
