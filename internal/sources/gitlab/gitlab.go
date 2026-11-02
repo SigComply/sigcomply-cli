@@ -1013,7 +1013,9 @@ func approvalRuleApplies(rule *gitlab.ProjectApprovalRule, branch string, protec
 // per-project listings). GitLab offers no merged_after filter, so
 // UpdatedAfter is the server-side pre-filter — a merged MR is never
 // updated before it is merged — and the real [start, end] test is
-// applied client-side against merged_at.
+// applied client-side against merged_at. NonArchived is set to false
+// because GitLab defaults it to true: a change merged in the period into a
+// project archived later still belongs to the change population.
 func (s *sdkAPI) ListMergedPullRequests(ctx context.Context, start, end time.Time) ([]PullRequest, error) {
 	paths, _, err := s.projectIndex(ctx)
 	if err != nil {
@@ -1023,6 +1025,7 @@ func (s *sdkAPI) ListMergedPullRequests(ctx context.Context, start, end time.Tim
 		ListOptions:  gitlab.ListOptions{PerPage: 100, Page: 1},
 		State:        new(mergeRequestStateMerged),
 		UpdatedAfter: &start,
+		NonArchived:  new(false),
 	}
 	var out []PullRequest
 	for {

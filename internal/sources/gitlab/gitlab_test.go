@@ -1022,6 +1022,44 @@ func TestSDKAPI_ListMergedPullRequests_HappyPath(t *testing.T) {
 	}
 }
 
+// GitLab's group MR listing defaults non_archived to true. A change merged in
+// the period into a project archived later still belongs to the pull_request
+// population, as it does for GitHub. The handler models GitLab's default.
+func TestSDKAPI_ListMergedPullRequests_IncludesArchivedProjects(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case pathGroupProjects:
+			_, _ = w.Write([]byte(`[{"id":7,"path_with_namespace":"acme/old","archived":true}]`)) //nolint:errcheck // test handler
+		case pathGroupMergeRequests:
+			if r.URL.Query().Get("non_archived") != "false" {
+				_, _ = w.Write([]byte(`[]`)) //nolint:errcheck // GitLab's default: non_archived=true
+				return
+			}
+			_, _ = w.Write([]byte(`[{"iid":3,"project_id":7,"target_branch":"main",` + //nolint:errcheck // test handler
+				`"merged_at":"2026-03-01T12:00:00Z","merge_commit_sha":"abc123"}]`))
+		case "/api/v4/projects/7/merge_requests/3/approvals":
+			_, _ = w.Write([]byte(`{"approved_by":[]}`)) //nolint:errcheck // test handler
+		case "/api/v4/projects/7/merge_requests/3/pipelines":
+			_, _ = w.Write([]byte(`[]`)) //nolint:errcheck // test handler
+		default:
+			t.Errorf("unexpected request: %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+	client, err := gitlab.NewClient("tok", gitlab.WithBaseURL(srv.URL))
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	api := &sdkAPI{client: client, group: testGroup}
+	got, err := api.ListMergedPullRequests(context.Background(), periodStart, periodEnd)
+	if err != nil {
+		t.Fatalf("ListMergedPullRequests: %v", err)
+	}
+	if len(got) != 1 || got[0].Repository != "acme/old" {
+		t.Errorf("got %+v; want the MR merged in-period into archived project acme/old", got)
+	}
+}
+
 // TestSDKAPI_ListDeployments_HappyPath exercises the per-project
 // deployments listing (GitLab has no group-level route): projects are
 // visited in ascending-ID order, the id falls back to iid when absent,

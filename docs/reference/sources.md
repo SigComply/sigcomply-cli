@@ -395,6 +395,8 @@ Caveats:
   default branch: rules with no branch scope, rules for all protected branches when the default
   branch has its own protection rule, and rules that name the default branch. Rules scoped to
   other branches are not counted.
+- Changes merged during the audit period into projects that were archived later still emit
+  `pull_request` records.
 - Member email is returned only to privileged tokens, so `email` may be absent.
 - `pull_request` and `deployment` list only merge requests merged and deployments created in the
   audit period, except that the `changes` slot of the two
