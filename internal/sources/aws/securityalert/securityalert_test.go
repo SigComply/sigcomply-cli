@@ -174,6 +174,58 @@ func TestCollect_HappyPath(t *testing.T) {
 	}
 }
 
+// Several alarms can watch one metric. Any one that notifies is enough,
+// whatever order DescribeAlarms returns them in, and an alarm on a
+// same-named metric in another namespace does not count.
+func TestCollect_AlarmsOnSameMetric(t *testing.T) {
+	notifying := cwtypes.MetricAlarm{
+		AlarmName:    ptr("root-usage-page-secops"),
+		MetricName:   ptr("RootAccountUsage"),
+		Namespace:    ptr("CISBenchmark"),
+		AlarmActions: []string{"arn:aws:sns:us-east-1:111122223333:secops"},
+	}
+	silent := cwtypes.MetricAlarm{
+		AlarmName:  ptr("root-usage-dashboard"),
+		MetricName: ptr("RootAccountUsage"),
+		Namespace:  ptr("CISBenchmark"),
+	}
+	otherNamespace := notifying
+	otherNamespace.Namespace = ptr("Other")
+
+	tests := []struct {
+		name        string
+		alarms      []cwtypes.MetricAlarm
+		wantEnabled bool
+		wantNotify  bool
+	}{
+		{"notifying then silent", []cwtypes.MetricAlarm{notifying, silent}, true, true},
+		{"silent then notifying", []cwtypes.MetricAlarm{silent, notifying}, true, true},
+		{"silent only", []cwtypes.MetricAlarm{silent}, true, false},
+		{"notifying alarm in another namespace", []cwtypes.MetricAlarm{otherNamespace}, false, false},
+		{"silent here, notifying in another namespace", []cwtypes.MetricAlarm{silent, otherNamespace}, true, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := &fakeAPI{
+				filters: []cwltypes.MetricFilter{{
+					FilterName:            ptr("root-usage"),
+					FilterPattern:         ptr(`{ $.userIdentity.type = "Root" }`),
+					MetricTransformations: []cwltypes.MetricTransformation{{MetricName: ptr("RootAccountUsage"), MetricNamespace: ptr("CISBenchmark")}},
+				}},
+				alarms: tt.alarms,
+			}
+			records, err := New(Options{API: fake}).Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+			if err != nil {
+				t.Fatalf("Collect: %v", err)
+			}
+			root := decodeByClass(t, records)[classRootAccountUsage]
+			if root.IsEnabled != tt.wantEnabled || root.HasNotificationTarget != tt.wantNotify {
+				t.Errorf("is_enabled=%v has_notification_target=%v; want %v, %v", root.IsEnabled, root.HasNotificationTarget, tt.wantEnabled, tt.wantNotify)
+			}
+		})
+	}
+}
+
 func assertSortedByID(t *testing.T, records []core.EvidenceRecord) {
 	t.Helper()
 	for i := 1; i < len(records); i++ {

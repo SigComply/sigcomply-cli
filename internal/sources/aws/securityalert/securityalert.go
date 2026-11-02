@@ -141,9 +141,17 @@ type securityAlertPayload struct {
 	HasNotificationTarget bool   `json:"has_notification_target"`
 }
 
-// alarmInfo summarizes an alarm relevant to alert wiring.
+// alarmInfo summarizes the alarms on one metric that matter to alert wiring.
 type alarmInfo struct {
 	hasNotificationTarget bool
+}
+
+// metricKey identifies a CloudWatch metric. A metric name is unique only
+// within its namespace, so an alarm on a same-named metric elsewhere does
+// not watch the filter's metric.
+type metricKey struct {
+	namespace string
+	name      string
 }
 
 // Collect lists CloudWatch metric filters and alarms, classifies each
@@ -180,7 +188,7 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 
 // buildRecord classifies one metric filter and, when it maps to a
 // recognized event class, returns the corresponding evidence record.
-func buildRecord(f *cwltypes.MetricFilter, alarmsByMetric map[string]alarmInfo, now time.Time) (core.EvidenceRecord, bool, error) {
+func buildRecord(f *cwltypes.MetricFilter, alarmsByMetric map[metricKey]alarmInfo, now time.Time) (core.EvidenceRecord, bool, error) {
 	class := classify(safeStr(f.FilterPattern))
 	if class == classOther {
 		return core.EvidenceRecord{}, false, nil
@@ -208,15 +216,16 @@ func buildRecord(f *cwltypes.MetricFilter, alarmsByMetric map[string]alarmInfo, 
 	}, true, nil
 }
 
-// alarmFor reports whether any of the filter's metric names is referenced
-// by an alarm, and returns that alarm's info.
-func alarmFor(transforms []cwltypes.MetricTransformation, alarmsByMetric map[string]alarmInfo) (bool, alarmInfo) {
+// alarmFor reports whether any of the filter's metrics is watched by an
+// alarm, and returns the info of the alarms on that metric.
+func alarmFor(transforms []cwltypes.MetricTransformation, alarmsByMetric map[metricKey]alarmInfo) (bool, alarmInfo) {
 	for i := range transforms {
 		metric := safeStr(transforms[i].MetricName)
 		if metric == "" {
 			continue
 		}
-		if info, ok := alarmsByMetric[metric]; ok {
+		key := metricKey{namespace: safeStr(transforms[i].MetricNamespace), name: metric}
+		if info, ok := alarmsByMetric[key]; ok {
 			return true, info
 		}
 	}
@@ -284,9 +293,9 @@ func (p *Plugin) listAllFilters(ctx context.Context) ([]cwltypes.MetricFilter, e
 }
 
 // listAlarmsByMetric pages through all metric alarms and indexes them by
-// the metric name they watch.
-func (p *Plugin) listAlarmsByMetric(ctx context.Context) (map[string]alarmInfo, error) {
-	out := map[string]alarmInfo{}
+// the metric they watch.
+func (p *Plugin) listAlarmsByMetric(ctx context.Context) (map[metricKey]alarmInfo, error) {
+	out := map[metricKey]alarmInfo{}
 	var token *string
 	for {
 		page, err := p.api.DescribeAlarms(ctx, &cw.DescribeAlarmsInput{NextToken: token})
@@ -301,13 +310,18 @@ func (p *Plugin) listAlarmsByMetric(ctx context.Context) (map[string]alarmInfo, 
 	}
 }
 
-func indexAlarms(out map[string]alarmInfo, alarms []cwtypes.MetricAlarm) {
+// indexAlarms merges alarms into out. One notifying alarm is enough to
+// alert, so a metric keeps its notification target when another alarm on it
+// (a warning threshold, a dashboard alarm) has none.
+func indexAlarms(out map[metricKey]alarmInfo, alarms []cwtypes.MetricAlarm) {
 	for i := range alarms {
 		metric := safeStr(alarms[i].MetricName)
 		if metric == "" {
 			continue
 		}
-		out[metric] = alarmInfo{hasNotificationTarget: len(alarms[i].AlarmActions) > 0}
+		key := metricKey{namespace: safeStr(alarms[i].Namespace), name: metric}
+		prev := out[key]
+		out[key] = alarmInfo{hasNotificationTarget: prev.hasNotificationTarget || len(alarms[i].AlarmActions) > 0}
 	}
 }
 
