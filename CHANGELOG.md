@@ -82,6 +82,13 @@ this file lists the changes a user notices.
 - The GitLab scheduled template runs `evidence due` when `check` fails, then exits with `check`'s
   code.
 - `init-ci` ignores an inline `# comment` on the `framework:` line.
+- `report --view soa` and `--view coverage` count project-local policies toward the control they
+  name. A failing project-local policy used to leave its control reading "implemented".
+- `okta` leaves out `last_login_at` for a user who never signed in, instead of recording
+  `0001-01-01T00:00:00Z`.
+- `gitlab` no longer counts merge request approval policy rules (`report_approver`) in
+  `required_reviewers_count`. They require approval only when a scan, license or coverage condition
+  trips, so a project with only such a rule passed the code-review policies.
 
 ## [0.89.0 to 1.0.0] - 2026-10-28 to 2026-10-31
 
