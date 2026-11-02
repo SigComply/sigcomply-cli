@@ -145,6 +145,26 @@ func TestCollectUsers_HappyPath_SortsByID(t *testing.T) {
 	}
 }
 
+func TestCollectUsers_OmitsLastLoginWhenNeverSignedIn(t *testing.T) {
+	last := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
+	fake := &fakeAPI{users: []User{
+		{ID: "u_new", Email: "n@acme.com", Status: oktaStatusActive},
+		{ID: "u_old", Email: "o@acme.com", Status: oktaStatusActive, LastLogin: last},
+	}}
+	p := New(Options{API: fake})
+	records, err := p.Collect(context.Background(),
+		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeDirectoryUser}, PolicyID: "p1"})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if strings.Contains(string(records[0].Payload), "last_login_at") {
+		t.Errorf("never-signed-in user carries last_login_at: %s", records[0].Payload)
+	}
+	if !strings.Contains(string(records[1].Payload), `"last_login_at":"2026-05-01T00:00:00Z"`) {
+		t.Errorf("signed-in user lost last_login_at: %s", records[1].Payload)
+	}
+}
+
 func TestCollectUsers_AdminMapping(t *testing.T) {
 	fake := &fakeAPI{
 		users: []User{

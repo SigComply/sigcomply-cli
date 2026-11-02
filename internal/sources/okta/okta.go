@@ -250,14 +250,14 @@ func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 // is_service_account is still NOT populated (Okta has no first-class
 // service-account flag on users; deferred).
 type userPayload struct {
-	ID             string    `json:"id"`
-	DisplayName    string    `json:"display_name,omitempty"`
-	Email          string    `json:"email,omitempty"`
-	MFAEnabled     bool      `json:"mfa_enabled"`
-	MFAFactorCount int       `json:"mfa_factor_count"`
-	IsActive       bool      `json:"is_active"`
-	IsAdmin        bool      `json:"is_admin"`
-	LastLoginAt    time.Time `json:"last_login_at,omitempty"`
+	ID             string     `json:"id"`
+	DisplayName    string     `json:"display_name,omitempty"`
+	Email          string     `json:"email,omitempty"`
+	MFAEnabled     bool       `json:"mfa_enabled"`
+	MFAFactorCount int        `json:"mfa_factor_count"`
+	IsActive       bool       `json:"is_active"`
+	IsAdmin        bool       `json:"is_admin"`
+	LastLoginAt    *time.Time `json:"last_login_at,omitempty"` // nil when the user never signed in
 }
 
 // appPayload is the JSON payload shape inside each okta_app record.
@@ -334,7 +334,9 @@ func (p *Plugin) collectUsers(ctx context.Context) ([]core.EvidenceRecord, error
 			MFAFactorCount: u.MFAFactorCount,
 			IsActive:       rosterStatus(u.Status) == rosterActive,
 			IsAdmin:        len(u.AdminRoles) > 0,
-			LastLoginAt:    u.LastLogin,
+		}
+		if !u.LastLogin.IsZero() {
+			payload.LastLoginAt = &u.LastLogin
 		}
 		body, err := json.Marshal(payload)
 		if err != nil {
