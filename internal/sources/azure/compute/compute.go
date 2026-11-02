@@ -6,11 +6,12 @@
 //
 // Field mapping:
 //
-//   - is_running — derived from the VM power state. The list pager is asked for
-//     StatusOnly, which populates each VM's InstanceView (and therefore its
-//     "PowerState/<state>" status) in a single subscription-wide call — no
-//     per-VM InstanceView round-trip. is_running is true iff that state is
-//     "running".
+//   - is_running — derived from the VM power state. VMs are listed twice,
+//     subscription-wide: a plain list for the full model (profiles, NICs) and a
+//     StatusOnly list for each VM's InstanceView (its "PowerState/<state>"
+//     status). StatusOnly answers carry no profiles, so neither list alone is
+//     enough; two list calls avoid a per-VM InstanceView round-trip.
+//     is_running is true iff that state is "running".
 //   - root_volume_encrypted — a platform CONSTANT true. Azure managed disks are
 //     encrypted at rest unconditionally (Storage Service Encryption, cannot be
 //     disabled); the only real toggle is platform-managed vs customer-managed
@@ -69,8 +70,8 @@ const powerStatePrefix = "PowerState/"
 // uses. It returns raw SDK types so the vendor→canonical mapping is exercised by
 // fakeAPI unit tests; the real adapter (realCompute) wraps the SDK clients.
 type API interface {
-	// ListVirtualMachines returns every VM in the subscription, each carrying
-	// its InstanceView (power state) via the StatusOnly list option.
+	// ListVirtualMachines returns every VM in the subscription with its full
+	// model (profiles, NIC references) and its InstanceView (power state).
 	ListVirtualMachines(ctx context.Context) ([]*armcompute.VirtualMachine, error)
 	// GetNetworkInterface fetches a single NIC by resource group + name so its
 	// IP configurations can be inspected for a public-IP reference.
@@ -363,8 +364,8 @@ func derefBool(b *bool) bool {
 // --- real Azure adapter ---
 
 // realCompute is the production implementation of API. It wraps the armcompute
-// VirtualMachinesClient (listed subscription-wide, StatusOnly so power state
-// rides along) and the armnetwork InterfacesClient (per-NIC public-IP lookup).
+// VirtualMachinesClient (listed subscription-wide, once for the model and once
+// StatusOnly for power state) and the armnetwork InterfacesClient (per-NIC public-IP lookup).
 type realCompute struct {
 	vms  *armcompute.VirtualMachinesClient
 	nics *armnetwork.InterfacesClient
@@ -384,11 +385,47 @@ func newRealCompute(subscriptionID string, cred azcore.TokenCredential, opts *ar
 	return &realCompute{vms: vms, nics: nics}, nil
 }
 
+// ListVirtualMachines makes two subscription-wide list calls. ARM answers a
+// statusOnly=true list with run-time status only: no network, storage, security
+// or hardware profile. A plain list returns the full model but no InstanceView,
+// and the instanceView expand needs a $filter, so it can't be used
+// subscription-wide. Each full-model VM therefore takes its InstanceView from
+// the status list, joined on the ARM id case-insensitively (ARM returns the
+// resource group in either case). A VM missing from the status list keeps a nil
+// InstanceView: its power state reads unknown, never invented.
 func (r *realCompute) ListVirtualMachines(ctx context.Context) ([]*armcompute.VirtualMachine, error) {
+	vms, err := r.listAll(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	statuses, err := r.listAll(ctx, &armcompute.VirtualMachinesClientListAllOptions{StatusOnly: to.Ptr("true")})
+	if err != nil {
+		return nil, err
+	}
+	views := make(map[string]*armcompute.VirtualMachineInstanceView, len(statuses))
+	for _, s := range statuses {
+		if s == nil || s.ID == nil || s.Properties == nil || s.Properties.InstanceView == nil {
+			continue
+		}
+		views[strings.ToLower(*s.ID)] = s.Properties.InstanceView
+	}
+	for _, vm := range vms {
+		if vm == nil || vm.ID == nil {
+			continue
+		}
+		if view, ok := views[strings.ToLower(*vm.ID)]; ok {
+			if vm.Properties == nil {
+				vm.Properties = &armcompute.VirtualMachineProperties{}
+			}
+			vm.Properties.InstanceView = view
+		}
+	}
+	return vms, nil
+}
+
+func (r *realCompute) listAll(ctx context.Context, opts *armcompute.VirtualMachinesClientListAllOptions) ([]*armcompute.VirtualMachine, error) {
 	var out []*armcompute.VirtualMachine
-	pager := r.vms.NewListAllPager(&armcompute.VirtualMachinesClientListAllOptions{
-		StatusOnly: to.Ptr("true"), // populate InstanceView (power state) in the single list call
-	})
+	pager := r.vms.NewListAllPager(opts)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {

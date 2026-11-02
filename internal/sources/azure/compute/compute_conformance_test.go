@@ -11,8 +11,11 @@ import (
 )
 
 // compute_conformance_test.go: azure.compute_instance L1+L2 (WU-2.12).
-// Hand-authored: one running Linux VM, encrypted (CMEK disk-encryption-set +
-// encryption-at-host), no public IP.
+// One running Linux VM (sigcomply-e2e-vm) whose single NIC has a private IP
+// only. The statusOnly list is a live recording; the plain list and the NIC GET
+// are hand-authored (see the cassette header). vm_size and os_type come only
+// from the plain list, so asserting them proves the adapter reads the full
+// model and not the profile-less statusOnly answer.
 func TestAzureComputeConformance(t *testing.T) {
 	fixedNow := time.Date(2026, 6, 28, 0, 0, 0, 0, time.UTC)
 	newPlugin := func() core.SourcePlugin {
@@ -37,5 +40,8 @@ func TestAzureComputeConformance(t *testing.T) {
 	}
 	if !p.IsRunning || p.HasPublicIP || !p.RootVolumeEncrypted {
 		t.Errorf("vm = %+v; want running, no public IP, encrypted root", p)
+	}
+	if p.VMSize != "Standard_D2als_v7" || p.OSType != osLinux {
+		t.Errorf("vm_size/os_type = %q/%q, want Standard_D2als_v7/Linux (read from the plain list)", p.VMSize, p.OSType)
 	}
 }

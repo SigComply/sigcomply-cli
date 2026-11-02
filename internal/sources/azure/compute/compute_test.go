@@ -26,6 +26,8 @@ import (
 const (
 	powerStateRunning     = "running"
 	powerStateDeallocated = "deallocated"
+	osLinux               = "Linux"
+	testSubID             = "sub-1"
 )
 
 var fixedNow = time.Date(2026, 6, 17, 12, 0, 0, 0, time.UTC)
@@ -165,7 +167,7 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 			"db-nic":  nicPrivateOnly(),
 		},
 	}
-	p := New(Options{API: f, SubscriptionID: "sub-1", Now: func() time.Time { return fixedNow }})
+	p := New(Options{API: f, SubscriptionID: testSubID, Now: func() time.Time { return fixedNow }})
 
 	recs, err := p.Collect(context.Background(), req())
 	if err != nil {
@@ -182,7 +184,7 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 		if r.Type != EvidenceTypeID || r.SourceID != SourceID || !r.CollectedAt.Equal(fixedNow) {
 			t.Errorf("record %s: Type/SourceID/CollectedAt = %s/%s/%v", r.ID, r.Type, r.SourceID, r.CollectedAt)
 		}
-		if r.Scope == nil || r.Scope.Account != "sub-1" {
+		if r.Scope == nil || r.Scope.Account != testSubID {
 			t.Errorf("record %s: scope = %+v", r.ID, r.Scope)
 		}
 		if r.IdentityKey != "" {
@@ -222,7 +224,7 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 		RootVolumeEncrypted: true,
 		PowerState:          powerStateRunning,
 		VMSize:              "Standard_D2s_v3",
-		OSType:              "Linux",
+		OSType:              osLinux,
 		CMEKEnabled:         true,
 		EncryptionAtHost:    false,
 		KMSKeyID:            desID,
@@ -455,7 +457,7 @@ func realComputePointedAt(t *testing.T, srv *httptest.Server) *realCompute {
 		}},
 		Transport: srv.Client(),
 	}}
-	rc, err := newRealCompute("sub-1", fakeCred{}, opts)
+	rc, err := newRealCompute(testSubID, fakeCred{}, opts)
 	if err != nil {
 		t.Fatalf("newRealCompute: %v", err)
 	}
@@ -506,5 +508,108 @@ func TestRealCompute_ListError(t *testing.T) {
 	rc := realComputePointedAt(t, srv)
 	if _, err := rc.ListVirtualMachines(context.Background()); err == nil {
 		t.Fatal("expected error on 403, got nil")
+	}
+}
+
+// armLikeVMServer answers the VM list the way ARM does: statusOnly=true returns
+// run-time status only (the shape recorded live in testdata/cassettes/vms.yaml:
+// an empty hardwareProfile and no network, storage or security profile), and a
+// plain list returns the full model without instanceView.
+func armLikeVMServer(t *testing.T, statusOnlyBody, fullBody, nicBody string) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/providers/Microsoft.Compute/virtualMachines"):
+			if r.URL.Query().Get("statusOnly") == "true" {
+				_, _ = w.Write([]byte(statusOnlyBody)) //nolint:errcheck // test handler
+				return
+			}
+			_, _ = w.Write([]byte(fullBody)) //nolint:errcheck // test handler
+		case strings.Contains(r.URL.Path, "/networkInterfaces/web-nic"):
+			_, _ = w.Write([]byte(nicBody)) //nolint:errcheck // test handler
+		default:
+			t.Errorf("unexpected path: %s", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+// A statusOnly list carries no networkProfile, so reading the VM from it alone
+// would never fetch a NIC and would report has_public_ip=false for every VM.
+// The adapter must take the model from the plain list and the power state from
+// the statusOnly list. The status list spells the resource group in upper case
+// (as the live recording does), so the join must ignore case.
+func TestRealCompute_StatusOnlyListMergedIntoFullModel(t *testing.T) {
+	const vmURI = "/subscriptions/sub-1/resourceGroups/web-rg/providers/Microsoft.Compute/virtualMachines/web-vm"
+	const nicURI = "/subscriptions/sub-1/resourceGroups/web-rg/providers/Microsoft.Network/networkInterfaces/web-nic"
+	statusOnlyBody := `{"value":[{"name":"web-vm","id":"` + strings.Replace(vmURI, "web-rg", "WEB-RG", 1) + `","type":"Microsoft.Compute/virtualMachines","location":"eastus",` +
+		`"properties":{"hardwareProfile":{},"provisioningState":"Succeeded","vmId":"3ec2e7ae-4adb-4725-963f-770c4e47f03a",` +
+		`"instanceView":{"platformFaultDomain":0,"statuses":[{"code":"ProvisioningState/succeeded","level":"Info"},{"code":"PowerState/running","level":"Info","displayStatus":"VM running"}]}}}]}`
+	fullBody := `{"value":[{"name":"web-vm","id":"` + vmURI + `","type":"Microsoft.Compute/virtualMachines","location":"eastus",` +
+		`"properties":{"hardwareProfile":{"vmSize":"Standard_B1s"},"storageProfile":{"osDisk":{"osType":"Linux"}},` +
+		`"securityProfile":{"encryptionAtHost":true},` +
+		`"networkProfile":{"networkInterfaces":[{"id":"` + nicURI + `"}]},"provisioningState":"Succeeded"}}]}`
+	nicBody := `{"id":"` + nicURI + `","name":"web-nic","properties":{"ipConfigurations":[{"name":"ipconfig1","properties":{` +
+		`"publicIPAddress":{"id":"/subscriptions/sub-1/resourceGroups/web-rg/providers/Microsoft.Network/publicIPAddresses/web-ip"}}}]}}`
+
+	srv := armLikeVMServer(t, statusOnlyBody, fullBody, nicBody)
+	p := New(Options{API: realComputePointedAt(t, srv), SubscriptionID: testSubID})
+	recs, err := p.Collect(context.Background(), req())
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if len(recs) != 1 {
+		t.Fatalf("records = %d, want 1", len(recs))
+	}
+	var got instancePayload
+	mustUnmarshal(t, recs[0].Payload, &got)
+	if !got.IsRunning || got.PowerState != powerStateRunning {
+		t.Errorf("is_running/power_state = %v/%q, want true/running", got.IsRunning, got.PowerState)
+	}
+	if !got.HasPublicIP {
+		t.Errorf("has_public_ip = false for a running VM whose NIC has a public IP (payload %s)", recs[0].Payload)
+	}
+	if got.VMSize != "Standard_B1s" || got.OSType != osLinux || !got.EncryptionAtHost {
+		t.Errorf("vm_size/os_type/encryption_at_host = %q/%q/%v, want Standard_B1s/Linux/true", got.VMSize, got.OSType, got.EncryptionAtHost)
+	}
+}
+
+// A VM missing from the status list (created between the two list calls) keeps
+// a nil InstanceView: power state unknown, is_running false, never invented.
+func TestRealCompute_VMWithoutStatusMatchHasNoPowerState(t *testing.T) {
+	const vmURI = "/subscriptions/sub-1/resourceGroups/web-rg/providers/Microsoft.Compute/virtualMachines/web-vm"
+	fullBody := `{"value":[{"name":"web-vm","id":"` + vmURI + `","location":"eastus","properties":{"hardwareProfile":{"vmSize":"Standard_B1s"}}}]}`
+	srv := armLikeVMServer(t, `{"value":[]}`, fullBody, "")
+
+	vms, err := realComputePointedAt(t, srv).ListVirtualMachines(context.Background())
+	if err != nil {
+		t.Fatalf("ListVirtualMachines: %v", err)
+	}
+	if len(vms) != 1 {
+		t.Fatalf("vms = %d, want 1", len(vms))
+	}
+	if vms[0].Properties.InstanceView != nil || powerState(vms[0]) != "" {
+		t.Errorf("InstanceView = %+v, want nil (no status for this VM)", vms[0].Properties.InstanceView)
+	}
+}
+
+// The status list failing is an error, never a silent "not running".
+func TestRealCompute_StatusListError(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Query().Get("statusOnly") == "true" {
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = w.Write([]byte(`{"error":{"code":"AuthorizationFailed"}}`)) //nolint:errcheck // test handler
+			return
+		}
+		_, _ = w.Write([]byte(`{"value":[]}`)) //nolint:errcheck // test handler
+	}))
+	defer srv.Close()
+
+	if _, err := realComputePointedAt(t, srv).ListVirtualMachines(context.Background()); err == nil {
+		t.Fatal("expected error when the statusOnly list returns 403, got nil")
 	}
 }

@@ -1,3 +1,16 @@
+# PROVENANCE: PARTLY RECORDED, PARTLY HAND-AUTHORED.
+#
+# Interaction 0 (the statusOnly=true VM list) was recorded live on 2026-07-26
+# with TestRecordCompute against the E2E VM sigcomply-e2e-vm. Its body shows
+# that ARM strips every profile from a statusOnly answer.
+#
+# Interactions 1 (the plain VM list) and 2 (the NIC GET) were added by hand
+# when the adapter started making those calls. Their bodies follow the ARM
+# template that seeds that VM (sigcomply-cli-testing-project-github
+# scripts/azure-vm-template.json: Standard_D2als_v7, Ubuntu 22.04, one NIC with a
+# private IP only) and the ARM VirtualMachine / NetworkInterface models in
+# contracts/azure/. Re-recording with TestRecordCompute replaces all three and
+# drops this header.
 ---
 version: 2
 interactions:
@@ -68,3 +81,69 @@ interactions:
         status: 200 OK
         code: 200
         duration: 1.129221375s
+    - id: 1
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: management.azure.com
+        form:
+            api-version:
+                - "2026-04-01"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armcompute/v9.0.0 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/virtualMachines?api-version=2026-04-01
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 1157
+        body: '{"value":[{"name":"sigcomply-e2e-vm","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/SIGCOMPLY-E2E-RG/providers/Microsoft.Compute/virtualMachines/sigcomply-e2e-vm","type":"Microsoft.Compute/virtualMachines","location":"eastus","properties":{"hardwareProfile":{"vmSize":"Standard_D2als_v7"},"provisioningState":"Succeeded","vmId":"3ec2e7ae-4adb-4725-963f-770c4e47f03a","storageProfile":{"imageReference":{"publisher":"Canonical","offer":"0001-com-ubuntu-server-jammy","sku":"22_04-lts-gen2","version":"latest"},"osDisk":{"osType":"Linux","name":"sigcomply-e2e-vm_OsDisk_1","createOption":"FromImage","caching":"ReadWrite","managedDisk":{"storageAccountType":"Standard_LRS","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/SIGCOMPLY-E2E-RG/providers/Microsoft.Compute/disks/sigcomply-e2e-vm_OsDisk_1"},"deleteOption":"Detach","diskSizeGB":30},"dataDisks":[]},"networkProfile":{"networkInterfaces":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/SIGCOMPLY-E2E-RG/providers/Microsoft.Network/networkInterfaces/sigcomply-e2e-nic"}]},"timeCreated":"2026-07-26T17:50:41.1234567+00:00"}}]}'
+        headers:
+            Content-Length:
+                - "1157"
+            Content-Type:
+                - application/json; charset=utf-8
+        status: 200 OK
+        code: 200
+        duration: 0s
+    - id: 2
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: management.azure.com
+        form:
+            api-version:
+                - "2026-03-01"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armnetwork/v12.1.0 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/SIGCOMPLY-E2E-RG/providers/Microsoft.Network/networkInterfaces/sigcomply-e2e-nic?api-version=2026-03-01
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 1174
+        body: '{"name":"sigcomply-e2e-nic","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/SIGCOMPLY-E2E-RG/providers/Microsoft.Network/networkInterfaces/sigcomply-e2e-nic","type":"Microsoft.Network/networkInterfaces","location":"eastus","properties":{"provisioningState":"Succeeded","ipConfigurations":[{"name":"ipconfig1","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/SIGCOMPLY-E2E-RG/providers/Microsoft.Network/networkInterfaces/sigcomply-e2e-nic/ipConfigurations/ipconfig1","type":"Microsoft.Network/networkInterfaces/ipConfigurations","properties":{"provisioningState":"Succeeded","privateIPAddress":"10.0.0.4","privateIPAllocationMethod":"Dynamic","subnet":{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/SIGCOMPLY-E2E-RG/providers/Microsoft.Network/virtualNetworks/sigcomply-e2e-vnet/subnets/default"},"primary":true,"privateIPAddressVersion":"IPv4"}}],"virtualMachine":{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/SIGCOMPLY-E2E-RG/providers/Microsoft.Compute/virtualMachines/sigcomply-e2e-vm"},"primary":true,"enableAcceleratedNetworking":false,"enableIPForwarding":false}}'
+        headers:
+            Content-Length:
+                - "1174"
+            Content-Type:
+                - application/json; charset=utf-8
+        status: 200 OK
+        code: 200
+        duration: 0s
