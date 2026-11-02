@@ -11,8 +11,9 @@ import (
 )
 
 // policy_conformance_test.go: azure.config_change_tracking L1+L2 (WU-2.12).
-// Hand-authored: two policy assignments (one subscription-scoped + enforced, one
-// RG-scoped, do-not-enforce) → one subscription-level tracking record.
+// Recorded live: one customer assignment scoped at the subscription, plus the
+// SystemHidden region restriction Microsoft places on the tenant root
+// management group, which must not be counted.
 func TestAzurePolicyConformance(t *testing.T) {
 	fixedNow := time.Date(2026, 6, 28, 0, 0, 0, 0, time.UTC)
 	newPlugin := func() core.SourcePlugin {
@@ -34,7 +35,7 @@ func TestAzurePolicyConformance(t *testing.T) {
 	if err := json.Unmarshal(recs[0].Payload, &p); err != nil {
 		t.Fatal(err)
 	}
-	if !p.IsRecording {
-		t.Errorf("tracking = %+v; want recording (assignments present)", p)
+	if !p.IsRecording || p.AssignmentCount != 1 {
+		t.Errorf("tracking = %+v; want recording from the one customer assignment", p)
 	}
 }

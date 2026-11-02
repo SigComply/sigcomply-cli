@@ -176,6 +176,27 @@ func TestCollect_OnlyRGScoped_AllResourceTypesFalse(t *testing.T) {
 	}
 }
 
+func TestCollect_SystemHiddenSkippedBeforeEveryCount(t *testing.T) {
+	hidden := assignment("sys.blockwesteurope", subScope, nil)
+	hidden.Properties.AssignmentType = to.Ptr(armpolicy.AssignmentTypeSystemHidden)
+	custom := assignment("rg-only", rgScope, nil)
+	custom.Properties.AssignmentType = to.Ptr(armpolicy.AssignmentTypeCustom)
+	f := &fakeAPI{assignments: []*armpolicy.Assignment{hidden, custom}}
+	recs, err := New(Options{API: f, SubscriptionID: subID}).Collect(context.Background(), req())
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	var got trackingPayload
+	mustUnmarshal(t, recs[0].Payload, &got)
+	if !got.IsRecording || got.AssignmentCount != 1 || got.EnforcedCount != 1 {
+		t.Errorf("want the custom assignment alone counted, got %+v", got)
+	}
+	// A subscription-scoped SystemHidden assignment must not make coverage full.
+	if got.AllResourceTypes || got.SubscriptionScopedCount != 0 {
+		t.Errorf("all_resource_types from a SystemHidden assignment, got %+v", got)
+	}
+}
+
 func TestCollect_NilEntriesSkipped(t *testing.T) {
 	f := &fakeAPI{assignments: []*armpolicy.Assignment{
 		nil,
@@ -354,4 +375,44 @@ func deref(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+// Microsoft places SystemHidden assignments on subscriptions itself (this body
+// is the region-capacity restriction from the live assignments cassette, scoped
+// to the tenant root management group). The unfiltered list returns it, but it
+// is not configuration the customer set, so on its own it must not read as
+// recording.
+func TestRealPolicy_SystemHiddenAssignmentIsNotRecording(t *testing.T) {
+	const body = `{"value":[{"properties":{"displayName":"Microsoft Azure region access restriction blocking West Europe region",` +
+		`"policyDefinitionId":"/PROVIDERS/MICROSOFT.AUTHORIZATION/POLICYDEFINITIONS/7509877F-D414-4D79-8D1F-D600EA78D087","definitionVersion":"1.*.*",` +
+		`"scope":"/providers/Microsoft.Management/managementGroups/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",` +
+		`"metadata":{"createdBy":null,"createdOn":"2026-07-12T18:10:28.8901568Z","updatedBy":null,"updatedOn":null},"enforcementMode":"Default",` +
+		`"nonComplianceMessages":[{"message":"The selected region is currently not accepting new customers: https://aka.ms/locationineligible"}],` +
+		`"assignmentType":"SystemHidden","instanceId":"00000000-0000-0000-0000-000000000000"},` +
+		`"id":"/providers/Microsoft.Management/managementGroups/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/providers/Microsoft.Authorization/policyAssignments/sys.blockwesteurope",` +
+		`"type":"Microsoft.Authorization/policyAssignments","name":"sys.blockwesteurope"}]}`
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(r.URL.Path, "/policyAssignments") {
+			_, _ = w.Write([]byte(body)) //nolint:errcheck // test handler
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	p := New(Options{API: realPolicyPointedAt(t, srv), SubscriptionID: subID, Now: func() time.Time { return fixedNow }})
+	recs, err := p.Collect(context.Background(), req())
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	var got trackingPayload
+	mustUnmarshal(t, recs[0].Payload, &got)
+	if got.IsRecording {
+		t.Errorf("is_recording = true from a Microsoft-created SystemHidden assignment alone "+
+			"(the customer configured no policy): config_recording_enabled would PASS; payload %s", recs[0].Payload)
+	}
+	if got.AssignmentCount != 0 || got.EnforcedCount != 0 {
+		t.Errorf("assignment_count/enforced_count = %d/%d, want 0/0 (SystemHidden is not counted)", got.AssignmentCount, got.EnforcedCount)
+	}
 }

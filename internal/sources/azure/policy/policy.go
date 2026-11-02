@@ -27,6 +27,10 @@
 // evaluator errors on a referenced-but-absent field, so both — plus the
 // required id/name — are always emitted):
 //   - is_recording ← len(assignments) > 0 (mirrors gcp.asset's len(feeds) > 0).
+//     SystemHidden assignments are skipped before this and every other count:
+//     Microsoft creates them on subscriptions nobody configured (the live
+//     cassette has one, a region-capacity restriction), so counting them would
+//     make is_recording true on a fresh subscription.
 //   - all_resource_types ← at least one assignment is scoped at the
 //     subscription root (/subscriptions/{id}). Azure Policy has no per-
 //     assignment resource-type list (the analog of AWS Config's allSupported
@@ -197,7 +201,7 @@ func buildPayload(subscriptionID string, assignments []*armpolicy.Assignment) tr
 	enforced := 0
 	subScoped := 0
 	for _, a := range assignments {
-		if a == nil {
+		if a == nil || systemHidden(a) {
 			continue
 		}
 		count++
@@ -221,6 +225,15 @@ func buildPayload(subscriptionID string, assignments []*armpolicy.Assignment) tr
 }
 
 // --- pure mapping helpers (unit-tested via table tests) ---
+
+// systemHidden reports whether Microsoft created the assignment itself and
+// hides it from the customer, such as the region-capacity restriction it
+// places on the tenant root management group. The subscription list returns
+// these, but they are not configuration anyone on the subscription set.
+func systemHidden(a *armpolicy.Assignment) bool {
+	return a.Properties != nil && a.Properties.AssignmentType != nil &&
+		*a.Properties.AssignmentType == armpolicy.AssignmentTypeSystemHidden
+}
 
 // assignmentEnforced reports whether an assignment enforces its policy effect.
 // Azure's default enforcement mode is "Default" (enforced), so a nil mode
