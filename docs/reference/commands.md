@@ -202,7 +202,8 @@ then reads "not evaluated".
 | `soa` | The ISO 27001 Statement of Applicability: one row per Annex A control with applicability, justification and status |
 
 `--view coverage` covers every control in the framework, including controls whose cadence did
-not run this period. It splits controls into two kinds, which the score counts the same: backed
+not run this period. Here and in `--view soa`, a project-local policy counts toward the control
+it names, read from its result in the vault. It splits controls into two kinds, which the score counts the same: backed
 only by document checks, or with at least one automated check mapped.
 For SOC 2, 29 of 43 criteria are the first kind. The kind comes from the mapped policies, not
 from what ran, so `This period` splits the automated controls by what their automated checks

@@ -53,6 +53,7 @@ func buildSoA(
 	if err != nil {
 		return nil, err
 	}
+	policies = withResultOnlyPolicies(policies, results)
 
 	classified := core.ClassifyControls(controls, effectiveModes(policies, results))
 	assurance := make(map[string]core.ControlCoverage, len(classified))

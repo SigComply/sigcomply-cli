@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 
@@ -29,6 +31,7 @@ func buildCoverage(ctx context.Context, v core.Vault, runs []runRecord, controls
 	if err != nil {
 		return nil, err
 	}
+	policies = withResultOnlyPolicies(policies, results)
 
 	// Catalog controls and management-system requirements are counted
 	// apart. Blending them makes the headline read better every time
@@ -190,6 +193,27 @@ const (
 // replaced by the mode the run actually used, where the run recorded
 // one. Results written before the mode was recorded carry an empty
 // value and leave the catalog's declaration standing.
+// withResultOnlyPolicies adds a policy for each result the catalog does not
+// list: a project-local policy, which names one of the framework's controls
+// but is known only from its run result. Without it, a failing
+// project-local policy left its control reading as met.
+func withResultOnlyPolicies(policies []core.Policy, results map[string]core.PolicyResult) []core.Policy {
+	listed := make(map[string]bool, len(policies))
+	for i := range policies {
+		listed[policies[i].ID] = true
+	}
+	out := policies[:len(policies):len(policies)]
+	for _, id := range slices.Sorted(maps.Keys(results)) {
+		r := results[id]
+		if listed[id] || len(r.Controls) == 0 {
+			continue
+		}
+		out = append(out, core.Policy{ID: id, Controls: r.Controls, EvidenceMode: r.EvidenceMode,
+			Severity: r.Severity, Category: r.Category})
+	}
+	return out
+}
+
 func effectiveModes(policies []core.Policy, results map[string]core.PolicyResult) []core.Policy {
 	out := make([]core.Policy, len(policies))
 	copy(out, policies)

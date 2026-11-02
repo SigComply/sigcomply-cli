@@ -178,7 +178,7 @@ func TestBuildSoA_StatusRollup(t *testing.T) {
 	}{
 		"all pass":             {[]core.PolicyStatus{core.StatusPass, core.StatusPass}, statusImplemented},
 		"waived counts as met": {[]core.PolicyStatus{core.StatusPass, core.StatusWaived}, statusImplemented},
-		"mixed":                {[]core.PolicyStatus{core.StatusPass, core.StatusFail}, "partially implemented"},
+		"mixed":                {[]core.PolicyStatus{core.StatusPass, core.StatusFail}, statusPartial},
 		"all fail":             {[]core.PolicyStatus{core.StatusFail, core.StatusFail}, statusNotImplmntd},
 		// A skip is a check that could not run, so on its own it leaves
 		// the control with nothing to show for itself.
@@ -198,7 +198,7 @@ func TestBuildSoA_StatusRollup(t *testing.T) {
 		// the only surface calling it statusNotImplmntd.
 		"carried forward is a pass":        {[]core.PolicyStatus{core.StatusCarriedForward}, statusImplemented},
 		"carried forward beside a pass":    {[]core.PolicyStatus{core.StatusPass, core.StatusCarriedForward}, statusImplemented},
-		"carried forward beside a failure": {[]core.PolicyStatus{core.StatusCarriedForward, core.StatusFail}, "partially implemented"},
+		"carried forward beside a failure": {[]core.PolicyStatus{core.StatusCarriedForward, core.StatusFail}, statusPartial},
 	} {
 		t.Run(name, func(t *testing.T) {
 			results := make([]core.PolicyResult, 0, len(tc.statuses))
@@ -514,6 +514,44 @@ func TestBuildSoA_MultiControlPolicyBacksBothRows(t *testing.T) {
 	for _, r := range snap.SoA.Rows {
 		if r.Status != statusImplemented || r.Assurance != string(core.AssuranceAutomated) || !reflect.DeepEqual(r.Policies, []string{id}) {
 			t.Errorf("%s = status %q, assurance %q, policies %v; want implemented, automated, [%s]", r.ControlID, r.Status, r.Assurance, r.Policies, id)
+		}
+	}
+}
+
+// A project-local policy names one of the framework's controls, but only
+// its run result knows that: the shipped catalog does not list it. Its
+// failure must still count against the control it was written for.
+func TestBuildSoAAndCoverage_CountProjectLocalPolicies(t *testing.T) {
+	v, _ := makeVault(t, []runSeed{{
+		framework: frameworkISO27001, periodID: testPeriodQ2, runID: testRunID,
+		timestamp:   time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
+		completedAt: time.Date(2026, 4, 1, 0, 5, 0, 0, time.UTC),
+		policies: []core.PolicyResult{
+			{PolicyID: testPolicyISOPolicies, Status: core.StatusPass, EvidenceMode: core.EvidenceModeAutomated,
+				Controls: []core.ControlRef{{ControlID: ctrlA51}}},
+			{PolicyID: "acme.custom.policy_review", Status: core.StatusFail, EvidenceMode: core.EvidenceModeAutomated,
+				Controls: []core.ControlRef{{ControlID: ctrlA51}}},
+		},
+	}})
+	controls, policies := soaCatalog()
+	for _, view := range []report.View{report.ViewSoA, report.ViewCoverage} {
+		snap, err := report.Build(context.Background(), &report.Input{
+			Vault: v, Framework: frameworkISO27001, PeriodID: testPeriodQ2, View: view,
+			Controls: controls, Policies: policies,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if view == report.ViewSoA {
+			if row := soaRowByID(t, snap, ctrlA51); row.Status != statusPartial || row.Evaluated != 2 {
+				t.Errorf("SoA A.5.1 = %q with %d evaluated; want partially implemented with 2", row.Status, row.Evaluated)
+			}
+			continue
+		}
+		for _, row := range snap.Coverage.Rows {
+			if row.ControlID == ctrlA51 && (row.Policies != 2 || row.Status == statusPass) {
+				t.Errorf("coverage A.5.1 = %+v; want 2 policies and not a pass", row)
+			}
 		}
 	}
 }

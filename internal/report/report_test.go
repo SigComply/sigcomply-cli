@@ -34,6 +34,7 @@ const (
 	statusIncomplete   = "incomplete"
 	statusImplemented  = "implemented"
 	statusNotImplmntd  = "not implemented"
+	statusPartial      = "partially implemented"
 	statusNotEvaluated = "not evaluated"
 	stateNotConfigured = "not_configured"
 
