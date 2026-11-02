@@ -993,8 +993,13 @@ func (s *sdkAPI) projectIndex(ctx context.Context) (paths map[int64]string, ids 
 // "all protected branches" covers branch only when it is protected; otherwise
 // branch must be named. A default branch protected only by a wildcard rule
 // reads as unprotected here (see mapProject), which can only drop a rule,
-// never add one.
+// never add one. A report_approver rule (a merge request approval policy on
+// scan findings, licenses or coverage) requires approval only when its
+// condition trips, so it never counts.
 func approvalRuleApplies(rule *gitlab.ProjectApprovalRule, branch string, protected bool) bool {
+	if rule.RuleType == "report_approver" {
+		return false
+	}
 	if rule.AppliesToAllProtectedBranches {
 		return protected
 	}

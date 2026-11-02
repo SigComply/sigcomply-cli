@@ -514,6 +514,14 @@ func TestSDKAPI_ListRepos_ApprovalRuleScope(t *testing.T) {
 				`{"id":3,"approvals_required":2,"protected_branches":[{"id":4,"name":"main"}]}]`,
 			protected: true, want: 2,
 		},
+		{
+			// A merge request approval policy's rule (scan findings, license,
+			// coverage) requires approval only when its condition trips.
+			name: "report approver rule needs approval only conditionally",
+			rules: `[{"id":1,"rule_type":"report_approver","report_type":"scan_finding","approvals_required":2},` +
+				`{"id":2,"rule_type":"regular","approvals_required":1}]`,
+			protected: true, want: 1,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

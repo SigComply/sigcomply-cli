@@ -394,7 +394,9 @@ Caveats:
 - `required_reviewers_count` is the highest approval count among the rules that apply to the
   default branch: rules with no branch scope, rules for all protected branches when the default
   branch has its own protection rule, and rules that name the default branch. Rules scoped to
-  other branches are not counted.
+  other branches are not counted, and neither are merge request approval policy rules
+  (`report_approver`: scan findings, licenses, coverage), which require approval only when their
+  condition trips.
 - Changes merged during the audit period into projects that were archived later still emit
   `pull_request` records.
 - A merge request merged without a merge commit (squash or fast-forward) reports the squash
