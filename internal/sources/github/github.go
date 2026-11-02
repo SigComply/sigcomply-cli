@@ -1347,13 +1347,17 @@ func (h *httpAPI) ListOrgMembers(ctx context.Context) ([]Member, error) {
 	}
 	out := make([]Member, 0, len(all))
 	for login := range all {
-		m := Member{Login: login, TwoFactorOn: !disabled[login]}
-		// Role lookup per member; admin scope required.
 		role, err := h.fetchMembershipRole(ctx, login)
-		if err == nil {
-			m.Role = role
+		if apiErrorIs(err, http.StatusNotFound) {
+			// Left the org between the roster listing and this lookup.
+			continue
 		}
-		out = append(out, m)
+		if err != nil {
+			// An unread role must not become Role "" (is_admin=false): an owner
+			// without 2FA would then pass the admin-MFA policies.
+			return nil, fmt.Errorf("membership role for %s: %w", login, err)
+		}
+		out = append(out, Member{Login: login, TwoFactorOn: !disabled[login], Role: role})
 	}
 	return out, nil
 }

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/sources"
 )
 
 const testLoginAlice = "alice"
@@ -692,6 +693,70 @@ func TestHTTPAPI_ListOrgMembers_HappyPath(t *testing.T) {
 	}
 	if byLogin[testLoginAlice].Role != testRoleAdmin {
 		t.Errorf("alice.Role = %q", byLogin[testLoginAlice].Role)
+	}
+}
+
+// A failed role read must fail the source: emitting the member with Role ""
+// would read as is_admin=false and pass none(is_admin AND !mfa_enabled) for an
+// owner without 2FA.
+func TestHTTPAPI_ListOrgMembers_RoleReadFailureFailsSource(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/orgs/acme/memberships/"):
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"message":"Server Error"}`)) //nolint:errcheck // test handler
+		case strings.HasPrefix(r.URL.Path, "/orgs/acme/members"):
+			_, _ = w.Write([]byte(`[{"login":"alice"}]`)) //nolint:errcheck // test handler
+		case strings.HasPrefix(r.URL.Path, "/orgs/acme/outside_collaborators"):
+			_, _ = w.Write([]byte(`[]`)) //nolint:errcheck // test handler
+		default:
+			t.Errorf("unexpected request: %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	api := &httpAPI{org: testOrg, token: testToken, base: srv.URL, client: srv.Client()}
+	members, err := api.ListOrgMembers(context.Background())
+	if err == nil {
+		t.Fatalf("ListOrgMembers: want error after a 500 on the role read; got members %+v", members)
+	}
+	var apiErr *sources.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != http.StatusInternalServerError {
+		t.Errorf("error %v does not wrap the 500 *sources.APIError the collector retries on", err)
+	}
+
+	p := New(Options{API: api, Org: testOrg})
+	recs, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeDirectoryUser}})
+	if err == nil {
+		t.Errorf("Collect: want error; got %d records graded on an unread role", len(recs))
+	}
+}
+
+// A member whose membership answers 404 left the org between the roster
+// listing and the role lookup: drop them rather than fail the run.
+func TestHTTPAPI_ListOrgMembers_DropsMemberWhoLeftMidListing(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/orgs/acme/memberships/bob":
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"message":"Not Found"}`)) //nolint:errcheck // test handler
+		case strings.HasPrefix(r.URL.Path, "/orgs/acme/memberships/"):
+			_, _ = w.Write([]byte(`{"role":"admin"}`)) //nolint:errcheck // test handler
+		case strings.HasPrefix(r.URL.Path, "/orgs/acme/members"):
+			_, _ = w.Write([]byte(`[{"login":"alice"},{"login":"bob"}]`)) //nolint:errcheck // test handler
+		default:
+			t.Errorf("unexpected request: %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	api := &httpAPI{org: testOrg, token: testToken, base: srv.URL, client: srv.Client()}
+	members, err := api.ListOrgMembers(context.Background())
+	if err != nil {
+		t.Fatalf("ListOrgMembers: %v", err)
+	}
+	if len(members) != 1 || members[0].Login != testLoginAlice || members[0].Role != testRoleAdmin {
+		t.Errorf("members = %+v; want only alice (admin)", members)
 	}
 }
 
