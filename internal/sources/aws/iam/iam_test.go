@@ -326,6 +326,49 @@ func TestCollect_EmitsRootRecord(t *testing.T) {
 	}
 }
 
+// A time AWS does not report is left out of the payload rather than sent as
+// year 0001: a user who never signed in to the console, a user without a
+// CreateDate, and the synthetic root record. Reported times are kept.
+func TestCollect_OmitsUnreportedTimestamps(t *testing.T) {
+	created := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
+	lastLogin := time.Date(2026, 5, 20, 0, 0, 0, 0, time.UTC)
+	fake := &fakeAPI{
+		users: []iamtypes.User{
+			{UserName: ptr("ci-deployer"), UserId: ptr("A1"), CreateDate: &created},
+			{UserName: ptr("no-dates"), UserId: ptr("A2")},
+			{UserName: ptr("console"), UserId: ptr("A3"), CreateDate: &created, PasswordLastUsed: &lastLogin},
+		},
+	}
+	p := New(Options{API: fake})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	const createdAt, lastLoginAt = "created_at", "last_login_at"
+	want := map[string]map[string]string{
+		"A1":                  {createdAt: "2026-05-01T00:00:00Z"},
+		"A2":                  {},
+		"A3":                  {createdAt: "2026-05-01T00:00:00Z", lastLoginAt: "2026-05-20T00:00:00Z"},
+		"arn:aws:iam::1:root": {},
+	}
+	if len(records) != len(want) {
+		t.Fatalf("len(records) = %d; want %d", len(records), len(want))
+	}
+	for _, rec := range records {
+		var m map[string]any
+		if err := json.Unmarshal(rec.Payload, &m); err != nil {
+			t.Fatalf("Unmarshal %s: %v", rec.ID, err)
+		}
+		for _, field := range []string{createdAt, lastLoginAt} {
+			got, present := m[field]
+			wantVal, wantPresent := want[rec.ID][field]
+			if present != wantPresent || (present && got != wantVal) {
+				t.Errorf("%s %s = %v (present %v); want %q (present %v)", rec.ID, field, got, present, wantVal, wantPresent)
+			}
+		}
+	}
+}
+
 // TestCollect_CredentialReportErrorFailsCollect ensures a missing
 // credential-report permission surfaces as a hard error (the root check
 // must never be silently skipped).
@@ -413,9 +456,6 @@ func TestSafeHelpers_NilSafe(t *testing.T) {
 	}
 	if safeUserID(nil) != "" {
 		t.Errorf("nil UserID not empty")
-	}
-	if !safeCreatedAt(nil).IsZero() {
-		t.Errorf("nil CreateDate not zero")
 	}
 	// UserName-set, UserID-empty → falls through to UserName.
 	u := iamtypes.User{UserName: ptr("u1")}

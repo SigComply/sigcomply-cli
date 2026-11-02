@@ -154,20 +154,22 @@ func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 // ListAccessKeys call. username is the IAM UserName (what roster aliases
 // match on); the synthetic root record omits it — root has no UserName.
 type userPayload struct {
-	ID                    string    `json:"id"`
-	Username              string    `json:"username,omitempty"`
-	DisplayName           string    `json:"display_name"`
-	Email                 string    `json:"email,omitempty"`
-	MFAEnabled            bool      `json:"mfa_enabled"`
-	IsAdmin               bool      `json:"is_admin"`
-	IsActive              bool      `json:"is_active"`
-	IsRoot                bool      `json:"is_root"`
-	HasConsoleAccess      bool      `json:"has_console_access"`
-	HasProgrammaticAccess bool      `json:"has_programmatic_access"`
-	DirectPolicyCount     int       `json:"direct_policy_count"`
-	UnusedDays            int       `json:"unused_days"`
-	LastLoginAt           time.Time `json:"last_login_at,omitempty"`
-	CreatedAt             time.Time `json:"created_at,omitempty"`
+	ID                    string `json:"id"`
+	Username              string `json:"username,omitempty"`
+	DisplayName           string `json:"display_name"`
+	Email                 string `json:"email,omitempty"`
+	MFAEnabled            bool   `json:"mfa_enabled"`
+	IsAdmin               bool   `json:"is_admin"`
+	IsActive              bool   `json:"is_active"`
+	IsRoot                bool   `json:"is_root"`
+	HasConsoleAccess      bool   `json:"has_console_access"`
+	HasProgrammaticAccess bool   `json:"has_programmatic_access"`
+	DirectPolicyCount     int    `json:"direct_policy_count"`
+	UnusedDays            int    `json:"unused_days"`
+	// Pointers, because omitempty never drops a time.Time value: a time
+	// AWS doesn't report must be absent, not year 0001.
+	LastLoginAt *time.Time `json:"last_login_at,omitempty"`
+	CreatedAt   *time.Time `json:"created_at,omitempty"`
 }
 
 // Collect lists IAM users in the configured account and returns one
@@ -227,10 +229,8 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 			HasProgrammaticAccess: hasKeys,
 			DirectPolicyCount:     directCount,
 			UnusedDays:            unusedDays(u, row, now),
-			CreatedAt:             safeCreatedAt(u),
-		}
-		if u.PasswordLastUsed != nil {
-			payload.LastLoginAt = *u.PasswordLastUsed
+			LastLoginAt:           u.PasswordLastUsed,
+			CreatedAt:             u.CreateDate,
 		}
 		body, err := json.Marshal(payload)
 		if err != nil {
@@ -660,13 +660,6 @@ func unusedDays(u *iamtypes.User, row reportRow, now time.Time) int {
 		return 0
 	}
 	return d
-}
-
-func safeCreatedAt(u *iamtypes.User) time.Time {
-	if u == nil || u.CreateDate == nil {
-		return time.Time{}
-	}
-	return *u.CreateDate
 }
 
 var _ core.SourcePlugin = (*Plugin)(nil)
