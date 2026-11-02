@@ -1022,6 +1022,39 @@ func TestSDKAPI_ListMergedPullRequests_HappyPath(t *testing.T) {
 	}
 }
 
+// A fast-forward merge without squash creates no merge commit, so GitLab
+// reports merge_commit_sha and squash_commit_sha null. The MR's head sha is
+// the commit that landed on the target branch, the key deployment.commit_sha
+// joins against. When the MR also squashed, the squash commit landed instead.
+func TestSDKAPI_ListMergedPullRequests_FastForwardReportsLandedCommit(t *testing.T) {
+	api := newTestSDKAPI(t, map[string]string{
+		pathGroupProjects: `[{"id":7,"path_with_namespace":"acme/web","merge_method":"ff"}]`,
+		pathGroupMergeRequests: `[` +
+			`{"iid":42,"project_id":7,"target_branch":"main","merged_at":"2026-03-01T12:00:00Z",` +
+			`"sha":"ff0123","merge_commit_sha":null,"squash_commit_sha":null},` +
+			`{"iid":43,"project_id":7,"target_branch":"main","merged_at":"2026-03-02T12:00:00Z",` +
+			`"sha":"head43","merge_commit_sha":null,"squash_commit_sha":"sq43"}]`,
+		"/api/v4/projects/7/merge_requests/42/approvals": `{"approved_by":[]}`,
+		"/api/v4/projects/7/merge_requests/42/pipelines": `[]`,
+		"/api/v4/projects/7/merge_requests/43/approvals": `{"approved_by":[]}`,
+		"/api/v4/projects/7/merge_requests/43/pipelines": `[]`,
+	}, nil)
+	got, err := api.ListMergedPullRequests(context.Background(), periodStart, periodEnd)
+	if err != nil {
+		t.Fatalf("ListMergedPullRequests: %v", err)
+	}
+	shas := map[int]string{}
+	for _, pr := range got {
+		shas[pr.Number] = pr.MergeCommitSHA
+	}
+	if shas[42] != "ff0123" {
+		t.Errorf("fast-forwarded MR 42 MergeCommitSHA = %q; want its head sha %q", shas[42], "ff0123")
+	}
+	if shas[43] != "sq43" {
+		t.Errorf("squashed MR 43 MergeCommitSHA = %q; want the squash commit %q", shas[43], "sq43")
+	}
+}
+
 // GitLab's group MR listing defaults non_archived to true. A change merged in
 // the period into a project archived later still belongs to the pull_request
 // population, as it does for GitHub. The handler models GitLab's default.

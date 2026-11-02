@@ -152,9 +152,10 @@ type PullRequest struct {
 	Author       string
 	MergedBy     string
 	TargetBranch string
-	// MergeCommitSHA is the commit the MR produced on the target branch;
-	// the adapter substitutes the squash commit when the project squashes
-	// and GitLab therefore reports no merge commit.
+	// MergeCommitSHA is the commit the MR produced on the target branch.
+	// GitLab reports no merge commit for a squash or fast-forward merge, so
+	// the adapter substitutes the squash commit, or else the MR's head
+	// commit (fast-forward without squash).
 	MergeCommitSHA string
 	MergedAt       time.Time
 	// Approvers carries the usernames GitLab reports in approved_by,
@@ -1082,6 +1083,11 @@ func (s *sdkAPI) mapMergeRequest(ctx context.Context, mr *gitlab.BasicMergeReque
 		// commit IS the commit it produced on the target branch, which is
 		// what deployment.commit_sha joins against.
 		pr.MergeCommitSHA = mr.SquashCommitSHA
+	}
+	if pr.MergeCommitSHA == "" {
+		// A fast-forward merge without squash creates neither commit: the
+		// MR's head commit is what landed on the target branch.
+		pr.MergeCommitSHA = mr.SHA
 	}
 	return pr, true
 }

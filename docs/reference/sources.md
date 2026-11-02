@@ -397,6 +397,9 @@ Caveats:
   other branches are not counted.
 - Changes merged during the audit period into projects that were archived later still emit
   `pull_request` records.
+- A merge request merged without a merge commit (squash or fast-forward) reports the squash
+  commit, or for a fast-forward without squash the merge request's head commit, as
+  `merge_commit_sha`, so deployments of that commit trace back to it.
 - Member email is returned only to privileged tokens, so `email` may be absent.
 - `pull_request` and `deployment` list only merge requests merged and deployments created in the
   audit period, except that the `changes` slot of the two
