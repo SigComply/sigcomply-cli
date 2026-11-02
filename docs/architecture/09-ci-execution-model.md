@@ -125,7 +125,10 @@ archive against `checksums.txt` the same way, and requests two GitLab ID tokens:
 `SIGCOMPLY_ON_PUSH_ROLE_ARN`):
 
 - `compliance:scheduled` runs `sigcomply check --scheduled` on any scheduled pipeline, then
-  `sigcomply evidence due --within-days 30 || true`. The operator creates one daily schedule.
+  `sigcomply evidence due --within-days 30 || true`. The script keeps check's exit code, runs
+  `evidence due` even when check fails, then exits with check's code: GitLab stops a script at
+  the first failing line, and `after_script` runs in a shell without `before_script`'s AWS
+  setup. The operator creates one daily schedule.
 - `compliance:on_push` runs `sigcomply check --pr` on merge requests and default-branch pushes.
 
 AWS credentials come from web identity: the template writes `AWS_ID_TOKEN` to a file and

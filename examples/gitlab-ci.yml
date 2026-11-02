@@ -116,9 +116,16 @@ compliance:scheduled:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
   script:
-    - sigcomply check --scheduled
+    # GitLab stops a job at the first failing line, and check fails in
+    # exactly the runs where evidence due has something to list. So check's
+    # exit code is kept, evidence due runs, and the job exits with check's
+    # code. after_script would not work: it runs in a separate shell
+    # without the AWS web-identity setup from before_script.
+    - status=0
+    - sigcomply check --scheduled || status=$?
     # Advisory only: lists manual-evidence entries whose folder for the
     # current period is still empty; until a file is uploaded, the matching
     # policy fails in every scheduled run. Read-only and always exits 0;
     # `|| true` keeps it from affecting the job even on a config error.
     - sigcomply evidence due --within-days 30 || true
+    - exit "$status"

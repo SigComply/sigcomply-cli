@@ -11,8 +11,10 @@ import (
 )
 
 // ciCommand matches a `sigcomply …` step in a generated workflow: a
-// GitHub `run: sigcomply …` or a GitLab script item `- sigcomply …`.
-var ciCommand = regexp.MustCompile(`(?m)^\s*(?:run:|-)\s+sigcomply\s+(.+?)\s*$`)
+// GitHub `run: sigcomply …` or a GitLab script item `- sigcomply …`. The
+// capture stops before a trailing `|| …`, which only decides how the job
+// treats the command's exit code; the command itself must still succeed.
+var ciCommand = regexp.MustCompile(`(?m)^\s*(?:run:|-)\s+sigcomply\s+(.+?)(?:\s+\|\|.*)?\s*$`)
 
 // TestBinaryE2E_InitCI_GeneratedCommandsRun runs every `sigcomply`
 // command line the init-ci workflows contain against a seeded project, so
@@ -51,9 +53,7 @@ func TestBinaryE2E_InitCI_GeneratedCommandsRun(t *testing.T) {
 			t.Errorf("%s: extracted %d sigcomply commands; want at least %d", filepath.Base(f), len(found), want)
 		}
 		for _, m := range found {
-			// `|| true` keeps an advisory step from failing the job; the
-			// command itself must still succeed.
-			commands[strings.TrimSpace(strings.TrimSuffix(m[1], "|| true"))] = true
+			commands[m[1]] = true
 		}
 	}
 	if len(files) != 3 {

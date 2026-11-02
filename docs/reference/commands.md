@@ -124,7 +124,8 @@ Writes CI files that install the CLI release, after checking the archive against
   daily pipeline schedule.
 
 Only the scheduled run submits to SigComply Cloud. The scheduled workflow (GitHub) and job
-(GitLab) also run `sigcomply evidence due` as a step that cannot fail the job.
+(GitLab) also run `sigcomply evidence due` as a step that cannot fail the job. It runs even
+when the check fails, which is when it has entries to list.
 
 | Flag | Short | Default | Meaning |
 |---|---|---|---|

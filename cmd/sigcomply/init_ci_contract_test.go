@@ -353,7 +353,8 @@ func checkDailyCron(t *testing.T, path, body string) bool {
 }
 
 // checkGitLabScheduledJob checks the GitLab scheduled job runs on every
-// pipeline schedule and starts with `check --scheduled`.
+// pipeline schedule and that its first sigcomply command is
+// `check --scheduled`.
 func checkGitLabScheduledJob(t *testing.T) {
 	t.Helper()
 	body, err := fs.ReadFile(templatesFS, "templates/gitlab/.gitlab-ci.yml")
@@ -373,8 +374,68 @@ func checkGitLabScheduledJob(t *testing.T) {
 	if !ok || len(job.Rules) != 1 || job.Rules[0].If != `$CI_PIPELINE_SOURCE == "schedule"` {
 		t.Errorf("compliance:scheduled must run on every pipeline schedule; got %+v", job.Rules)
 	}
-	if len(job.Script) == 0 || job.Script[0] != "sigcomply "+scaffoldedScheduledCheck {
+	first := ""
+	for _, line := range job.Script {
+		if m := ciCommand.FindStringSubmatch("- " + line); m != nil {
+			first = m[1]
+			break
+		}
+	}
+	if first != scaffoldedScheduledCheck {
 		t.Errorf("compliance:scheduled script = %v; want sigcomply check --scheduled first", job.Script)
+	}
+}
+
+// TestInitCITemplates_GitLabScheduledJobListsDueEvidenceWhenCheckFails
+// runs the scaffolded scheduled job's script against a fake sigcomply
+// whose check exits 1, as it does while a manual folder is empty. GitLab
+// runs the script lines in one shell and stops at the first failing
+// command, emulated here with `sh -e`. The advisory `evidence due` must
+// still run, and the job must still fail with check's exit code.
+func TestInitCITemplates_GitLabScheduledJobListsDueEvidenceWhenCheckFails(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("no sh on PATH")
+	}
+	body := readScaffold(t, ciGitLab)[".gitlab-ci.yml"]
+	var doc map[string]struct {
+		Script []string `yaml:"script"`
+	}
+	if err := yaml.Unmarshal([]byte(body), &doc); err != nil {
+		t.Fatalf("parse .gitlab-ci.yml: %v", err)
+	}
+	job, ok := doc["compliance:scheduled"]
+	if !ok {
+		t.Fatal("no compliance:scheduled job")
+	}
+
+	for _, checkCode := range []int{0, 1} {
+		t.Run("check exits "+strconv.Itoa(checkCode), func(t *testing.T) {
+			bin := t.TempDir()
+			logPath := filepath.Join(t.TempDir(), "calls.log")
+			fake := "#!/bin/sh\necho \"$*\" >> \"$CALL_LOG\"\nif [ \"$1\" = check ]; then exit " + strconv.Itoa(checkCode) + "; fi\nexit 0\n"
+			if err := os.WriteFile(filepath.Join(bin, "sigcomply"), []byte(fake), 0o700); err != nil { //nolint:gosec // #nosec G306 -- the fake must be executable
+				t.Fatal(err)
+			}
+			cmd := exec.CommandContext(context.Background(), "sh", "-e", "-c", strings.Join(job.Script, "\n")) //nolint:gosec // #nosec G204 -- our own template
+			cmd.Env = []string{"PATH=" + bin + string(os.PathListSeparator) + os.Getenv("PATH"), "CALL_LOG=" + logPath}
+			err := cmd.Run()
+			code := 0
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				code = exitErr.ExitCode()
+			} else if err != nil {
+				t.Fatalf("run script: %v", err)
+			}
+			if code != checkCode {
+				t.Errorf("job exit code = %d; want check's %d", code, checkCode)
+			}
+			calls, err := os.ReadFile(logPath) //nolint:gosec // #nosec G304 -- the test's own temp file
+			if err != nil {
+				t.Fatalf("read call log: %v", err)
+			}
+			if got, want := string(calls), "check --scheduled\nevidence due --within-days 30\n"; got != want {
+				t.Errorf("sigcomply calls:\n%s\nwant:\n%s", got, want)
+			}
+		})
 	}
 }
 
