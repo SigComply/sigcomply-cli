@@ -27,15 +27,15 @@ Support packages (outside the numbered stack):
 | `internal/sign` | Canonical JSON (`sign.Encode`), envelope and manifest signing and verification | L4, L7, `report` |
 | `internal/log` | Stderr logger with redaction (`log.Redact`) | `internal/orchestrator`, `cmd/sigcomply` |
 | `internal/evidence_types` | Embedded JSON Schemas (`schemas/*.json`) | L2 |
-| `internal/frameworks`, `frameworks/builtin`, `frameworks/soc2`, `frameworks/iso27001` | Framework registry and the Go-built controls, policies and manual catalogs | L2 |
+| `internal/frameworks`, `frameworks/builtin`, `frameworks/soc2`, `frameworks/iso27001` | Framework registry and the Go-built controls, policies and manual catalogs | L2, L3 |
 | `internal/sources`, `sources/builtin`, `sources/<vendor>/...` | Source factory registry (`sources.RegisterFactory`, `sources.Build`), instances, token resolution, error classification, every in-tree plugin | `cmd/sigcomply`, L4 |
-| `internal/sources/manual` (+ `builtin`, `s3`, `gcs`, `azureblob`, `fileconv`, `pdfmerge`) | The `manual.pdf` plugin and its reader backends | L4 |
+| `internal/sources/manual` (+ `builtin`, `s3`, `gcs`, `azureblob`, `fileconv`, `pdfmerge`) | The `manual.pdf` plugin and its reader backends | L3, L4 |
 | `internal/sources/sourcetest` | Shared plugin test harness (conformance, cassettes, spec validation) | tests |
 | `internal/vault/vaulttest` | Backend-agnostic vault test suite | tests |
 | `internal/storagetest` | Fake GCS, Azure Blob and S3 servers for running the vault and manual-reader adapters through the real SDKs | tests |
 | `internal/manualcatalog` | The SPA-facing catalog export type and derive helpers | `evidence catalog` |
 | `internal/manualdue` | `sigcomply evidence due`: lists manual entries whose current folder is empty | `evidence due` |
-| `internal/vendorfanout` | Resolves fan-out catalog entries against `experimental.vendors` | L9 |
+| `internal/vendorfanout` | Resolves fan-out catalog entries against `experimental.vendors` | L3, L9 |
 | `internal/scope` | Estate completeness check (`experimental.scope`) | L9 |
 | `internal/report` | Read-only vault snapshot views and their text/JSON/CSV formatters | `report` |
 | `internal/fixturehygiene` | Test that drives `scripts/check-fixtures.sh` | tests |
