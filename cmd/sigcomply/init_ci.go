@@ -326,12 +326,12 @@ func printSummary(stdout io.Writer, framework, ci, version string, written []str
 	}
 	switch ci {
 	case ciGitLab:
-		b.WriteString("  3. Create one GitLab pipeline schedule (Settings > CI/CD > Pipeline\n")
-		b.WriteString("     schedules) that runs daily, for example at 02:00 UTC (0 2 * * *).\n")
+		b.WriteString("  3. Create one GitLab pipeline schedule (Build > Pipeline schedules)\n")
+		b.WriteString("     that runs daily, for example at 02:00 UTC (0 2 * * *).\n")
 	case ciGitHub:
 		b.WriteString("  3. Commit the workflow files; the daily schedule fires automatically.\n")
 	}
-	b.WriteString("  4. To send pass/fail counts to SigComply Cloud (paid plan), set\n")
+	b.WriteString("  4. To send pass/fail counts to the SigComply dashboard, set\n")
 	b.WriteString("     cloud.base_url: https://sigcomply.com in .sigcomply.yaml. Without it the\n")
 	b.WriteString("     CLI does not submit anything. Only the scheduled run submits. Also set\n")
 	b.WriteString("     cloud.project_id to the Project ID shown on your project's page on the\n")

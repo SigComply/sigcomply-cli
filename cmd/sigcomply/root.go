@@ -67,7 +67,7 @@ func newRootCmd() *cobra.Command {
 		Long: "SigComply runs in your CI. It reads configuration from cloud and SaaS APIs with the\n" +
 			"credentials you give it and evaluates it against SOC 2 and ISO 27001 policies. It checks\n" +
 			"that manual evidence files are present for the period (it doesn't judge their content),\n" +
-			"and signs the evidence into storage you own. When the SigComply Cloud dashboard is\n" +
+			"and signs the evidence into storage you own. When the SigComply dashboard is\n" +
 			"configured, scheduled and unfiltered runs also send it per-policy counts and run details.\n",
 		// Don't dump the ~19-line usage/flags block after an error (a
 		// missing config, a bad framework); the one-line message is what

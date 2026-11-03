@@ -250,7 +250,7 @@ func missingProjectIDError(cfg *spec.ProjectConfig, flags *checkFlags, cloudBase
 		orchestrator.InPullRequestPipeline() {
 		return nil
 	}
-	return errors.New("cloud.project_id is not set in .sigcomply.yaml, and SigComply Cloud refuses runs without it: " +
+	return errors.New("cloud.project_id is not set in .sigcomply.yaml, and the SigComply dashboard refuses runs without it: " +
 		"copy the Project ID from your project's page on the SigComply dashboard into cloud.project_id, " +
 		"or pass --no-cloud to run without submitting")
 }

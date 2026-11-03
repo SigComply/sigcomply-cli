@@ -245,7 +245,7 @@ func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 // admin roles. Admin privileges inherited via group-role assignments are
 // not yet resolved (would require a group-first enumeration); a user who
 // is admin *only* through a group could read as is_admin=false. Documented
-// in docs/configuration.md; closing it is deferred to the testing revamp.
+// in docs/reference/sources.md#okta; closing it is deferred to the testing revamp.
 //
 // is_service_account is still NOT populated (Okta has no first-class
 // service-account flag on users; deferred).

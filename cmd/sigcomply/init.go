@@ -243,7 +243,7 @@ vault:
 #     reason: "Inherited from cloud provider; SOC 2 report on file."
 #     approved_by: ciso@example.com
 #
-# Send pass/fail counts to SigComply Cloud (paid plan; runs in CI with an
+# Send pass/fail counts to the SigComply dashboard (runs in CI with an
 # OIDC token). Nothing is sent unless base_url is set.
 # project_id names the project the runs belong to and is required
 # with base_url (a run that submits exits 3 without it); copy it from

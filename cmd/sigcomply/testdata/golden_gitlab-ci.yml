@@ -2,8 +2,8 @@
 #
 # How this works:
 #   - `compliance:scheduled` runs `sigcomply check --scheduled` on a
-#     GitLab pipeline schedule. Create one schedule under Settings > CI/CD >
-#     Pipeline schedules, for example daily at 02:00 UTC (`0 2 * * *`).
+#     GitLab pipeline schedule. Create one schedule under Build > Pipeline
+#     schedules, for example daily at 02:00 UTC (`0 2 * * *`).
 #     Each run re-evaluates the policies whose cadence has come due and
 #     carries the rest forward from the vault's state, so every run covers
 #     every policy; it is the run SigComply Cloud receives. It also lists

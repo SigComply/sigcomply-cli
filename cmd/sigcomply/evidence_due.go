@@ -43,9 +43,9 @@ func newEvidenceDueCmd(parent *evidenceFlags) *cobra.Command {
 			"period is empty, so the upload can happen before a scheduled run needs it.\n\n" +
 			"An entry is reported only when its folder is genuinely empty — once the\n" +
 			"file is uploaded the notice stops, so it never nags about work already\n" +
-			"done. The command is read-only (LIST calls only; no file bytes are\n" +
-			"downloaded, nothing is written, no cloud API is contacted) and it always\n" +
-			"exits 0 when the scan succeeds, so it is safe as a non-failing CI step.\n",
+			"done. The command only lists folders in your storage: it downloads no\n" +
+			"file and writes nothing. It always exits 0 when the scan succeeds, so it\n" +
+			"is safe as a non-failing CI step.\n",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runEvidenceDue(cmd.Context(), cmd.OutOrStdout(), parent, &flags)
