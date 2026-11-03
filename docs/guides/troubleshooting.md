@@ -181,29 +181,8 @@ The CLI reads its GitLab token only from `SIGCOMPLY_ID_TOKEN`, so the run can't 
 ### A `submit:` warning with an HTTP status
 
 The dashboard rejected the submission; the run itself is unaffected. The plan never blocks a
-submission: runs are recorded on every plan. The warning includes the HTTP status and an error
-`code`:
-
-| Status | `code` | Cause | Fix |
-|---|---|---|---|
-| none | none | No `submit:` line and no `submission accepted`: the CLI skipped submission. | Set `cloud.base_url`. Run with `--cloud` to see which condition is missing. |
-| 401 | `token_expired` | The token expired before the CLI posted it. | Re-run the job. |
-| 401 | `invalid_signature` | The token's signature or signing key did not verify. | Re-run; if it persists, check the token comes from GitHub Actions or GitLab. |
-| 401 | `validation_error` | The token is malformed, has the wrong issuer, or its audience is not `https://api.sigcomply.com`. | On GitLab, set `aud: https://api.sigcomply.com` on the ID token. |
-| 403 | `project_mismatch` | `cloud.project_id` doesn't name an active project for the token's repository. | See below. |
-| 403 | `project_id_required` | The run sent no project ID: `cloud.project_id` is not set and the CLI is older than v0.90.1, which still runs without it (v0.90.1 and later exit `3` first). | Upgrade the CLI and set `cloud.project_id` in `.sigcomply.yaml` to the **Project ID** from the project's page. |
-| 403 | `repository_mismatch` | The token's repository or owner ID differs from the IDs the project recorded on its first accepted run, for example because the repository was deleted and recreated under the same name. | Update the repository URL in the project's **Settings** tab, which clears the recorded IDs, or contact support. |
-| 413 | `payload_too_large` | The request body is over 4 MB. | Contact support. |
-| 422 | `validation_failed` or a message | The payload was rejected, for example because its `run_id` was already used by another project in your organization, or its summary counts or score disagree with its policy list. Resending the same run to the same project is not an error: it answers `200` and keeps the first copy. | Re-run the job; each run gets a new run ID. Check the message. |
-| 503 | `jwks_unavailable` | The dashboard could not fetch your CI provider's signing keys to check the token. | Re-run the job later. |
-
-`project_mismatch` has these causes. Matching ignores case.
-
-- The ID is mistyped: copy the **Project ID** from the project's page into `cloud.project_id`.
-- The ID belongs to another repository's project, or the repository is not connected: check that
-  the project's repository URL matches the repository the job runs in. After a rename, paste the
-  new URL in the project's **Settings** tab.
-- The project is inactive: check it in **Settings**.
+submission: runs are recorded on every plan. Every status, `code` and fix is in
+[Fix submission errors](cloud-dashboard.md#fix-submission-errors).
 
 ## Manual evidence
 

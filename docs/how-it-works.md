@@ -53,7 +53,8 @@ The exit code fails the CI job when a policy fails ([exit codes](reference/comma
 Credentials stay in your pipeline: an AWS role the job assumes through OIDC, or secrets stored
 in your CI. SigComply never receives them.
 
-Sources only read. [Sources](reference/sources.md) lists every API action each one calls.
+Sources only read, except that `aws.iam` asks AWS to generate the IAM credential report.
+[Sources](reference/sources.md) lists every API action each one calls.
 
 Each source turns the provider's responses into normalized evidence records of a named type. The
 vault stores those records, not the provider's responses as returned. Because policies ask for

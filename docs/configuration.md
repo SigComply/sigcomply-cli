@@ -410,6 +410,8 @@ one account aliased to two emails. Alias and `non_human` entries that match no a
 
 ## Sources by provider
 
+<a id="aws"></a><a id="gcp"></a><a id="azure"></a><a id="github"></a><a id="gitlab"></a><a id="okta"></a><a id="active-directory"></a><a id="manual-evidence"></a><a id="folder-layout-per-evidence-id"></a>
+
 Each provider's source IDs, keys, credentials, permissions and caveats are in the source
 reference: [AWS](reference/sources.md#aws), [GCP](reference/sources.md#gcp),
 [Azure](reference/sources.md#azure), [GitHub](reference/sources.md#github),
