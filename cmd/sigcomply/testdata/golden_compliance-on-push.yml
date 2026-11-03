@@ -2,7 +2,7 @@
 # Runs on pull requests and on pushes to main. `sigcomply check --pr`
 # evaluates the policies whose `on_push` attribute is true (fast,
 # change-sensitive automated checks; no manual evidence). A --pr run
-# writes its results to the vault but never submits to SigComply Cloud
+# writes its results to the vault but never submits to the SigComply dashboard
 # and never advances the cadence state the scheduled workflow reads.
 name: Compliance — On Push
 
@@ -60,7 +60,7 @@ jobs:
             --deny-self-hosted-runners
           sudo tar -xzf "/tmp/${asset}" -C /usr/local/bin sigcomply
       # AWS gets its own OIDC token, with AWS's audience. The CLI mints a
-      # separate token for SigComply Cloud (https://api.sigcomply.com);
+      # separate token for the SigComply dashboard (https://api.sigcomply.com);
       # never let an AWS role trust that audience.
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:

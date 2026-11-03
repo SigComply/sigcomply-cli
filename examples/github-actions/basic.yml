@@ -11,7 +11,7 @@
 # .github/workflows/compliance.yml and edit the env block.
 #
 # Pushes to main and the schedule run a full `sigcomply check`, which is
-# what SigComply Cloud receives. Pull requests run `check --pr`: the
+# what the SigComply dashboard receives. Pull requests run `check --pr`: the
 # on_push policies only, never submitted, so a branch's config cannot
 # become the dashboard's latest run.
 
@@ -26,7 +26,7 @@ on:
     - cron: '0 2 * * *'
 
 permissions:
-  # OIDC token for AWS role assumption and SigComply Cloud submission.
+  # OIDC token for AWS role assumption and SigComply dashboard submission.
   # Submission also needs `cloud.base_url: https://sigcomply.com` in
   # .sigcomply.yaml; without it the CLI sends nothing. With it, also set
   # `cloud.project_id` from your project's page on the SigComply dashboard.
@@ -85,7 +85,7 @@ jobs:
             --deny-self-hosted-runners
           sudo tar -xzf "/tmp/${asset}" -C /usr/local/bin sigcomply
       # AWS gets its own OIDC token, with AWS's audience. The CLI mints a
-      # separate token for SigComply Cloud (https://api.sigcomply.com);
+      # separate token for the SigComply dashboard (https://api.sigcomply.com);
       # never let an AWS role trust that audience.
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:

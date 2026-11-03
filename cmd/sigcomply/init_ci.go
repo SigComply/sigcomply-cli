@@ -91,7 +91,7 @@ func newInitCICmd() *cobra.Command {
 		Short: "Scaffold the scheduled and pull-request CI workflows (github | gitlab)",
 		Long: "`sigcomply init-ci` writes the workflows for the chosen CI provider:\n" +
 			"  - GitHub Actions: compliance-scheduled.yml (daily `check --scheduled`,\n" +
-			"    the run SigComply Cloud receives) and compliance-on-push.yml\n" +
+			"    the run the SigComply dashboard receives) and compliance-on-push.yml\n" +
 			"    (`check --pr` on pull requests and pushes to main) under\n" +
 			"    .github/workflows/.\n" +
 			"  - GitLab CI: one .gitlab-ci.yml with a scheduled job (`check --scheduled`)\n" +

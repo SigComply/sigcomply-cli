@@ -2,7 +2,7 @@
 # Runs every day at 02:00 UTC (and on demand). `sigcomply check
 # --scheduled` re-evaluates each policy whose cadence has come due and
 # carries the rest forward from the vault's state, so every run covers
-# every policy. This is the run SigComply Cloud receives when
+# every policy. This is the run the SigComply dashboard receives when
 # `cloud.base_url` is set; it also needs `cloud.project_id` (copy it from
 # your project's page on the SigComply dashboard) or it exits 3. Keep the
 # vault in durable storage (s3, gcs or azure_blob): with a local vault
@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write    # for OIDC role assumption + SigComply Cloud submission
+  id-token: write    # for OIDC role assumption + dashboard submission
   contents: read
 
 env:
@@ -59,7 +59,7 @@ jobs:
             --deny-self-hosted-runners
           sudo tar -xzf "/tmp/${asset}" -C /usr/local/bin sigcomply
       # AWS gets its own OIDC token, with AWS's audience. The CLI mints a
-      # separate token for SigComply Cloud (https://api.sigcomply.com);
+      # separate token for the SigComply dashboard (https://api.sigcomply.com);
       # never let an AWS role trust that audience.
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:

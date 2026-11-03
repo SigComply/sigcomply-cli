@@ -14,10 +14,10 @@ Before 1.0, only the latest tagged release receives security fixes.
 After 1.0 (planned), the current and the previous major version receive security fixes for two
 years from the previous major's release.
 
-Evidence is often kept for 7 years, longer than any one release is supported. New releases keep
-verifying the envelope and manifest formats that earlier releases wrote, and the format is
-documented in [05-vault-layout.md](docs/architecture/05-vault-layout.md), so a file can also be
-checked without the CLI, as the Evidence SPA's `/verify` page does.
+Evidence is often kept for 7 years, longer than any one release is supported. The vault format
+is documented in [05-vault-layout.md](docs/architecture/05-vault-layout.md), so a file can be
+checked without a particular CLI release: `sigcomply report --view integrity` re-checks each run's
+signed manifest and file hashes, and the Evidence SPA's `/verify` page checks one envelope.
 
 ## Scope
 

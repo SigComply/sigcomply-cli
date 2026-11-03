@@ -6,17 +6,17 @@
 #     schedules, for example daily at 02:00 UTC (`0 2 * * *`).
 #     Each run re-evaluates the policies whose cadence has come due and
 #     carries the rest forward from the vault's state, so every run covers
-#     every policy; it is the run SigComply Cloud receives. It also lists
+#     every policy; it is the run the SigComply dashboard receives. It also lists
 #     manual evidence whose folder for the current period is still empty.
 #     Keep the vault in durable storage (s3, gcs or azure_blob): with a
 #     local vault each run starts from no state and re-evaluates everything.
 #   - `compliance:on_push` runs `sigcomply check --pr` on merge requests
 #     and on pushes to the default branch: the on_push policies only. It
-#     never submits to SigComply Cloud and never advances cadence state.
+#     never submits to the SigComply dashboard and never advances cadence state.
 #
 # OIDC: `id_tokens` mints two GitLab JWTs, one per receiver:
 #   - SIGCOMPLY_ID_TOKEN, audience `https://api.sigcomply.com`. The CLI
-#     sends it to SigComply Cloud when `cloud.base_url` is set in
+#     sends it to the SigComply dashboard when `cloud.base_url` is set in
 #     .sigcomply.yaml. Without that key nothing is submitted. Also set
 #     `cloud.project_id` (copy it from your project's page on the
 #     SigComply dashboard): a run that submits exits 3 without it.
@@ -25,7 +25,7 @@
 #     With AWS_ROLE_ARN, the AWS SDK then assumes that role with web
 #     identity. The IAM OIDC provider for your GitLab host and the role's
 #     trust policy accept `sts.amazonaws.com` only: a role that trusts
-#     `https://api.sigcomply.com` trusts a token SigComply Cloud receives.
+#     `https://api.sigcomply.com` trusts a token the SigComply dashboard receives.
 # Each job assumes its own role. Replace both placeholders below: the
 # scheduled role trusts only the default branch; the on-push role runs on
 # merge requests from any branch, so it can't write the vault's state/.
@@ -39,7 +39,7 @@ variables:
 .sigcomply_base:
   image: ubuntu:24.04
   id_tokens:
-    # For SigComply Cloud: the CLI submits with it.
+    # For the SigComply dashboard: the CLI submits with it.
     SIGCOMPLY_ID_TOKEN:
       aud: https://api.sigcomply.com
     # For AWS: the role's trust policy accepts only this audience.

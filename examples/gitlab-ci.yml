@@ -7,14 +7,14 @@
 #
 # How it works:
 #   - `compliance:scheduled` runs `sigcomply check --scheduled` on a
-#     GitLab pipeline schedule. Create one schedule under Settings → CI/CD →
-#     Pipeline schedules, daily (for example `0 2 * * *`). Policies whose
+#     GitLab pipeline schedule. Create one schedule under Build → Pipeline
+#     schedules, daily (for example `0 2 * * *`). Policies whose
 #     cadence has not come due carry forward from the vault's state, so
-#     each run covers every policy; it is the run SigComply Cloud receives.
+#     each run covers every policy; it is the run the SigComply dashboard receives.
 #     Keep the vault in durable storage (s3, gcs or azure_blob).
 #   - `compliance:on_push` runs `sigcomply check --pr` on merge requests
 #     and pushes to the default branch: the on_push policies only, never
-#     submitted to SigComply Cloud.
+#     submitted to the SigComply dashboard.
 #
 # The framework is read from `framework:` in `.sigcomply.yaml` — there is
 # no `--framework` flag on `check`. Exit codes: 0 pass, 1 violations,
@@ -23,7 +23,7 @@
 #
 # OIDC: `id_tokens` mints two GitLab JWTs, one per receiver:
 #   - SIGCOMPLY_ID_TOKEN, audience `https://api.sigcomply.com`. The CLI
-#     sends it to SigComply Cloud when `cloud.base_url:
+#     sends it to the SigComply dashboard when `cloud.base_url:
 #     https://sigcomply.com` is set in .sigcomply.yaml. Without that key
 #     nothing is submitted. Also set `cloud.project_id` (copy it from your
 #     project's page on the SigComply dashboard).
@@ -32,7 +32,7 @@
 #     With AWS_ROLE_ARN, the AWS SDK then assumes that role with web
 #     identity. The IAM OIDC provider for your GitLab host and the role's
 #     trust policy accept `sts.amazonaws.com` only: a role that trusts
-#     `https://api.sigcomply.com` trusts a token SigComply Cloud receives.
+#     `https://api.sigcomply.com` trusts a token the SigComply dashboard receives.
 # Each job assumes its own role. Replace both placeholders below: the
 # scheduled role trusts only the default branch; the on-push role runs on
 # merge requests from any branch, so it can't write the vault's state/.
@@ -49,7 +49,7 @@ variables:
 .sigcomply_base:
   image: ubuntu:24.04
   id_tokens:
-    # For SigComply Cloud: the CLI submits with it.
+    # For the SigComply dashboard: the CLI submits with it.
     SIGCOMPLY_ID_TOKEN:
       aud: https://api.sigcomply.com
     # For AWS: the role's trust policy accepts only this audience.
