@@ -1,19 +1,16 @@
-# Connect to SigComply Cloud
+# Connect to the SigComply dashboard
 
-Send each CI run's pass/fail counts to the SigComply Cloud dashboard, generate reports from them,
-and give your auditor read access. SigComply Cloud is a paid plan with a 2-month trial. The CLI
-works fully without it: evidence and results always stay in your vault.
+Send your scheduled runs' pass/fail counts to the SigComply dashboard, generate reports from them,
+and give your auditor read access. On every plan, the dashboard shows each project's latest status
+and the last 30 days of runs. SigComply Cloud (paid, with a 2-month free trial) adds full run
+history, reports over your audit window and the auditor portal. The CLI works without the
+dashboard: evidence and results always stay in your vault.
 
-## What the CLI sends
-
-Per run: the run's ID, framework, period, commit, branch, CLI version, repository and CI
-provider, the count of policies in each status and the compliance score. Per policy: its ID and
-mapped controls, status, severity, the number of resources evaluated and failed, a message built
-from those counts, cadence data and whether the policy ran from automated or manual evidence.
-
-The CLI never sends resource IDs, ARNs, emails, usernames, file contents, file hashes, violation
-lists, envelopes or the run manifest. The payload type has no field that could hold them. To see
-exactly what a run would send, write it to a file instead of posting it:
+What leaves your pipeline: pass/fail counts per policy and run details such as the framework,
+period, repository, branch, commit, CLI version and CI run link. Never evidence files or their
+hashes, and never the names, emails or cloud account IDs of the resources and people checked. The
+full list is in [How SigComply works](../how-it-works.md#what-leaves-your-pipeline). To see exactly
+what a run would send, write it to a file instead of posting it:
 
 ```bash
 sigcomply check --capture-cloud-payload payload.json
@@ -29,8 +26,7 @@ sigcomply check --capture-cloud-payload payload.json
 ## 1. Create an account
 
 Sign up at <https://sigcomply.com/users/sign_up>. The first user of a new organization is its
-owner. Every member of the organization sees a project's **Reports** tab and can generate
-reports; only owners see the **Auditors** and **Settings** tabs.
+owner.
 
 ## 2. Connect the repository
 
@@ -38,18 +34,13 @@ reports; only owners see the **Auditors** and **Settings** tabs.
 2. Paste the repository URL in **Repository URL**: `https://github.com/<owner>/<repo>` or
    `https://gitlab.com/<group>/<subgroup>/<project>`.
 3. Select **Create Project**.
-4. Copy the **Project ID** from the project's page: `prj_` followed by 20 base58 characters (letters and digits except 0, O, I and l). You add it to `.sigcomply.yaml` in
-   step 3.
+4. Copy the **Project ID** (it starts with `prj_`) from the project's page. You add it to
+   `.sigcomply.yaml` in step 3.
 
-SigComply Cloud has no API keys. It identifies a run by the OIDC token your CI mints (the
-`repository` claim on GitHub Actions, the `project_path` claim on GitLab CI, matched without
-regard to case) and by the project ID from your committed `.sigcomply.yaml`, sent in the
-`X-SigComply-Project` header. SigComply Cloud accepts a run only if that ID and the token's
-repository name the same active project, and refuses a run without a project ID. The project ID is not a secret. Only people who can
-push to the repository can commit it, so it shows that the repository chose this project. On the
-first accepted run SigComply Cloud also records the repository's and owner's numeric IDs, and
-later runs must match them. If you rename or move the repository, or recreate it, paste
-the new URL in the project's **Settings** tab, or submissions are refused.
+The dashboard has no API keys. It accepts a run when the OIDC token your CI mints and the
+committed `cloud.project_id` name the same active project. The project ID is not a secret: only
+people who can push to the repository can commit it. If you rename, move or recreate the
+repository, paste the new URL in the project's **Settings** tab, or its runs are refused.
 
 ## 3. Turn on submission
 
@@ -61,39 +52,14 @@ cloud:
   project_id: prj_7Xq2mKp9RtV4wNc8Bz3a   # the Project ID from step 2
 ```
 
-A value that is not a project ID is a config error (exit `3`). When an unfiltered `check` or
-a `--scheduled` run has a cloud URL, from `cloud.base_url` or `--cloud-url`, and no
-`cloud.project_id`, `sigcomply check` stops with exit `3` before it collects. That includes local
-runs, which never submit, so the mistake shows up before CI. Runs with `--no-cloud` and filtered runs never submit, so they don't need it.
+Without `cloud.project_id`, `sigcomply check` stops with exit `3` before it collects, locally too,
+so you see the mistake before CI.
 
-The CLI submits only when all of these hold:
-
-- `cloud.base_url` is set (or `--cloud-url` is passed);
-- the run is in CI (`CI`, `GITHUB_ACTIONS` or `GITLAB_CI` is set);
-- an OIDC token is available: on GitHub Actions, the job has `permissions: id-token: write`; on
-  GitLab CI, `SIGCOMPLY_ID_TOKEN` holds an ID token with
-  `aud: https://api.sigcomply.com`. The scaffolded workflows set both up. The CLI reads no other
-  variable, and it refuses to send a token whose audience does not include
-  `https://api.sigcomply.com`.
-
-`--no-cloud` turns submission off for one run. `--cloud` makes the CLI warn when the base URL or
-the token is missing, instead of skipping without a message.
-
-Only runs that cover every policy submit: `sigcomply check` with no filter, and
-`sigcomply check --scheduled`. A run with `--cadence`, `--cadences`, `--on-push` or `--pr` checks
-a subset, so it prints `cloud submission skipped: this run evaluates a subset of policies` and
-sends nothing. A run in a pull request or merge request pipeline never submits either, whatever
-its flags: it prints `cloud submission skipped: this run is in a pull request or merge request
-pipeline`. In the workflows `init-ci` writes, only the daily scheduled run submits.
-
-SigComply Cloud records a run only when the pipeline was started by one of these events, read
-from the OIDC token:
-
-- GitHub Actions: `push`, `schedule` or `workflow_dispatch`;
-- GitLab CI: `push`, `schedule`, `web`, `api` or `trigger` pipelines.
-
-It refuses a run from any other event. The CLI prints the refusal as a submission warning, and
-the exit code does not change.
+The scaffolded workflows meet the other conditions: the run is in CI and can mint an OIDC token.
+Only runs that cover every policy submit, which in those workflows is the daily scheduled run.
+Pull request, merge request and filtered runs print `cloud submission skipped: ...` and send
+nothing. The dashboard also refuses runs started by some CI events. Full rules:
+[Commands](../reference/commands.md#sigcomply-check).
 
 ## 4. Run and check the result
 
@@ -108,15 +74,36 @@ The run then appears in the project's **Overview** tab, with the compliance scor
 between automated and manual evidence, and a table of runs. Open a run to see each policy's
 result.
 
-Each submitted run is a full snapshot of the project, and the dashboard shows the latest one. In
-a `--scheduled` run, a policy that is not due yet keeps its last result and is listed as
-`carried_forward`. A manual policy whose folder for the current period is still empty is a
-`fail` until the document is uploaded; the next daily run picks the upload up.
-
 A failed submission never fails the run. The CLI logs a `submit:` warning with the HTTP status
-and the response, and the exit code still reflects the policy results.
+and the response, and the exit code still reflects the policy results. See
+[Fix submission errors](#fix-submission-errors).
 
-## 5. Trial and plan
+## 5. Generate a report
+
+This needs SigComply Cloud (paid, or during the trial).
+
+1. Open the project and select **Reports**, then **Generate Report**.
+2. Choose the **Report Type**: compliance summary, drift analysis or control matrix.
+3. Choose the **Format**: PDF, CSV or JSON.
+4. Choose the **Reporting Basis**: period of time (results across the date range) or point in
+   time (the latest run as of the end date), and set **From** and **To**.
+
+Every member of the organization can generate reports. Reports are built from the submitted
+counts. They are not an audit opinion.
+
+## 6. Invite an auditor
+
+This needs SigComply Cloud and an owner: only owners see the **Auditors** tab.
+
+1. Open the project and select **Auditors**, then **Grant Access**.
+2. Enter the **Auditor Email** and, optionally, an **Expiration Date**.
+
+The auditor receives an email to set a password, then sees that project's runs and results
+read-only and can download its completed reports. Access is per project. Auditors can't sign up
+on their own. To verify the evidence behind the counts, the auditor needs access to your vault:
+see [Verify evidence](verify-evidence.md).
+
+## Trial and plans
 
 Your organization's first authenticated run submission starts a 2-month trial of SigComply
 Cloud. No card is needed. Upgrade under **Settings > Subscription**.
@@ -127,44 +114,17 @@ and come back when you upgrade. Generating reports, inviting auditors and the au
 pause until you upgrade. Auditors keep their access, and reports you already generated stay
 available to download.
 
-## 6. Generate a report
-
-1. Open the project and select **Reports**, then **Generate Report**.
-2. Choose the **Report Type**: compliance summary, drift analysis or control matrix.
-3. Choose the **Format**: PDF, CSV or JSON.
-4. Choose the **Reporting Basis**: period of time (results across the date range) or point in
-   time (the latest run as of the end date), and set **From** and **To**.
-
-Reports are built from the submitted counts. They are not an audit opinion.
-
-## 7. Invite an auditor
-
-1. Open the project and select **Auditors**, then **Grant Access**.
-2. Enter the **Auditor Email** and, optionally, an **Expiration Date**.
-
-The auditor receives an email to set a password, then sees that project's runs and results
-read-only and can download its completed reports. Access is per project. Auditors can't sign up
-on their own. To verify the evidence behind the counts, the auditor needs access to your vault:
-see [Verify evidence](verify-evidence.md).
-
 ## Fix submission errors
 
-The `submit:` warning in the CI log includes the HTTP status and an error `code`:
+The `submit:` warning in the CI log includes the HTTP status and an error `code`. The fix for
+each is in [Troubleshooting](troubleshooting.md#a-submit-warning-with-an-http-status). The most
+common:
 
-| Status | `code` | Cause | Fix |
-|---|---|---|---|
-| none | none | No `submit:` line and no `submission accepted`: the CLI skipped submission. | Set `cloud.base_url`. Run with `--cloud` to see which condition is missing. |
-| 401 | `token_expired` | The token expired before the CLI posted it. | Re-run the job. |
-| 401 | `invalid_signature` | The token's signature or signing key did not verify. | Re-run; if it persists, check the token comes from GitHub Actions or GitLab. |
-| 401 | `validation_error` | The token is malformed, has the wrong issuer, or its audience is not `https://api.sigcomply.com`. | On GitLab, set `aud: https://api.sigcomply.com` on the ID token. |
-| 403 | `project_mismatch` | The run sent a `cloud.project_id` that does not name an active project for the token's repository: the ID is mistyped, belongs to another repository's project, the repository is not connected, or the project is inactive. Matching ignores case. | Copy the **Project ID** from the project's page into `cloud.project_id`, check the project's repository URL matches the repository the job runs in (re-paste it after a rename), and check the project is active in **Settings**. |
-| 403 | `project_id_required` | The run sent no project ID: `cloud.project_id` is not set and the CLI is older than v0.90.1, which still runs without it (v0.90.1 and later exit `3` first). | Upgrade the CLI and set `cloud.project_id` in `.sigcomply.yaml` to the **Project ID** from the project's page. |
-| 403 | `repository_mismatch` | The token's repository or owner ID differs from the IDs the project recorded on its first accepted run, for example because the repository was deleted and recreated under the same name. | Update the repository URL in the project's **Settings** tab, which clears the recorded IDs, or contact support. |
-| 413 | `payload_too_large` | The request body is over 4 MB. | Contact support. |
-| 422 | `validation_failed` or a message | The payload was rejected, for example because its `run_id` was already used by another project in your organization, or its summary counts or score disagree with its policy list. Resending the same run to the same project is not an error: it answers `200` and keeps the first copy. | Re-run the job; each run gets a new run ID. Check the message. |
-| 503 | `jwks_unavailable` | SigComply Cloud could not fetch your CI provider's signing keys to check the token. | Re-run the job later. |
-
-More causes: [Troubleshooting](troubleshooting.md#cloud-submission).
+| Status | `code` | Fix |
+|---|---|---|
+| none | none | No `submit:` line and no `submission accepted`: the CLI skipped submission. Set `cloud.base_url`, and run with `--cloud` to see which condition is missing. |
+| 401 | `token_expired` | Re-run the job. |
+| 403 | `project_mismatch` | Copy the **Project ID** from the project's page into `cloud.project_id`, and check the project's repository URL matches the repository the job runs in. |
 
 ## Next steps
 

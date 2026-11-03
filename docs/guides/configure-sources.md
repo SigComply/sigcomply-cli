@@ -26,8 +26,7 @@ policies evaluate.
        org: my-org
    ```
 
-   The CLI collects only from sources listed here. A credential in your environment does not add
-   a source by itself.
+   The CLI reads only the sources listed here. A credential in your environment doesn't add one.
 
 3. Export the credential in the environment that runs the CLI. Never put a secret in
    `.sigcomply.yaml`. For the example above:
@@ -37,19 +36,17 @@ policies evaluate.
    # AWS: the standard SDK chain (AWS_PROFILE, AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY, or a role)
    ```
 
-   In CI, AWS, GCP and Azure can use an OIDC role instead of stored keys: see
-   [GitHub Actions](ci-github.md) or [GitLab CI](ci-gitlab.md). GitHub, GitLab, Okta and Active
-   Directory have no OIDC route and need a stored secret: see
-   [Supply GitHub, GitLab, Okta and Active Directory credentials in CI](#supply-github-gitlab-okta-and-active-directory-credentials-in-ci).
+   In CI, AWS can assume a role through OIDC instead of using stored keys:
+   [GitHub Actions](ci-github.md), [GitLab CI](ci-gitlab.md). GCP and Azure accept workload
+   identity federation ([sources reference](../reference/sources.md)). GitHub, GitLab, Okta and
+   Active Directory need a stored secret:
+   [Supply credentials in CI](#supply-github-gitlab-okta-and-active-directory-credentials-in-ci).
 
 4. Run the check:
 
    ```bash
    sigcomply check
    ```
-
-   Policies bind to every listed source that emits the evidence type they need. You don't need a
-   `bindings:` block.
 
 ## Verify
 
@@ -59,7 +56,7 @@ policies evaluate.
 - A credential that the API rejects, or that lacks a permission, fails the affected policies with
   `error` and exit code `2`.
 - If the run ends with `policies were SKIPPED`, no listed source emits the evidence those
-  policies need. Skipped controls leave the compliance score. See
+  policies need. Skipped policies don't count toward the compliance score. See
   [Troubleshooting](troubleshooting.md#policies-are-skipped-and-the-score-went-up).
 
 ## Supply GitHub, GitLab, Okta and Active Directory credentials in CI
@@ -76,14 +73,13 @@ exits `3` before collection with `token required`.
 | `active_directory` | `SIGCOMPLY_AD_BIND_PASSWORD` | The bind user's password. The runner must reach the domain controller, which hosted runners rarely can. |
 
 To give two instances of a source different tokens, set `token_env` on each instance to the name
-of its variable. `token_env` can't name a CI or cloud credential such as `AWS_SECRET_ACCESS_KEY`,
-`CI_JOB_TOKEN` or an OIDC token variable: the source sends its token to its API, so the CLI
-refuses those names ([list](../configuration.md#environment-variables)).
+of its variable. The CLI refuses CI and cloud credential variables there, such as
+`AWS_SECRET_ACCESS_KEY` or `CI_JOB_TOKEN` ([list](../configuration.md#environment-variables)).
 
-GitHub Actions does not pass its built-in `GITHUB_TOKEN` to steps on its own, and that token is
-scoped to one repository: it cannot read organization members or settings, or any repository's
-branch protection, which needs admin access. Store an organization
-token as a repository or organization secret (here `SIGCOMPLY_GH_TOKEN`) and map it in the step:
+Don't use the workflow's built-in `GITHUB_TOKEN`. GitHub Actions doesn't pass it to steps on its
+own, and it reads only its own repository: not organization members or settings, and not any
+repository's branch protection, which needs admin access. Store an organization token as a
+repository or organization secret (here `SIGCOMPLY_GH_TOKEN`) and map it in the step:
 
 ```yaml
 - name: Run SigComply
@@ -100,11 +96,9 @@ token in the job, for example with `actions/create-github-app-token`. Pass that 
 
 In GitLab CI, add the token as a masked CI/CD variable named `GITLAB_TOKEN` (or
 `OKTA_API_TOKEN`). GitLab exports CI/CD variables to jobs, so no `variables:` entry is needed. A
-variable marked protected reaches only jobs on protected branches and tags, which suits a check
-that runs on the default branch. The job's own `CI_JOB_TOKEN` cannot read group members or settings, so it does not work
-as `GITLAB_TOKEN`.
-
-Never put the token in `.sigcomply.yaml`: the file is committed with the repository.
+protected variable reaches only jobs on protected branches and tags, which is enough for a check
+that runs on the default branch. Don't use the job's `CI_JOB_TOKEN` as `GITLAB_TOKEN`: it can't
+read group members or settings.
 
 ## Pin a policy to one source
 
@@ -144,18 +138,19 @@ sources:
 ```
 
 - AWS: the second instance needs a `role_arn` that your CI identity can assume.
-- AWS regions: most `aws.*` sources read only the region they are given. To cover a second region,
-  add an instance of each regional source with that `region`, such as `"aws.ec2[eu]"`. The
-  account-wide sources (`aws.iam`, `aws.iam_access_key`, `aws.password_policy`, `aws.s3`) need no
-  per-region instance. See [Regions](../reference/sources.md#regions).
-- GitHub, GitLab, Okta, Active Directory: give each instance its own credential with `token_env`
-  (or a literal `token`, `api_token`, `bind_password`). Without it, both instances use the same
-  token.
+- GitHub, GitLab, Okta, Active Directory: give each instance its own credential with `token_env`.
+  Without it, both instances use the same token.
 - GCP and Azure: the second instance changes `project_id` or `subscription_id` but authenticates
   as the same identity, which must be able to read both.
 
-Each instance's evidence is signed and stored separately under its own source ID. Details: the
-[multiple instances section of the configuration reference](../configuration.md).
+Details: the [multiple instances section of the configuration reference](../configuration.md#multiple-instances-of-one-source).
+
+## Cover a second AWS region
+
+Most `aws.*` sources read only the region they are given. To cover a second region, add an
+instance of each regional source with that `region`, such as `"aws.ec2[eu]"`. The account-wide
+sources (`aws.iam`, `aws.iam_access_key`, `aws.password_policy`, `aws.s3`) need no per-region
+instance. See [Regions](../reference/sources.md#regions).
 
 ## Next steps
 

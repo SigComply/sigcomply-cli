@@ -1,11 +1,7 @@
 # Run SigComply in GitHub Actions
 
-Add scheduled SigComply workflows to a GitHub repository. The jobs use GitHub OIDC to assume
-AWS roles and, if you use the paid dashboard, to authenticate to SigComply Cloud, with a separate
-token for each.
-AWS and SigComply Cloud need no long-lived secret. GitHub, GitLab, Okta and Active Directory
-sources do need a token: see
-[Supply credentials in CI](configure-sources.md#supply-github-gitlab-okta-and-active-directory-credentials-in-ci).
+Add SigComply's scheduled and on-push workflows to a GitHub repository. The workflows get AWS
+credentials through GitHub OIDC, so you store no AWS keys.
 
 ## Prerequisites
 
@@ -16,6 +12,8 @@ sources do need a token: see
 - A `vault:` and a `manual.pdf` source that point at buckets, not local paths. A CI job's local
   folder disappears when the job ends. Keys: [configuration reference](../configuration.md) and
   [Upload manual evidence](manual-evidence.md#1-configure-the-manual-evidence-source).
+- A repository or organization secret for each GitHub, GitLab, Okta or Active Directory source:
+  [Supply credentials in CI](configure-sources.md#supply-github-gitlab-okta-and-active-directory-credentials-in-ci).
 
 ## 1. Scaffold the workflows
 
@@ -25,47 +23,38 @@ From the repository root:
 sigcomply init-ci --ci github
 ```
 
-This writes two files to `.github/workflows/`:
+If the files already exist, `init-ci` stops with exit `3`; pass `--force` to replace them. It
+writes two files to `.github/workflows/`:
 
 | File | Runs | Command |
 |---|---|---|
 | `compliance-scheduled.yml` | 02:00 UTC daily, and **Run workflow** | `sigcomply check --scheduled`, then `sigcomply evidence due --within-days 30` |
-| `compliance-on-push.yml` | Pushes to `main` and pull requests, except from forks | `sigcomply check --pr` |
+| `compliance-on-push.yml` | Pushes to `main` and pull requests, except from forks (a fork's pull request gets no OIDC token) | `sigcomply check --pr` |
 
-`--scheduled` reads each policy's state from the vault, evaluates the policies whose cadence has
-come due (or that failed last time), and carries the others forward. Every run therefore covers
-every policy, and it is the only run that sends results to SigComply Cloud. A daily run evaluates
-each policy at least once in every calendar window of its cadence, so a quarterly document is
-read every quarter. The state lives in the vault, which is why the vault must be a bucket.
+The scheduled run evaluates the policies whose cadence has come due, or that failed last time,
+and carries the rest forward from the state in the vault. A daily run evaluates each policy at
+least once in every window of its cadence, so a quarterly document is checked every quarter. Only
+this run sends results to the dashboard and updates the state, which is why the vault must be a
+bucket.
 
-`--pr` evaluates the policies whose `on_push` attribute is true. In the shipped frameworks that
-is every automated policy; document policies are excluded. A `--pr` run writes its results to
-the vault but never submits to SigComply Cloud and never updates the cadence state, so a pull
-request's branch and config can't become the project's recorded result.
+The `--pr` run evaluates the policies marked `on_push`: every automated policy in the shipped
+frameworks. The `evidence due` step lists empty manual-evidence folders whose period ends within
+30 days, and never fails the job.
 
-The on-push job skips pull requests opened from forks. GitHub gives a fork's pull request run no
-OIDC token, so the AWS role assumption would fail on every one. A maintainer's pull request from a
-branch of the repository still runs the check.
+For ISO 27001, see [Use another framework](#use-another-framework).
 
-The `evidence due` step lists empty manual-evidence folders whose period ends within 30 days. A
-manual policy fails in every scheduled run until its folder for the current period has a file, so
-upload during the period. The step runs with `continue-on-error: true`, so it never fails the job.
-
-`init-ci` refuses to overwrite existing files; pass `--force` to replace them. It scaffolds SOC 2
-only. For ISO 27001, see [Use another framework](#use-another-framework).
-
-## 2. Check the pinned version
+## 2. Pin the CLI version
 
 Each workflow sets `SIGCOMPLY_VERSION` in its `env:` block. A release build of the CLI writes its
-own version there (for example `v0.88.4`); a build from source writes `latest`. Pin a release tag
-so every run installs the same CLI, and bump it when you upgrade. The install step checks the
-downloaded archive against the release's `checksums.txt`, then verifies its build provenance
-with `gh attestation verify` against the release's provenance bundle, before extracting it. The
-job fails if either check fails. The provenance check needs `gh` and `git` on the runner
-(GitHub-hosted runners have both; add them to a self-hosted runner or container image) and a
-release from v0.91.0 on;
-[Install the SigComply CLI](install.md#install-a-release-archive-by-hand) (step 3) explains each
-flag.
+own version there (for example `v0.91.0`); a build from source writes `latest`. Pin a release tag
+so every run installs the same CLI, and bump it when you upgrade.
+
+The install step checks the archive's checksum and build provenance before it extracts the CLI,
+and fails the job if either check fails. GitHub-hosted runners have the `gh` and `git` the
+provenance check needs; add both to a self-hosted runner or container image. The provenance check
+needs a release from v0.91.0 on.
+[Install a release archive by hand](install.md#install-a-release-archive-by-hand) (step 3)
+explains each flag.
 
 ## 3. Create the AWS OIDC provider and roles
 
@@ -73,13 +62,12 @@ Skip this step if you collect nothing from AWS, and delete the
 `aws-actions/configure-aws-credentials` step from each workflow. Otherwise that step fails on the
 placeholder role ARN.
 
-`aws-actions/configure-aws-credentials` requests a GitHub OIDC token with the audience
-`sts.amazonaws.com` and exchanges it for AWS credentials. The CLI requests a separate token with
-the audience `https://api.sigcomply.com` for SigComply Cloud. Never let an AWS role trust
-`https://api.sigcomply.com`: SigComply Cloud receives every token with that audience, so such a
-role would trust tokens that leave your CI.
+The AWS step and the CLI each request their own GitHub OIDC token. The AWS step's token has the
+audience `sts.amazonaws.com`. The CLI's token has the audience `https://api.sigcomply.com` and goes
+only to SigComply. Never let an AWS role trust `https://api.sigcomply.com`: SigComply receives
+every token with that audience, so such a role would trust tokens that leave your CI.
 
-Each workflow assumes its own role, because they run different code:
+Each workflow assumes its own role:
 
 | Role | Used by | Trusts | Writes to the vault |
 |---|---|---|---|
@@ -87,8 +75,8 @@ Each workflow assumes its own role, because they run different code:
 | On-push role | `compliance-on-push.yml` | pull requests and `main` | run folders only, never `state/` |
 
 A pull request runs the branch's workflow file, so anyone who can push a branch controls what the
-on-push role does. Keeping that role away from `state/` means a branch can't change which
-policies the next scheduled run carries forward.
+on-push role does. That role can't write `state/`, so a branch can't change what the next
+scheduled run carries forward.
 
 1. Create the provider. If the account already has a provider for
    `token.actions.githubusercontent.com` with the client ID `sts.amazonaws.com`, reuse it.
@@ -206,17 +194,13 @@ policies the next scheduled run carries forward.
 5. Set `AWS_ROLE_ARN` in `compliance-scheduled.yml` to the scheduled role's ARN, and in
    `compliance-on-push.yml` to the on-push role's ARN. Set `AWS_REGION` in both to your region.
 
-If you set up a role before this guide changed, it trusted the audience `https://api.sigcomply.com`.
-Re-scaffold with `sigcomply init-ci --ci github --force` (or set `audience: sts.amazonaws.com` on
-each `configure-aws-credentials` step), change the trust policies as above, and remove the old
-client ID from the provider:
-`aws iam remove-client-id-from-open-id-connect-provider --open-id-connect-provider-arn <arn> --client-id https://api.sigcomply.com`.
-On GitHub, `sigcomply check` can't see which audience the AWS step used, so it gives no warning:
-check each workflow's `audience:` line and each role's trust policy yourself.
+If a role you created earlier trusts `https://api.sigcomply.com`, fix it:
+[Troubleshooting](troubleshooting.md#an-aws-role-trusts-httpsapisigcomplycom).
 
-## 4. Optional: send results to SigComply Cloud
+## 4. Optional: send results to the SigComply dashboard
 
-To send pass/fail counts to the paid dashboard, add this to `.sigcomply.yaml`:
+Connect the repository in the dashboard and copy its **Project ID**:
+[Connect to the SigComply dashboard](cloud-dashboard.md). Then add this to `.sigcomply.yaml`:
 
 ```yaml
 cloud:
@@ -224,13 +208,15 @@ cloud:
   project_id: prj_7Xq2mKp9RtV4wNc8Bz3a   # the Project ID from your project's page
 ```
 
-Without `cloud.base_url`, the CLI sends nothing. `cloud.project_id` is the **Project ID** shown on
-your project's page on the dashboard; without it, a run that submits stops with exit `3` before it
-collects anything. The workflows already grant
-`id-token: write`, which is all the CLI needs to mint its token. Connect the repository in the
-dashboard first: [Connect to SigComply Cloud](cloud-dashboard.md).
+Without `cloud.base_url`, the CLI sends nothing. Without `cloud.project_id`, a scheduled run stops
+with exit `3` before it collects anything. The workflows already grant `id-token: write`, which is
+all the CLI needs to mint its token.
 
 ## 5. Commit and run
+
+The scheduled run fails (exit `1`) until every document policy has a file for the current period.
+To keep the job green while you upload them, set `ci.fail_on_violation: false` in
+`.sigcomply.yaml` before you push.
 
 ```bash
 git add .github/workflows/ .sigcomply.yaml
@@ -247,31 +233,33 @@ git push
    summary lists every policy of the framework. The first run evaluates all of them; later runs
    list the ones not yet due as `carried`. Document policies fail until you upload their files.
    The job fails with exit code `1` when a policy fails, `2` on an execution error and `3` on a
-   configuration error ([exit codes](../reference/commands.md)). Set
-   `ci.fail_on_violation: false` to keep the job green when policies fail.
-4. If you set `cloud.base_url`, the log shows `submission accepted (HTTP 201)` or a `submit:`
-   warning ([Troubleshooting](troubleshooting.md#cloud-submission)).
+   configuration error ([exit codes](../reference/commands.md#exit-codes)).
+4. If you set `cloud.base_url`, the scheduled run's log shows `submission accepted (HTTP 201)` or
+   a `submit:` warning ([Troubleshooting](troubleshooting.md#cloud-submission)).
 
 ## Use another framework
 
-`init-ci` accepts only `--framework soc2` and exits `3` for any other value, so it also exits `3`
-when `.sigcomply.yaml` sets `framework: iso27001` and you pass no flag. The workflows it writes
-don't name a framework: `check` reads `framework:` from `.sigcomply.yaml`. For ISO 27001, keep
-`framework: iso27001` in the config and run:
+`init-ci` accepts only `--framework soc2`, but the workflows it writes don't name a framework:
+`check` reads `framework:` from `.sigcomply.yaml`. For ISO 27001, keep `framework: iso27001` in
+the config and run:
 
 ```sh
 sigcomply init-ci --ci github --framework soc2
 ```
 
-The scaffolded set includes the `evidence due` step in the scheduled workflow. If you prefer a
-single workflow, copy [`examples/github-actions/basic.yml`](../../examples/github-actions/basic.yml)
-into `.github/workflows/` instead and apply steps 3 to 5 above to it. It runs a full
-`sigcomply check` on pushes to `main` and on its schedule with `AWS_ROLE_ARN` (the scheduled
-role), `--pr` on pull requests with `AWS_ON_PUSH_ROLE_ARN` (the on-push role), skips pull requests
-from forks, and has no `evidence due` step.
+Without the flag, `init-ci` reads `framework: iso27001` from the config and exits `3`.
+
+## Use a single workflow instead
+
+To run one workflow instead of two, copy
+[`examples/github-actions/basic.yml`](../../examples/github-actions/basic.yml) into
+`.github/workflows/` and apply steps 3 to 5 above to it. It runs a full `sigcomply check` on
+pushes to `main` and on its schedule with `AWS_ROLE_ARN` (the scheduled role), and `--pr` on pull
+requests with `AWS_ON_PUSH_ROLE_ARN` (the on-push role). It skips pull requests from forks and has
+no `evidence due` step.
 
 ## Next steps
 
-- [Connect to SigComply Cloud](cloud-dashboard.md).
+- [Connect to the SigComply dashboard](cloud-dashboard.md).
 - [Upload manual evidence](manual-evidence.md).
 - [Verify evidence](verify-evidence.md).
