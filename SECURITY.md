@@ -12,8 +12,12 @@ timeline for a fix.
 Before 1.0, only the latest tagged release receives security fixes.
 
 After 1.0 (planned), the current and the previous major version receive security fixes for two
-years from the previous major's release. Evidence retention requirements are often 7 years, so
-the vault format is supported for longer than the binary.
+years from the previous major's release.
+
+Evidence is often kept for 7 years, longer than any one release is supported. New releases keep
+verifying the envelope and manifest formats that earlier releases wrote, and the format is
+documented in [05-vault-layout.md](docs/architecture/05-vault-layout.md), so a file can also be
+checked without the CLI, as the Evidence SPA's `/verify` page does.
 
 ## Scope
 

@@ -109,7 +109,9 @@ sigcomply init-ci --ci <github|gitlab> [flags]
 ```
 
 Writes CI files that install the CLI release and run `check`. The install step verifies the
-archive against the release's `checksums.txt` before extracting it.
+archive against the release's `checksums.txt` before extracting it. The GitHub workflows also
+verify its build provenance with `gh attestation verify`; the GitLab pipeline has those lines
+commented out.
 
 - `--ci github` writes `compliance-scheduled.yml` (daily at 02:00 UTC and on demand,
   `sigcomply check --scheduled`) and `compliance-on-push.yml` (pull requests and pushes to
@@ -271,7 +273,7 @@ upload to. An entry disappears once its folder has a file. Each entry's period i
 cadence window (an annual entry's period ends on 31 December), measured on the same clock as
 `check`. A per-vendor entry is listed once per vendor that owes a document.
 
-It only lists folders: it downloads no file, writes nothing and contacts no cloud API.
+It only lists folders in your storage: it downloads no file and writes nothing.
 
 When empty folders exist but none closes within `--within-days`, it says so, for example
 `2 of 50 entries have no upload for the current period; none closes within 30 days`; it prints

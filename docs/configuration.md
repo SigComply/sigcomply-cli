@@ -288,7 +288,8 @@ people. Setup: [Cloud dashboard](guides/cloud-dashboard.md).
 ## `experimental`
 
 The keys are `scope`, `vendors`, `risks` and `roster`. Each feature reads its own key and
-reports its own errors; the loader checks the shape of `experimental.scope` itself.
+reports its own errors; the loader checks the shape of `experimental.scope` itself. These keys
+can change in a minor release; the [Changelog](../CHANGELOG.md) notes every change.
 
 <a id="experimentalscope--declaring-the-estate"></a>
 
@@ -338,7 +339,7 @@ Declares third-party vendors. Vendor-assurance manual entries then expect one fo
 ### `experimental.risks`
 
 Declares the risk register. `sigcomply report --view soa` then names the risks each control
-treats. Walkthrough: [ISMS clauses](guides/isms-clauses.md).
+treats, in its `risks` column. [ISMS clauses](guides/isms-clauses.md) covers the SoA.
 
 | Key | Type | Required | Effect |
 |---|---|---|---|
