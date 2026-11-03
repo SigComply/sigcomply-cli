@@ -1,17 +1,8 @@
 # Verify evidence
 
-Check that the signed evidence in a SigComply vault has not changed since the CLI wrote it:
-the whole vault with `sigcomply report`, or one file in the browser. Both run offline, with no
-login and no SigComply Cloud.
-
-Each run folder in the vault (for example `soc2/2026-Q4/run_20261026T201233Z_31e1022c/`) holds:
-
-- one signed envelope per evidence file, under `policies/<policy ID>/envelopes/`. Each envelope
-  is JSON with `format_version`, `produced_at`, `records` and a `signature` (`algorithm`,
-  `public_key`, `value`). The CLI signs each envelope with a fresh Ed25519 key and discards the
-  private key.
-- `manifest.json`, which lists the SHA-256 hash of every file in the run (`file_hashes`) and is
-  signed the same way.
+Check that the signed evidence in a SigComply vault is unchanged since it was signed: a whole
+period with `sigcomply report`, or one file in the browser. Neither needs a login or SigComply
+Cloud.
 
 A passing check shows a file is unchanged since it was signed. It does not stop someone with
 write access to the vault from replacing a file and signing it again with a new key. For that,
@@ -39,8 +30,8 @@ storage). Threat model: [`SECURITY.md`](../../SECURITY.md).
    sigcomply report --period 2026-Q4 --view integrity --vault 's3://my-vault-bucket?region=us-east-1' -f soc2
    ```
 
-   Without `?region=`, the region comes from `AWS_REGION`, then `AWS_DEFAULT_REGION`. Reading an
-   S3 vault needs AWS credentials with `s3:ListBucket` and `s3:GetObject` on the bucket.
+   Reading an S3 vault needs AWS credentials with `s3:ListBucket` and `s3:GetObject` on the
+   bucket. Without `?region=`, the region comes from `AWS_REGION`, then `AWS_DEFAULT_REGION`.
 
 2. Read the `STATUS` column. Each run in the period is one row:
 
@@ -52,12 +43,11 @@ storage). Threat model: [`SECURITY.md`](../../SECURITY.md).
 
    `fail` lists every file that failed: `hash mismatch` (the file changed), `missing` (a file
    the manifest lists is gone) and `not in manifest` (a file was added to the run folder after
-   the run). `FILES_OK` counts the listed files that still match. Other views ignore a file the
-   manifest does not list.
+   the run). `FILES_OK` counts the listed files that still match.
 
    The command exits `1` when any run fails and `0` when every run passes. A period with no runs,
    or a local vault path that does not exist, exits `3` with the periods the vault holds, so a
-   typo never passes. A script can rely on the exit code.
+   typo never passes.
 
 3. For a file you can keep, write JSON or CSV with `--out`:
 
@@ -66,38 +56,33 @@ storage). Threat model: [`SECURITY.md`](../../SECURITY.md).
    ```
 
 Other views of the same vault (`latest`, `exceptions`, `scope`, `coverage`, `soa`) and every
-flag: [commands reference](../reference/commands.md#sigcomply-report). The `coverage` view
-separates controls with an automated check mapped from controls backed only by a document on
-file. For SOC 2, 29 of 43 criteria are backed only by documents. It classifies each control by
-the policies mapped to it (automated or document), not by which policies ran, so a control whose
-automated policy was skipped still counts as automated. Its `This period` section then says how
-many automated controls were inspected, how many only skipped, and how many were waived or
-marked not applicable. To see each policy's result, use
-`sigcomply report --period 2026-Q4 --view latest`.
+flag: [commands reference](../reference/commands.md#sigcomply-report). The
+[`coverage` view](../reference/commands.md#coverage-view) shows which controls have an automated
+check mapped and which are backed only by a document on file.
+For SOC 2, 29 of 43 criteria are backed only by documents.
 
 ## Verify one file in the browser
 
 The Evidence SPA `/verify` page checks one envelope's signature in your browser. Nothing is
 uploaded.
 
-1. Copy an envelope file from the vault, for example
+1. Copy an envelope file from the vault. Each run folder (for example
+   `soc2/2026-Q4/run_20261026T201233Z_31e1022c/`) holds one signed envelope per evidence file
+   under `policies/<policy ID>/envelopes/`, for example
    `policies/soc2.cc1.1.security_awareness_training/envelopes/signed_document__manual.pdf_security_awareness_training.json`.
+   For a manual evidence policy, also copy the merged PDF from
+   `policies/{policy_id}/attachments/{entry ID}.pdf`. A per-vendor entry stores one PDF per
+   vendor that uploaded files, at `attachments/{entry ID}.{vendor ID}.pdf`.
 2. Open <https://sigcomply.github.io/sigcomply-evidence-spa/verify>.
 3. Drop the envelope file on the page, choose it, or paste its JSON.
-4. Read the verdict. A valid signature means the envelope is unchanged since the CLI signed it.
+4. Read the verdict. A valid signature means the envelope is unchanged since it was signed. For
+   a per-vendor envelope, the page shows each vendor's verdict.
 5. Optional, for a manual evidence envelope: drop the merged PDF on the PDF check. The page
-   hashes it and compares the hash with the envelope's `file_hash`, or, for a fan-out envelope,
-   with each vendor's `instances[].file_hash`.
+   hashes it and compares the hash with the envelope's `file_hash`, or, for a per-vendor
+   envelope, with that vendor's `instances[].file_hash`.
 
-The merged PDF is in the same run folder as the envelope:
-
-```
-policies/{policy_id}/attachments/{entry ID}.pdf
-```
-
-for example
-`policies/soc2.cc1.1.security_awareness_training/attachments/security_awareness_training.pdf`.
-It is listed in the run's `manifest.json`, so `sigcomply report --view integrity` checks it too.
+The merged PDF is listed in the run's `manifest.json`, so `sigcomply report --view integrity`
+checks it too.
 
 Limits of the PDF check:
 
@@ -106,9 +91,6 @@ Limits of the PDF check:
   the matching `source_files` entry in the envelope.
 - No PDF is stored when nothing could be merged: an empty folder, only unsupported files, or a
   failed merge. The envelope then has no `file_hash`.
-- A fan-out envelope (one folder per vendor) stores one merged PDF per vendor that uploaded
-  files, at `attachments/{entry ID}.{vendor ID}.pdf`. The page shows each vendor's verdict and
-  matches a dropped PDF against that vendor's `instances[].file_hash`.
 
 ## Next steps
 

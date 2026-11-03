@@ -21,12 +21,9 @@ This page is for anyone changing the CLI's code or docs. AI agents start at
 
 ## How changes land
 
-- Maintainers commit straight to `main` after the gate, a manual run of the affected command and
-  the review steps in the workflow doc pass. CI must be green after the push.
-- Outside contributors open a pull request. The checklist in
-  [`.github/pull_request_template.md`](./.github/pull_request_template.md) applies.
-
-Every push to `main` that changes code cuts a public release, so `main` must stay green.
+Open a pull request. The checklist in
+[`.github/pull_request_template.md`](./.github/pull_request_template.md) applies. Every push to
+`main` that changes code cuts a public release, so `main` must stay green.
 
 ## Licensing your contribution
 
@@ -86,21 +83,22 @@ same change:
 
 1. Unit tests for the mapper and `Collect`, against an in-memory fake API with a fixed clock.
 2. A `*_conformance_test.go` that replays a scrubbed go-vcr cassette through
-   `sourcetest.RunConformance`. Record cassettes with a `//go:build record` driver. GCP and Azure
-   ARM packages keep theirs committed as `<service>_record_test.go`, so re-run that driver to
-   re-record. Other sources have no committed driver: write one for the recording. Remove secrets and personal data before you commit; `make check-fixtures` checks this.
+   `sourcetest.RunConformance`. Record cassettes with a `//go:build record` driver, and remove
+   secrets and personal data before you commit (`make check-fixtures` checks this).
 3. A `contracts/<provider>/<service>` spec snapshot, added to `scripts/contracts-fetch.sh`, so the
    weekly drift job covers the new API surface.
 
 The step-by-step checklist is "Testing a source plugin (checklist)" in
-[`docs/architecture/04-source-plugins.md`](./docs/architecture/04-source-plugins.md). Policies and
-sources never reference each other: they meet only through evidence types (Invariant #4 in
-`AGENTS.md`).
+[`docs/architecture/04-source-plugins.md`](./docs/architecture/04-source-plugins.md). Which
+sources have a committed record driver is in
+[`docs/architecture/11-testing-strategy.md`](./docs/architecture/11-testing-strategy.md).
 
 ## Rules that apply to every change
 
 - Never put a resource identifier (ARN, email, username, account ID) into the cloud submission
   payload. The [Sacred Invariants](./AGENTS.md#sacred-invariants) in `AGENTS.md` list the rules
   that need a maintainer's sign-off to change.
+- Policies and sources never reference each other: they meet only through evidence types
+  (Invariant #4 in `AGENTS.md`).
 - Never commit secrets, real customer data, or personal email addresses. The repo is public.
 - Report security issues privately, as described in [`SECURITY.md`](./SECURITY.md).

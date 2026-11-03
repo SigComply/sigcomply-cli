@@ -46,10 +46,7 @@ experimental:
     source: okta
 ```
 
-The roster source must be a plain source ID, without an `[instance]` suffix. The CLI never checks
-the roster source's own accounts against itself; a directory cannot vouch for its own accounts.
-Removal of leavers from the roster directory itself stays a manual evidence item, such as your
-quarterly access review.
+The roster source must be a plain source ID, without an `[instance]` suffix.
 
 ## 3. Link accounts that have no matching email
 
@@ -132,7 +129,9 @@ was no inactive person to compare accounts against.
 
 3. For each violation, fix the account (remove it, or disable it if the person left) or fix the
    link (add an alias or a `non_human` entry). To accept one for a while, waive it by its
-   `source_id/id`:
+   `source_id/id`. Waive only accounts you have identified: a person deleted from the roster
+   directory (rather than suspended) fails the linked check, not the inactive check, so a waiver
+   on the linked policy can hide a leaver.
 
    ```yaml
    policies:
@@ -144,10 +143,6 @@ was no inactive person to compare accounts against.
            approved_by: ciso@acme.com
            expires_at: 2026-12-31
    ```
-
-   A person deleted from the roster directory (rather than suspended) fails the linked check, not
-   the inactive check. So a waiver on the linked policy can hide a leaver: waive only accounts you
-   have identified.
 
 ## Fix configuration errors
 
@@ -175,7 +170,10 @@ Other symptoms:
 
 ## Limits
 
-- The roster is a directory, not an HR system. The check is as good as the directory.
+- The roster is a directory, not an HR system. A leaver who is still active in the directory
+  passes both checks.
+- The roster source's own accounts are not checked; a directory can't vouch for itself. Show that
+  leavers were removed from it with manual evidence, such as your quarterly access review.
 - Each run checks current state. It does not measure how quickly an account was removed.
 - One roster source per project.
 - Grants to a group are not checked against the roster; the group's members are checked through

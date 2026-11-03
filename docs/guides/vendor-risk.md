@@ -44,12 +44,12 @@ experimental:
 
 | Field | Required | Meaning |
 |---|---|---|
-| `id` | yes | 1 to 40 characters of `a-z`, `0-9`, `_` and `-`, starting with a letter or digit. It names the vendor's folders, so changing it moves their evidence. |
+| `id` | yes | Names the vendor's folders, so changing it moves their evidence. Allowed characters: [configuration reference](../configuration.md#experimentalvendors--declaring-the-third-party-register). |
 | `name` | yes | Shown in `evidence due`, in failure messages and in the signed record. |
 | `tier` | yes | `critical`, `high`, `moderate` or `low`. |
-| `subservice` | no | `true` for a subservice organization (one that performs part of your service). Adds a CUEC mapping folder for the vendor. |
+| `subservice` | no | `true` for a subservice organization (one that performs part of your service). Adds a folder for the vendor's complementary user entity controls (CUEC) mapping. |
 | `services` | no | Free text. Not evaluated. |
-| `assurance_period_end` | no | The last day the vendor's own report covers. See step 3. |
+| `assurance_period_end` | no | The last day the vendor's own report covers (below). |
 | `providers` | no | Configured source IDs or providers this vendor supplies, for example `[github]` or `[aws.iam]`. |
 | `tier_rationale` | for `low` | Why the vendor is low tier. |
 | `approved_by` | for `low` | Who approved the low tier. |
@@ -62,11 +62,21 @@ What each tier owes:
 | `moderate` | A lighter document: a completed security questionnaire, a trust-page snapshot or a DPA. |
 | `low` | No upload. The config does not load without `tier_rationale` and `approved_by`, and both appear in the signed record. |
 
+An upload date says when you filed a report, not what period it covers, so set
+`assurance_period_end` to the last day the vendor's report covers. The CLI fails the vendor once
+that date is more than 15 months (450 days) before the audit period starts. It does not read the
+date from the PDF; the value is your declaration. Leave it out and the CLI skips this check for
+that vendor.
+
+Before it collects, the CLI warns about each configured source that no register entry claims
+(`... is configured but no register entry claims it ...`). Add the vendor, or add the source to an
+existing entry's `providers:`. The warning never fails the run.
+
 All keys: [configuration reference](../configuration.md).
 
 ## 2. Upload each vendor's documents
 
-These entries fan out over the register:
+These entries expect one folder per vendor:
 
 | Framework | Entry | Control | One folder per |
 |---|---|---|---|
@@ -79,7 +89,7 @@ These entries fan out over the register:
 The lifecycle entries (`vendor_lifecycle_process` for SOC 2, `supplier_lifecycle_process` for ISO
 27001) and SOC 2's `vendor_risk_assessment` (CC9.2) keep a single folder.
 
-A fan-out folder is the entry ID, a dot and the vendor ID:
+A per-vendor folder is the entry ID, a dot and the vendor ID:
 
 ```text
 {prefix}vendor_assurance.acme_cloud/{period}/
@@ -103,15 +113,7 @@ sigcomply evidence due --all
 A `low` vendor has no folders and never appears here. File rules are the same as for any manual
 entry ([Upload manual evidence](manual-evidence.md#3-upload-the-files)).
 
-## 3. Declare how current each report is
-
-An upload date says when you filed a report, not what period it covers. Set
-`assurance_period_end` to the last day the vendor's report covers. The CLI fails the vendor once
-that date is more than 15 months (450 days) before the audit period starts. It does not read the
-date from the PDF; the value is your declaration. Leave it out and the CLI skips this check for
-that vendor.
-
-## 4. Run the check
+## 3. Run the check
 
 ```bash
 sigcomply check --cadence annual
@@ -119,7 +121,7 @@ sigcomply check --cadence annual
 
 ## Verify
 
-Each fan-out policy reports the vendors that failed, by name:
+Each per-vendor policy names the vendors that failed:
 
 ```text
   [fail] soc2.cc9.2.vendor_assurance — CC9.2
@@ -127,10 +129,6 @@ Each fan-out policy reports the vendors that failed, by name:
   [fail] soc2.cc9.2.vendor_contracts_reviewed — CC9.2
       ↳ 2 of 3 resources failed, e.g. Acme Cloud Platform (acme_cloud): no evidence found; expected files in: file://./evidence/manual/vendor_contracts_reviewed.acme_cloud/2026/
 ```
-
-At plan time, the CLI warns about each configured source that no register entry claims
-(`... is configured but no register entry claims it ...`). Add the vendor, or add the source to an
-existing entry's `providers:`. The warning never fails the run.
 
 ## Limits
 

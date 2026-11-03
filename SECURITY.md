@@ -36,12 +36,12 @@ Out of scope (report upstream):
 ### The privacy boundary
 
 Raw evidence stays in the customer's environment. A bug that puts a resource identifier (ARN,
-email, username, account ID) into the cloud submission is a critical vulnerability.
+email, username, account ID, file hash) into the cloud submission is a critical vulnerability.
 
-The boundary is enforced by the type, not only by review. The `SubmissionPayload` wire type has
-no `map[string]any`, no violations list and no freeform field, so it cannot carry an identifier.
-A reflection test (`TestSubmissionPayload_StructurallyCountsOnly` in
-`internal/core/cloud_test.go`) walks the type and fails the build if a freeform field is added.
+The `SubmissionPayload` wire type enforces the boundary. It has no free-form field and no list of
+violations, so it cannot carry an identifier. A reflection test
+(`TestSubmissionPayload_StructurallyCountsOnly` in `internal/core/cloud_test.go`) walks the type
+and fails the build if a free-form field is added.
 On the receiving side, the dashboard's request allow-list drops any field it doesn't expect.
 
 To see exactly what a run would send, run `sigcomply check --capture-cloud-payload payload.json`.
@@ -57,7 +57,8 @@ The CLI writes the payload to the file and doesn't send it.
 - Each run also writes `manifest.json`, which lists a SHA-256 hash for every file the run wrote
   to the vault. The manifest is signed with its own new keypair.
 - `sigcomply report --view integrity` checks each run's manifest signature, recomputes every
-  hash it lists, and fails a run whose folder holds a file the manifest does not list. The Evidence SPA's `/verify` page checks a single envelope in the browser.
+  hash it lists, and fails a run whose folder holds a file the manifest does not list. The
+  Evidence SPA's `/verify` page checks a single envelope in the browser.
 
 ### What signing detects
 
@@ -81,8 +82,8 @@ The CLI writes the payload to the file and doesn't send it.
 ### Storage immutability is your job
 
 For an auditor to trust that evidence wasn't re-signed after the run, the vault storage must
-prevent overwrites and deletes at the object layer. The CLI doesn't configure this: doing so would
-need permissions the CLI's read-only model, which keeps evidence in your storage, doesn't ask for.
+prevent overwrites and deletes at the object layer. The CLI doesn't configure this: it would need
+storage permissions the CLI doesn't ask for.
 
 | Backend | Setting |
 |---|---|
@@ -91,20 +92,23 @@ need permissions the CLI's read-only model, which keeps evidence in your storage
 | Azure Blob Storage | Immutable storage with a locked time-based retention policy matching your audit retention. |
 | Local filesystem | Not suitable for audit retention. Use it for local trial runs and short-lived CI storage only. |
 
-Without one of these settings, signing still detects accidental changes, but not deliberate
-re-signing by someone with vault write access.
-
 ### Manual evidence
 
-For uploaded documents the CLI checks that supported files are present in the period's folder,
-that they were uploaded inside the period's window, that the merged PDF passes byte-level checks
-(minimum size, a `%PDF-` header, at least one page marker), and that the set of files isn't
-byte-for-byte the same as the previous period's. It doesn't read document contents, validate
-signatures inside a PDF, check dates written in a document, or decide whether a document meets
-the control. The merged PDF is stored in the run folder at
-`policies/{policy_id}/attachments/{evidence_catalog_id}.pdf` and listed in the signed manifest;
-the signed record holds its hash and the hashes of the uploaded files. The full contract is in
+For uploaded documents the CLI checks that:
+
+- supported files are present in the period's folder,
+- they were uploaded inside the period's window,
+- the merged PDF passes byte-level checks (minimum size, a `%PDF-` header, at least one page
+  marker),
+- the set of files isn't byte-for-byte the same as the previous period's.
+
+It doesn't read document contents, validate signatures inside a PDF, check dates written in a
+document, or decide whether a document meets the control.
+
+The merged PDF is stored in the run folder at
+`policies/{policy_id}/attachments/{evidence_catalog_id}.pdf` and listed in the signed manifest.
+The signed record holds its hash and the hashes of the uploaded files. The full contract is in
 [`docs/architecture/14-manual-evidence.md`](docs/architecture/14-manual-evidence.md).
 
-The auditor reads the documents. The CLI gives the auditor a signed record of which files were
-present, and when they were uploaded.
+The auditor reads the documents; the CLI gives them a signed record of which files were present
+and when they were uploaded.

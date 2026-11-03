@@ -4,10 +4,11 @@ Supply the documents that no API can produce (policies, training records, access
 declarations) so the CLI can collect them for SOC 2 or ISO 27001. The examples use SOC 2; ISO
 27001 works the same way.
 
-For each manual entry the CLI checks only three things: a supported file is in the entry's
-folder, it was uploaded inside the entry's time window, and it is a readable PDF or image. It then
-merges the files into one PDF and signs a record of each file's hash and the merged PDF's hash. It does not read what the document says;
-your auditor does. Background: [Concepts](../concepts.md).
+For each entry, the CLI checks that the folder holds readable PDF or image files within the size
+limits, uploaded during the entry's period, and that they aren't an unchanged copy of the previous
+period's files. It merges the files into one PDF and signs a record of the hashes of each file and
+of the merged PDF. It never reads what a document says; your auditor does. Background:
+[Concepts](../concepts.md).
 
 ## Prerequisites
 
@@ -28,7 +29,9 @@ sources:
     path: ./evidence
 ```
 
-For a shared bucket, use `s3`, `gcs` or `azure_blob`:
+Use a bucket when the CLI runs in CI. A local path in CI is the repository checkout, where every
+file's modification time is the checkout time, not the time you added it. For a bucket, use
+`s3`, `gcs` or `azure_blob`:
 
 ```yaml
 sources:
@@ -43,9 +46,6 @@ sources:
 [sources reference](../reference/sources.md#manual-evidence). The CLI reads a bucket with the
 cloud credentials of the environment it runs in, so `evidence due` and `check` need read access
 to the bucket.
-
-Use a bucket when the CLI runs in CI. A local path in CI is the repository checkout, where every
-file's modification time is the checkout time, not the time you added it.
 
 You don't need a `policies:` block. Every built-in manual policy reads its own catalog entry.
 
@@ -86,8 +86,23 @@ manual evidence: 52 of 52 entries have an empty folder (run period 2026-Q4)
 ```
 
 Without `--all`, `evidence due` lists only the folders whose period ends within 30 days
-(`--within-days` changes that). It exits `0` whenever the scan succeeds, so it is safe as a CI
-step.
+(`--within-days` changes that).
+
+### Make a declaration or checklist PDF in the Evidence SPA
+
+For entries of type `declaration` or `checklist`, you can produce the PDF in the browser with the
+[Evidence SPA](https://sigcomply.github.io/sigcomply-evidence-spa/). It runs entirely in your
+browser and sends nothing to a server. Entries of type `document_upload` (exports, certificates,
+reports) don't appear there; produce those files yourself.
+
+1. Open <https://sigcomply.github.io/sigcomply-evidence-spa/> and pick your framework.
+2. Open the entry you need.
+3. Check the period, accept the declaration or confirm each checklist step, and enter who
+   completed it.
+4. Select **Download evidence.pdf**.
+5. Upload the file as in step 3. The SPA shows the path for the default `manual/` prefix and
+   calendar periods. If your project sets another prefix or a fiscal or custom calendar, use the
+   path from `sigcomply evidence due --all` instead.
 
 ## 3. Upload the files
 
@@ -109,51 +124,35 @@ Put the files in the entry's folder:
 
 So an annual document goes in once a year: `manual/security_awareness_training/2026/` covers
 every run in 2026. If your project sets a fiscal or custom calendar, the folder names differ;
-take the path from `sigcomply evidence due`.
+take the path from `sigcomply evidence due --all`.
 
-Rules for the files:
+### When to upload
+
+Upload during the period the document covers.
+
+- The upload time is the object's last-modified time (for a local folder, the file's
+  modification time). Uploading a file again resets it.
+- A file uploaded before the period starts fails as outside the window, so you can't stage next
+  year's evidence early.
+- Once a period ends, runs read the next period's folder, so a file added to the old folder later
+  is never checked. The entry's grace period after the end only absorbs clock differences.
+- Period boundaries are in UTC. A file uploaded at 21:00 on 31 March in New York (UTC-4) is
+  01:00 on 1 April UTC, so it falls in the second quarter, not the first.
+
+### File rules
 
 - Supported formats: PDF, JPEG, PNG, GIF, TIFF, WebP and BMP. The CLI converts images to PDF and
   merges all files in the folder into one PDF. Any other file in the folder fails the policy
   with `unsupported_file_type`.
 - Size limits: each file at most 100 MB (`file_too_large`), and each image at most 50 megapixels
   (`conversion_failed`). Split a larger file, or downscale the image or save it as a PDF.
-- The CLI ignores hidden files (names starting with `.`, such as `.DS_Store`), `Thumbs.db`,
-  `desktop.ini`, the empty folder object that the S3 or GCS console's "Create folder" makes, and
-  everything in subfolders. Put the evidence files directly in the period folder. With a local
-  folder (`path:`), symbolic links are ignored too; copy the file in instead.
-- A PDF that opens without a password is accepted even if it carries an owner password that
-  restricts printing or editing, as many vendor and penetration-test reports do. The merged copy
-  in the vault is stored without that restriction; the record hashes the file as uploaded.
-- Upload during the period the document covers. The upload time is the object's last-modified
-  time (a local file's modification time), so uploading a file again resets it. The check
-  accepts upload times from the start of the period to its end plus the entry's grace period,
-  but the grace days only absorb clock differences: once a period ends, runs read the next
-  period's folder, so a file added to the old folder afterwards is never evaluated. A file
-  uploaded before the period starts fails as outside the window, so you can't stage next
-  year's evidence early.
-- Period boundaries are in UTC. A file uploaded at 21:00 on 31 March in New York (UTC-4) is
-  01:00 on 1 April UTC, so it falls in the second quarter, not the first.
-- The CLI takes the run's period from the current UTC time (unless `period.time_basis: commit`
-  is set). Once a period closes, runs read the next period's folder.
+- The CLI ignores hidden files (such as `.DS_Store`), `Thumbs.db`, `desktop.ini`, the empty
+  object a bucket console's "Create folder" makes, and anything in a subfolder. Put the files
+  directly in the period folder. In a local folder, symbolic links are ignored too; copy the file
+  in instead.
+- A PDF that opens without a password is accepted, even if it restricts printing or editing.
 - Don't copy last period's file unchanged. If every file in the folder is byte-identical to the
   previous period's, the policy fails with `copy_paste_of_prior_period`.
-
-## Fill a declaration or checklist in the Evidence SPA
-
-For entries of type `declaration` or `checklist`, you can produce the PDF in the browser with the
-[Evidence SPA](https://sigcomply.github.io/sigcomply-evidence-spa/). It runs entirely in your
-browser and sends nothing to a server. Entries of type `document_upload` (exports, certificates,
-reports) don't appear there; produce those files yourself.
-
-1. Open <https://sigcomply.github.io/sigcomply-evidence-spa/> and pick your framework.
-2. Open the entry you need.
-3. Check the period, accept the declaration or confirm each checklist step, and enter who
-   completed it.
-4. Select **Download evidence.pdf**.
-5. Upload the file to the path the SPA shows. The SPA assumes the default `manual/` prefix and
-   calendar periods; if your project sets another prefix or a fiscal or custom calendar, use the
-   path from `sigcomply evidence due` instead.
 
 ## 4. Run the check
 
@@ -190,10 +189,10 @@ policies:
     catalog_entry: code_review_policy
 ```
 
-The policy then checks the entry's folder and ignores its automated rule. The folder period
-follows the entry's cadence, not the policy's: a daily policy switched to the annual
-`code_review_policy` entry reads `code_review_policy/2026/`, the same folder the entry's own policy
-reads.
+The policy then checks the entry's folder and ignores its automated rule. The folder follows the
+entry's cadence, not the policy's: with the annual `code_review_policy` entry, this daily policy
+reads `code_review_policy/2026/`, the same folder as that entry's own policy.
+
 `sigcomply report --view coverage` marks the control as `(overridden)`, so your auditor can see
 the change.
 

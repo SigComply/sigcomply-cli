@@ -112,6 +112,10 @@ so the failure names the `validation_failures`, such as `unsupported_file_type`.
   equals the record's `file_hash` and its size `file_size`. No PDF is written when nothing was
   merged (empty folder, only unsupported files, or `merge_failed`). A failed write errors the
   policy, like a failed envelope write.
+- A PDF that opens without a password is accepted even when it carries an owner password that
+  restricts printing or editing (common in vendor and penetration-test reports). The merged copy
+  in the vault is stored without that restriction; `source_files[].sha256` hashes the file as
+  uploaded.
 - The original uploads are not copied. An auditor checks them in the manual-evidence bucket
   against `source_files[].sha256`. No SigComply command re-reads the bucket to compare.
 - Nothing about the files crosses the aggregation boundary. The cloud payload gets the policy's

@@ -1,7 +1,8 @@
 # Collect ISMS clause evidence and generate the Statement of Applicability
 
-Upload the documents for the 16 management-system requirements of ISO 27001 clauses 4 to 10, and
-generate the Statement of Applicability (SoA) for your auditor.
+Upload the documents for the 16 management-system requirements of ISO 27001 clauses 4 to 10,
+record which Annex A controls apply, and generate the Statement of Applicability (SoA) for your
+auditor.
 
 The ISO 27001 framework holds two separate sets of controls, counted apart:
 
@@ -41,8 +42,7 @@ Each requirement is one policy and one folder. All 16 are annual `document_uploa
 text, but certification audits ask for them.
 
 The folder is `{prefix}{catalog entry}/{year}/`, for example `manual/isms_scope/2026/`. One
-upload covers every run in that year. The upload must fall inside the year plus a 30-day grace
-period, and you can't upload ahead into a future year. Folder and file rules:
+upload covers every run in that year; upload it during that year. Folder, timing and file rules:
 [Upload manual evidence](manual-evidence.md#3-upload-the-files).
 
 To see the whole ISO catalog (91 entries, of which these 16 are the clause ones):
@@ -57,6 +57,8 @@ To list the empty folders with their upload paths:
 sigcomply evidence due --all
 ```
 
+### Until the documents are on file
+
 Until you upload, each clause policy fails on every scheduled run (`sigcomply check --scheduled`
 exits `1`). To keep the build green while you work through them, waive the policy with a reason
 and an expiry date:
@@ -69,13 +71,6 @@ policies:
         reason: "First internal audit scheduled for 2026-11; ISMS-14."
         approved_by: ciso@acme.com
         expires_at: 2026-12-31
-```
-
-You can't exclude a clause requirement. Declaring one `not_applicable` stops the run with exit
-code `3`:
-
-```text
-Error: plan: project config: controls["C.9.2"]: "C.9.2" is a management-system requirement of iso27001 (Internal audit) and cannot be declared not_applicable — certification is granted against the management system, not against a subset of it
 ```
 
 ## 2. Record your applicability decisions
@@ -110,6 +105,13 @@ controls:
 Setting both `justification` and `not_applicable` on a control fails with
 `justification records why a control is included; use reason for an exclusion` (exit `3`).
 
+You can't exclude a clause requirement (an ID starting with `C.`). Declaring one
+`not_applicable` stops the run with exit code `3`:
+
+```text
+Error: plan: project config: controls["C.9.2"]: "C.9.2" is a management-system requirement of iso27001 (Internal audit) and cannot be declared not_applicable — certification is granted against the management system, not against a subset of it
+```
+
 ## 3. Generate the SoA
 
 Run from the repository root, after a scheduled run:
@@ -124,10 +126,8 @@ For the spreadsheet:
 sigcomply report --period 2026-Q4 --view soa --format csv --out soa-2026-Q4.csv
 ```
 
-The SoA reads your applicability decisions from `.sigcomply.yaml`. If you pass both `--vault`
-and `--framework`, the CLI skips the config file and stops with `report: --view soa needs the
-project config for its applicability decisions` (exit `3`). Drop one of them, or pass
-`-c .sigcomply.yaml`.
+The SoA reads your applicability decisions from `.sigcomply.yaml`. If you also pass `--vault`
+and `--framework`, add `-c .sigcomply.yaml`, or the command exits `3`.
 
 ## Verify
 
@@ -155,8 +155,7 @@ A.5.1    Policies for information security   yes         not implemented  manual
 
 The CSV adds `justification_derived`, `evaluated`, `policies`, `approved_by` and `risks`.
 
-`not evaluated` is not a pass. Generate the SoA for a period that has at least one scheduled
-run.
+`not evaluated` is not a pass.
 
 The 16 clause requirements are not SoA rows. Check them with the coverage view:
 
