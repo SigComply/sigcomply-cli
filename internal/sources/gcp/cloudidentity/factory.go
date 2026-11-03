@@ -24,7 +24,7 @@ func init() {
 // normally via service-account impersonation (target_service_account) plus
 // domain-wide delegation (impersonate_subject, which requires
 // target_service_account). The delegated scope must be allow-listed
-// verbatim — see AuthConfig and docs/configuration.md §GCP.
+// verbatim — see AuthConfig and docs/reference/sources.md#gcp.
 func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
 	auth := AuthConfig{
 		TargetServiceAccount: sources.StringOpt(env.Config, "target_service_account"),

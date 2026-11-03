@@ -14,7 +14,7 @@ func init() {
 
 // build constructs the gcp.asset plugin from config. Asset feeds are
 // project-scoped: project_id is required. Credentials come from ADC;
-// grant roles/cloudasset.viewer (see docs/configuration.md §GCP).
+// grant roles/cloudasset.viewer (see docs/reference/sources.md#gcp).
 func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
 	projectID := sources.StringOpt(env.Config, "project_id")
 	if projectID == "" {

@@ -18,7 +18,7 @@
 // identity holds an admin role itself, or (config target_service_account
 // + impersonate_subject) ADC impersonates a service account that uses
 // domain-wide delegation to act as an admin user. See AuthConfig and
-// docs/configuration.md §GCP.
+// docs/reference/sources.md#gcp.
 //
 // Test injection: the API interface is the single seam; the real adapter
 // wraps *admin.Service and unit tests inject an in-memory fake. The real

@@ -15,7 +15,7 @@ func init() {
 // build constructs the gcp.gke plugin from config. Clusters are
 // project-scoped: project_id is required. Credentials come from ADC with
 // the container read-only scope; restrict access at the IAM layer with
-// roles/container.viewer (see docs/configuration.md §GCP).
+// roles/container.viewer (see docs/reference/sources.md#gcp).
 func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
 	projectID := sources.StringOpt(env.Config, "project_id")
 	if projectID == "" {

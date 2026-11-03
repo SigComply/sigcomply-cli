@@ -14,7 +14,7 @@ func init() {
 
 // build constructs the gcp.secretmanager plugin from config. Secrets are
 // project-scoped: project_id is required. Credentials come from ADC with the
-// cloud-platform scope (see docs/configuration.md §GCP).
+// cloud-platform scope (see docs/reference/sources.md#gcp).
 func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
 	projectID := sources.StringOpt(env.Config, "project_id")
 	if projectID == "" {

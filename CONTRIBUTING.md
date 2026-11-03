@@ -21,7 +21,8 @@ This page is for anyone changing the CLI's code or docs. AI agents start at
 
 ## How changes land
 
-Open a pull request. The checklist in
+Outside contributors open a pull request; maintainers follow
+[docs/claude/development-workflow.md](./docs/claude/development-workflow.md). The checklist in
 [`.github/pull_request_template.md`](./.github/pull_request_template.md) applies. Every push to
 `main` that changes code cuts a public release, so `main` must stay green.
 

@@ -22,7 +22,7 @@
 // N policies bound to this plugin → N invocations of Collect.
 //
 // Auth: Application Default Credentials with the cloudkms scope. See
-// docs/configuration.md §GCP. The real adapter wraps *cloudkms.Service and
+// docs/reference/sources.md#gcp. The real adapter wraps *cloudkms.Service and
 // unit tests inject an in-memory fake via the API interface seam.
 package kms
 

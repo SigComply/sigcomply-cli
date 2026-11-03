@@ -1,8 +1,7 @@
 # Concepts
 
-SigComply runs in your GitHub or GitLab pipeline, checks your cloud and SaaS configuration
-against SOC 2 and ISO 27001, and signs the evidence into storage you own. For one run from start
-to finish, see [How SigComply works](how-it-works.md).
+This page explains the model behind a SigComply result, for auditors and reviewers. For one run
+from start to finish, see [How SigComply works](how-it-works.md).
 
 ## What SigComply does not do
 
@@ -13,7 +12,8 @@ to finish, see [How SigComply works](how-it-works.md).
   evidence and evaluates policies; your auditor decides.
 - It does not read or judge uploaded documents. A manual policy passes when a supported file is
   in the right folder for the period, whatever the file says.
-- It does not keep a history of results across runs. History lives in the SigComply dashboard.
+- The vault keeps each run, but the CLI doesn't compare runs; full history and trends are
+  SigComply Cloud features.
 - It does not change your infrastructure. Sources make read-only API calls.
 - It does not configure your storage. Write-once retention on the evidence bucket is your
   setting (see [Limits of the signatures](#limits-of-the-signatures)).
@@ -53,18 +53,14 @@ A slot that no configured source can fill makes the policy skip.
 
 ## What leaves your environment
 
-The CLI is the only place raw evidence is reduced to counts. The evidence records, uploaded
-documents, the full list of failing resources with their identifiers, signatures and each run's
-`manifest.json` stay in your storage. [What leaves your pipeline](how-it-works.md#what-leaves-your-pipeline)
-lists what is sent and what stays.
-
 ```
 Sent to the dashboard:   3 of 40 users failed soc2.cc6.1.mfa_enforced_all_users
 Never sent:              "alice, bob and carol have MFA disabled"
 ```
 
-The submission type has no free-form fields and no list of violations, so it cannot carry an
-identifier. To see which resources failed, read `result.json` in your own vault.
+To see which resources failed, read `result.json` in your own vault.
+[What leaves your pipeline](how-it-works.md#what-leaves-your-pipeline) lists what is sent and
+what stays.
 
 ## Signing and the vault
 
@@ -104,10 +100,9 @@ applicable). Two things can make it look better than the estate is.
 
 Skipped policies leave the denominator. A policy skips in two cases: no configured source emits
 the evidence it needs, or a configured source returned no records for a policy about every
-resource of a kind ("every bucket is encrypted" says nothing about an account with no buckets).
-So forgetting to configure a source raises the score instead of lowering it. (A policy that asks
-whether a service exists at all, such as audit logging, fails instead of skipping when the source
-finds none.)
+resource of a kind. So forgetting to configure a source raises the score instead of lowering it.
+A policy that asks whether a service exists at all, such as audit logging, fails rather than
+skips when the source finds none.
 
 `check` lists every skipped policy and the evidence it needs, and `sigcomply report --view scope`
 shows what a run did not evaluate. To make a missing source fail the run, declare the sources

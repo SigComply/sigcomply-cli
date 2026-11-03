@@ -15,7 +15,7 @@ func init() {
 // build constructs the gcp.firestore plugin from config. Firestore
 // databases are project-scoped: project_id is required. Credentials come
 // from ADC with the Datastore scope; restrict access at the IAM layer with
-// roles/datastore.viewer (see docs/configuration.md §GCP).
+// roles/datastore.viewer (see docs/reference/sources.md#gcp).
 func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
 	projectID := sources.StringOpt(env.Config, "project_id")
 	if projectID == "" {

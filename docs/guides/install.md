@@ -10,6 +10,8 @@ release archive, or Go. There is no Homebrew formula.
 - `curl`, `tar` (`unzip` on Windows), and `sha256sum` or `shasum`.
 - Optional: a recent [GitHub CLI](https://cli.github.com/) (`gh`), to verify the build
   provenance. You don't need to log in.
+- In CI, the scaffolded workflows' install step needs `gh` and `git` for the provenance check.
+  GitHub-hosted runners have both; add them to a self-hosted runner or container image.
 
 ## Install with the script
 
@@ -21,7 +23,9 @@ release archive, or Go. There is no Homebrew formula.
 
    It downloads the release archive for your OS and architecture, checks it against the
    release's `checksums.txt`, verifies its build provenance when `gh` is installed, and puts
-   `sigcomply` in `/usr/local/bin`.
+   `sigcomply` in `/usr/local/bin`. On Windows it installs `sigcomply.exe` from the `.zip`. To
+   verify provenance, it looks up the release tag's commit with `git` if present, else with the
+   GitHub API.
 
    To pin a version, or to install without `sudo` into a directory you own, set the installer's
    variables:

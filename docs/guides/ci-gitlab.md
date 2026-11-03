@@ -255,6 +255,8 @@ git push
 
 ## Next steps
 
+- [`examples/gitlab-ci.yml`](../../examples/gitlab-ci.yml): the same pipeline with
+  `SIGCOMPLY_VERSION: latest`.
 - [Connect to the SigComply dashboard](cloud-dashboard.md).
 - [Upload manual evidence](manual-evidence.md).
 - [Verify evidence](verify-evidence.md).

@@ -16,7 +16,7 @@ func init() {
 // is organization-scoped, so organization_id is required (not the
 // project_id the other gcp.* plugins use). Credentials come from ADC; the
 // service account needs org-level securitycenter.findingsViewer +
-// settingsViewer (see docs/configuration.md §GCP).
+// settingsViewer (see docs/reference/sources.md#gcp).
 func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
 	orgID := sources.StringOpt(env.Config, "organization_id")
 	if orgID == "" {

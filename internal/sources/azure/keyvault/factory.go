@@ -15,7 +15,7 @@ func init() {
 // build constructs the azure.keyvault plugin from config. Key Vault is an
 // ARM-plane source, so subscription_id is required (ParseConfig true).
 // Credentials come from the shared DefaultAzureCredential (see
-// docs/configuration.md §Azure). All reads stay on the management plane —
+// docs/reference/sources.md#azure). All reads stay on the management plane —
 // Reader RBAC, no Key Vault data-plane access policies.
 func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
 	cfg, err := azcommon.ParseConfig(env.Config, true)

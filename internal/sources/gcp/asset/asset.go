@@ -45,7 +45,7 @@
 // read-only OAuth scope, so the plugin uses cloudasset.CloudPlatformScope
 // and relies on the IAM layer for least privilege — grant
 // roles/cloudasset.viewer (cloudasset.feeds.list). See
-// docs/configuration.md §GCP.
+// docs/reference/sources.md#gcp.
 package asset
 
 import (

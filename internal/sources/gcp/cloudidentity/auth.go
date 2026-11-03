@@ -39,7 +39,7 @@ import (
 // `.../cloud-identity` or `.../cloud-platform` and requesting the
 // readonly scope fails with `unauthorized_client`, because the allow-list
 // is matched by exact string and not by capability. That surprises
-// everyone once; it is documented here, in docs/configuration.md §GCP,
+// everyone once; it is documented here, in docs/reference/sources.md#gcp,
 // and in the guide, so it surprises nobody twice.
 type AuthConfig struct {
 	TargetServiceAccount string

@@ -15,7 +15,7 @@ func init() {
 // build constructs the gcp.artifactregistry plugin from config.
 // Repositories are project-scoped: project_id is required. Credentials come
 // from ADC with the cloud-platform read-only scope; restrict access at the
-// IAM layer with roles/artifactregistry.reader (see docs/configuration.md §GCP).
+// IAM layer with roles/artifactregistry.reader (see docs/reference/sources.md#gcp).
 func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
 	projectID := sources.StringOpt(env.Config, "project_id")
 	if projectID == "" {

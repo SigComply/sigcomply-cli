@@ -1,20 +1,8 @@
 # Connect to the SigComply dashboard
 
-Send your scheduled runs' pass/fail counts to the SigComply dashboard, generate reports from them,
-and give your auditor read access. On every plan, the dashboard shows each project's latest status
-and the last 30 days of runs. SigComply Cloud (paid, with a 2-month free trial) adds full run
-history, reports over your audit window and the auditor portal. The CLI works without the
-dashboard: evidence and results always stay in your vault.
-
-What leaves your pipeline: pass/fail counts per policy and run details such as the framework,
-period, repository, branch, commit, CLI version and CI run link. Never evidence files or their
-hashes, and never the names, emails or cloud account IDs of the resources and people checked. The
-full list is in [How SigComply works](../how-it-works.md#what-leaves-your-pipeline). To see exactly
-what a run would send, write it to a file instead of posting it:
-
-```bash
-sigcomply check --capture-cloud-payload payload.json
-```
+Send your scheduled runs' pass/fail counts to the SigComply dashboard, generate reports and give
+your auditor read access. Evidence and results stay in your vault; only counts and run details are
+sent ([what is sent](../how-it-works.md#what-leaves-your-pipeline)).
 
 ## Prerequisites
 
@@ -37,10 +25,11 @@ owner.
 4. Copy the **Project ID** (it starts with `prj_`) from the project's page. You add it to
    `.sigcomply.yaml` in step 3.
 
-The dashboard has no API keys. It accepts a run when the OIDC token your CI mints and the
-committed `cloud.project_id` name the same active project. The project ID is not a secret: only
-people who can push to the repository can commit it. If you rename, move or recreate the
-repository, paste the new URL in the project's **Settings** tab, or its runs are refused.
+If you rename, move or recreate the repository, paste the new URL in the project's **Settings**
+tab, or its runs are refused.
+
+The dashboard has no API keys: it accepts a run when your CI's OIDC token and the committed
+`cloud.project_id` name the same project. The project ID is not a secret.
 
 ## 3. Turn on submission
 
@@ -52,14 +41,22 @@ cloud:
   project_id: prj_7Xq2mKp9RtV4wNc8Bz3a   # the Project ID from step 2
 ```
 
-Without `cloud.project_id`, `sigcomply check` stops with exit `3` before it collects, locally too,
-so you see the mistake before CI.
+The base URL is `https://sigcomply.com`. The OIDC audience, `https://api.sigcomply.com`, is a
+fixed identifier, not a web address, so the two differ on purpose.
+
+Without `cloud.project_id`, `check` exits `3` before collecting, even locally.
 
 The scaffolded workflows meet the other conditions: the run is in CI and can mint an OIDC token.
 Only runs that cover every policy submit, which in those workflows is the daily scheduled run.
 Pull request, merge request and filtered runs print `cloud submission skipped: ...` and send
-nothing. The dashboard also refuses runs started by some CI events. Full rules:
+nothing. The dashboard refuses runs from pull request and merge request events. Full rules:
 [Commands](../reference/commands.md#sigcomply-check).
+
+To see exactly what a run would send, write it to a file instead of posting it:
+
+```bash
+sigcomply check --capture-cloud-payload payload.json
+```
 
 ## 4. Run and check the result
 
@@ -107,6 +104,9 @@ see [Verify evidence](verify-evidence.md).
 
 Your organization's first authenticated run submission starts a 2-month trial of SigComply
 Cloud. No card is needed. Upgrade under **Settings > Subscription**.
+
+SigComply Cloud adds full run history, reports over your audit window, the Audit-window view, the
+auditor portal and an email when scheduled runs stop arriving. The CLI works without the dashboard.
 
 Your runs are always recorded, on every plan. When the trial ends without a paid plan, the
 dashboard shows each project's latest status and the last 30 days of runs. Older runs are kept

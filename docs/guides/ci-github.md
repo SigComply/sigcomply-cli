@@ -31,11 +31,8 @@ writes two files to `.github/workflows/`:
 | `compliance-scheduled.yml` | 02:00 UTC daily, and **Run workflow** | `sigcomply check --scheduled`, then `sigcomply evidence due --within-days 30` |
 | `compliance-on-push.yml` | Pushes to `main` and pull requests, except from forks (a fork's pull request gets no OIDC token) | `sigcomply check --pr` |
 
-The scheduled run evaluates the policies whose cadence has come due, or that failed last time,
-and carries the rest forward from the state in the vault. A daily run evaluates each policy at
-least once in every window of its cadence, so a quarterly document is checked every quarter. Only
-this run sends results to the dashboard and updates the state, which is why the vault must be a
-bucket.
+The scheduled run evaluates the policies that are due or failed last time and carries the rest
+forward. Only this run updates the state in the vault and sends results to the dashboard.
 
 The `--pr` run evaluates the policies marked `on_push`: every automated policy in the shipped
 frameworks. The `evidence due` step lists empty manual-evidence folders whose period ends within
@@ -45,16 +42,10 @@ For ISO 27001, see [Use another framework](#use-another-framework).
 
 ## 2. Pin the CLI version
 
-Each workflow sets `SIGCOMPLY_VERSION` in its `env:` block. A release build of the CLI writes its
-own version there (for example `v0.91.0`); a build from source writes `latest`. Pin a release tag
-so every run installs the same CLI, and bump it when you upgrade.
-
-The install step checks the archive's checksum and build provenance before it extracts the CLI,
-and fails the job if either check fails. GitHub-hosted runners have the `gh` and `git` the
-provenance check needs; add both to a self-hosted runner or container image. The provenance check
-needs a release from v0.91.0 on.
-[Install a release archive by hand](install.md#install-a-release-archive-by-hand) (step 3)
-explains each flag.
+Each workflow sets `SIGCOMPLY_VERSION` in its `env:` block. Set it to a release tag (v0.91.0 or
+later) so every run installs the same CLI. The install step fails the job if the checksum or build
+provenance doesn't match. Self-hosted runners need `gh` and `git`
+([Install](install.md#prerequisites)).
 
 ## 3. Create the AWS OIDC provider and roles
 
@@ -239,15 +230,13 @@ git push
 
 ## Use another framework
 
-`init-ci` accepts only `--framework soc2`, but the workflows it writes don't name a framework:
-`check` reads `framework:` from `.sigcomply.yaml`. For ISO 27001, keep `framework: iso27001` in
-the config and run:
+The workflows don't name a framework: `check` reads `framework:` from `.sigcomply.yaml`.
+`init-ci` itself only knows `soc2`, and on an ISO 27001 config it exits `3`. Pass
+`--framework soc2` so it writes the workflows anyway:
 
 ```sh
 sigcomply init-ci --ci github --framework soc2
 ```
-
-Without the flag, `init-ci` reads `framework: iso27001` from the config and exits `3`.
 
 ## Use a single workflow instead
 

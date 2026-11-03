@@ -29,7 +29,7 @@
 // N policies bound to this plugin → N invocations of Collect.
 //
 // Auth: Application Default Credentials with the read-only Compute scope.
-// See docs/configuration.md §GCP. The real adapter wraps *compute.Service
+// See docs/reference/sources.md#gcp. The real adapter wraps *compute.Service
 // and unit tests inject an in-memory fake via the API interface seam.
 package network
 

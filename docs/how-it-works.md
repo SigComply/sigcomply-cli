@@ -4,8 +4,8 @@ SigComply is a CLI, `sigcomply`, that runs as a step in your CI pipeline. It rea
 from your cloud and SaaS accounts with the credentials the pipeline already has, checks that the
 documents your auditor expects are in a folder you own, and evaluates SOC 2 or ISO 27001 policies
 against both. It signs every piece of evidence and writes it, with the results, to a bucket you
-own: the vault. Nothing leaves your pipeline unless you turn on the SigComply dashboard, and then
-only pass/fail counts per policy and details of the run, such as the repository and commit.
+own: the vault. With the dashboard turned on, only counts and run details leave
+([details](#what-leaves-your-pipeline)).
 
 ```
   Your CI pipeline (GitHub Actions or GitLab CI)
@@ -46,17 +46,14 @@ You can try all of this on your laptop with no cloud account: see the [Quickstar
 5. Submit (optional). If the dashboard is turned on, the CLI sends counts to it.
 6. Exit. The exit code tells CI what happened.
 
-`check` exits `1` when a policy fails, which fails the CI job, `2` on an execution error and `3`
-on a configuration error. Set `ci.fail_on_violation: false` to keep the job green while policies
-fail. [Commands](reference/commands.md#exit-codes) has the full rules.
+The exit code fails the CI job when a policy fails ([exit codes](reference/commands.md#exit-codes)).
 
 ## Automated evidence
 
 Credentials stay in your pipeline: an AWS role the job assumes through OIDC, or secrets stored
 in your CI. SigComply never receives them.
 
-Sources only read. [Sources](reference/sources.md) lists every API action each one calls,
-including the one that asks AWS to build its IAM credential report.
+Sources only read. [Sources](reference/sources.md) lists every API action each one calls.
 
 Each source turns the provider's responses into normalized evidence records of a named type. The
 vault stores those records, not the provider's responses as returned. Because policies ask for
@@ -123,9 +120,9 @@ have the details.
 
 ## What leaves your pipeline
 
-Nothing leaves your pipeline unless you set `cloud.base_url` and `cloud.project_id` in
-`.sigcomply.yaml`. Even then, only full runs in GitHub Actions or GitLab CI (or with `--cloud`) submit
-([Commands](reference/commands.md#sigcomply-check) has the exact rule).
+Nothing leaves your pipeline unless a cloud URL is set (`cloud.base_url` or `--cloud-url`) and
+`cloud.project_id` is set. Even then, only full runs in CI (or with `--cloud`) submit, never pull
+or merge request pipelines ([Commands](reference/commands.md#sigcomply-check) has the exact rule).
 
 | Sent to the SigComply dashboard | Stays in your pipeline and bucket |
 |---|---|
@@ -143,11 +140,9 @@ the build if one is added. To see what a run would send without sending it, run
 
 ## The SigComply dashboard
 
-The dashboard works only from the counts above. Your runs are always recorded. Without a plan,
-the dashboard shows each project's latest status and the last 30 days of runs. SigComply Cloud
-(paid, with a 2-month free trial) adds full run history, reports over your audit window (PDF, CSV
-or JSON), the Audit-window view, the auditor portal and an email when scheduled runs stop
-arriving. [Cloud dashboard](guides/cloud-dashboard.md) covers setup and plans.
+The dashboard works only from the counts above. It adds run history, reports over your audit
+window and an auditor portal; [Cloud dashboard](guides/cloud-dashboard.md) lists what each plan
+includes.
 
 The ISO 27001 Statement of Applicability doesn't need SigComply Cloud: the CLI produces it for
 free with `sigcomply report --view soa`.

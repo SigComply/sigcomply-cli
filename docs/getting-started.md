@@ -79,13 +79,13 @@ For GitLab CI, run `sigcomply init-ci --ci gitlab`. It writes one `.gitlab-ci.ym
 create one daily pipeline schedule. See [CI on GitLab](guides/ci-gitlab.md).
 
 `init-ci` scaffolds SOC 2 only. For another framework, see
-[Commands](reference/commands.md#sigcomply-init-ci).
+[Use another framework](guides/ci-github.md#use-another-framework).
 
 ## 4. Let CI assume an AWS role
 
 The workflows get AWS credentials through OIDC, not stored keys. AWS gets its own OIDC token,
-with the audience `sts.amazonaws.com`; the token for the SigComply dashboard has the audience
-`https://api.sigcomply.com`, and no AWS role may trust that one. In AWS:
+with the audience `sts.amazonaws.com`. Never let an AWS role trust `https://api.sigcomply.com`;
+that token goes to SigComply. In AWS:
 
 1. Create an IAM OIDC identity provider for your CI host (`token.actions.githubusercontent.com`
    for GitHub Actions, your GitLab host such as `gitlab.com` for GitLab CI) with the audience
@@ -149,9 +149,10 @@ Without this step, the CLI keeps everything in your bucket and sends nothing.
      project_id: prj_7Xq2mKp9RtV4wNc8Bz3a   # your Project ID
    ```
 
-In CI the CLI signs in with the pipeline's OIDC token, so you add no API key or secret. The
-Project ID isn't a secret. Only the scheduled run sends counts. The next one appears on the
-dashboard, and your organization's first submitted run starts its SigComply Cloud trial.
+The CLI authenticates with the pipeline's OIDC token, so you add no secret. Only the scheduled
+run sends counts. After the next one, its log shows `submission accepted (HTTP 201)` and the run
+appears on the dashboard. Your organization's first submitted run starts the SigComply Cloud
+trial.
 [Cloud dashboard](guides/cloud-dashboard.md) has the rules and the plan details.
 
 ## Next steps

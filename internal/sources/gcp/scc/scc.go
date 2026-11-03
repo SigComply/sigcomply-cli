@@ -34,7 +34,7 @@
 // org-level IAM grant (roles/securitycenter.findingsViewer +
 // roles/securitycenter.settingsViewer, or roles/securitycenter.adminViewer)
 // that a project-scoped CI service account may lack — documented in
-// docs/configuration.md §GCP as the likely setup gotcha.
+// docs/reference/sources.md#gcp as the likely setup gotcha.
 //
 // Two SDK surfaces, both subpackages of the already-vendored
 // google.golang.org/api (no go.mod change):

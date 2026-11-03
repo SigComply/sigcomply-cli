@@ -40,7 +40,7 @@
 // Auth: Application Default Credentials with the cloud-platform read-only
 // scope; restrict access at the IAM layer with roles/artifactregistry.reader
 // (grants repositories.list/.get and .getIamPolicy). See
-// docs/configuration.md §GCP. The real adapter wraps *artifactregistry.Service
+// docs/reference/sources.md#gcp. The real adapter wraps *artifactregistry.Service
 // and unit tests inject an in-memory fake via the API interface seam.
 package artifactregistry
 

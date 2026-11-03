@@ -14,7 +14,7 @@ func init() {
 
 // build constructs the gcp.audit plugin from config. Audit posture is
 // project-scoped: project_id is required. Credentials come from ADC with
-// read-only scopes (see docs/configuration.md §GCP).
+// read-only scopes (see docs/reference/sources.md#gcp).
 func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
 	projectID := sources.StringOpt(env.Config, "project_id")
 	if projectID == "" {

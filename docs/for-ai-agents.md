@@ -9,7 +9,7 @@ in the linked reference pages; read them rather than guessing.
 - One repository holds one framework. The key is singular: `framework: soc2` or
   `framework: iso27001`. No other framework exists.
 - Never put credentials in `.sigcomply.yaml`. The CLI reads them from the environment.
-- The CLI sends SigComply Cloud only per-policy counts and run details, never identifiers (ARNs,
+- The CLI sends the SigComply dashboard only per-policy counts and run details, never identifiers (ARNs,
   emails, account IDs). Emails in `experimental.roster.aliases` and vendor names in
   `experimental.vendors` are fine: they stay in the repository.
 - Don't invent commands, flags or keys. The commands are `check`, `init`, `init-ci`, `build`,
@@ -121,7 +121,7 @@ Then:
 
 Setup details: [CI on GitHub](guides/ci-github.md), [CI on GitLab](guides/ci-gitlab.md).
 
-## 7. Cloud submission (only if the customer has SigComply Cloud)
+## 7. Cloud submission (only if the customer uses the SigComply dashboard)
 
 Add to `.sigcomply.yaml`:
 

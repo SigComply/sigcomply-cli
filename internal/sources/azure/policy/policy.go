@@ -58,8 +58,8 @@
 //
 // Auth: the shared DefaultAzureCredential (azcommon). Reading policy
 // assignments needs Microsoft.Authorization/policyAssignments/read, covered by
-// the built-in subscription-level Reader role. See docs/configuration.md
-// §Azure.
+// the built-in subscription-level Reader role. See
+// docs/reference/sources.md#azure.
 package policy
 
 import (

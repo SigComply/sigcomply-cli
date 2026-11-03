@@ -37,7 +37,7 @@
 // application permissions User.Read.All + AuditLog.Read.All consented, and
 // per-user MFA registration / signInActivity require an Entra ID P1/P2
 // license. When those are missing the report read fails with a clear hint;
-// see the licensing note on Collect and docs/configuration.md §Azure.
+// see the licensing note on Collect and docs/reference/sources.md#azure.
 //
 // Test injection: the API interface is the single seam; the real adapter
 // (realGraph) wraps an *http.Client + credential and unit tests inject an

@@ -18,7 +18,7 @@ func init() {
 // a Workspace admin context, optionally via service-account impersonation
 // (target_service_account) and domain-wide delegation
 // (impersonate_subject, which requires target_service_account) — see
-// AuthConfig and docs/configuration.md §GCP.
+// AuthConfig and docs/reference/sources.md#gcp.
 func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
 	customer := sources.StringOpt(env.Config, "customer_id")
 	auth := AuthConfig{

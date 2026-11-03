@@ -40,7 +40,7 @@
 //
 // Auth: Application Default Credentials with the container read-only scope;
 // restrict access at the IAM layer with roles/container.viewer (grants
-// container.clusters.list). See docs/configuration.md §GCP. The real
+// container.clusters.list). See docs/reference/sources.md#gcp. The real
 // adapter wraps *container.Service and unit tests inject an in-memory fake
 // via the API interface seam.
 package gke

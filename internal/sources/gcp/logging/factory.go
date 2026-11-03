@@ -14,7 +14,7 @@ func init() {
 
 // build constructs the gcp.logging plugin from config. Log buckets are
 // project-scoped: project_id is required. Credentials come from ADC with
-// the logging.read scope (see docs/configuration.md §GCP).
+// the logging.read scope (see docs/reference/sources.md#gcp).
 func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
 	projectID := sources.StringOpt(env.Config, "project_id")
 	if projectID == "" {

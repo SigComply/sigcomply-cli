@@ -114,7 +114,7 @@ Error: plan: project config: controls["C.9.2"]: "C.9.2" is a management-system r
 
 ## 3. Generate the SoA
 
-Run from the repository root, after a scheduled run:
+Generate the SoA for a period that has at least one scheduled run. Run from the repository root:
 
 ```bash
 sigcomply report --period 2026-Q4 --view soa

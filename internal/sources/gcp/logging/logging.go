@@ -24,7 +24,7 @@
 //
 // Auth: Application Default Credentials with the logging.read scope
 // (restrict access at the IAM layer with roles/logging.viewer, which
-// grants logging.buckets.list / .get). See docs/configuration.md §GCP.
+// grants logging.buckets.list / .get). See docs/reference/sources.md#gcp.
 // The real adapter wraps *logging.Service and lists buckets across all
 // locations (the "-" wildcard); unit tests inject an in-memory fake via
 // the API interface seam.

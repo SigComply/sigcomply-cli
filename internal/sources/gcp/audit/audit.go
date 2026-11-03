@@ -43,7 +43,7 @@
 // Auth: Application Default Credentials. GetIamPolicy needs
 // resourcemanager.projects.getIamPolicy (roles/iam.securityReviewer);
 // GetCmekSettings needs logging.cmekSettings.get (roles/logging.viewer).
-// See docs/configuration.md §GCP.
+// See docs/reference/sources.md#gcp.
 package audit
 
 import (

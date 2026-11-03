@@ -15,7 +15,7 @@ func init() {
 // build constructs the azure.backup plugin from config. Recovery Services is an
 // ARM-plane source, so subscription_id is required (ParseConfig true).
 // Credentials come from the shared DefaultAzureCredential (see
-// docs/configuration.md §Azure).
+// docs/reference/sources.md#azure).
 func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
 	cfg, err := azcommon.ParseConfig(env.Config, true)
 	if err != nil {

@@ -49,7 +49,7 @@
 // Auth: Application Default Credentials with the cloud-platform scope
 // (Certificate Manager exposes no dedicated read-only scope); restrict
 // access at the IAM layer with roles/certificatemanager.viewer (grants
-// certificatemanager.certs.list/get). See docs/configuration.md §GCP. The
+// certificatemanager.certs.list/get). See docs/reference/sources.md#gcp. The
 // real adapter wraps *certificatemanager.Service and unit tests inject an
 // in-memory fake via the API interface seam.
 package certs

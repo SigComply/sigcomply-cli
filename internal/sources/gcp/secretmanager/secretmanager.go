@@ -24,7 +24,7 @@
 // Auth: Application Default Credentials with the cloud-platform scope
 // (Secret Manager exposes no narrower read-only scope; restrict access at
 // the IAM layer with roles/secretmanager.viewer, which grants
-// secrets.list and versions.list). See docs/configuration.md §GCP. The
+// secrets.list and versions.list). See docs/reference/sources.md#gcp. The
 // real adapter wraps *secretmanager.Service and unit tests inject an
 // in-memory fake via the API interface seam.
 package secretmanager

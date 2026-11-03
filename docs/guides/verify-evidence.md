@@ -43,7 +43,8 @@ storage). Threat model: [`SECURITY.md`](../../SECURITY.md).
 
    `fail` lists every file that failed: `hash mismatch` (the file changed), `missing` (a file
    the manifest lists is gone) and `not in manifest` (a file was added to the run folder after
-   the run). `FILES_OK` counts the listed files that still match.
+   the run). Other views ignore a file the manifest does not list. `FILES_OK` counts the listed
+   files that still match.
 
    The command exits `1` when any run fails and `0` when every run passes. A period with no runs,
    or a local vault path that does not exist, exits `3` with the periods the vault holds, so a

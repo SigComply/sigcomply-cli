@@ -35,14 +35,14 @@ not certify anything; your auditor decides whether you comply.
    folder for the period. The CLI never reads or judges what the document says; your auditor
    does.
 4. The CLI writes the signed evidence, the results and a signed manifest of every file's hash
-   to your storage. With the dashboard turned on, it also sends pass/fail counts per policy and
-   run details such as the framework, period, repository, branch, commit, CLI version and CI run
-   link. Never evidence files or their hashes, and never the names, emails or cloud account IDs
-   of the resources and people checked.
+   to your storage.
 
-A run prints one line per policy and exits 1 if any policy fails (2 on an execution error). This
-is step 4 of the [Quickstart](docs/quickstart.md), which configures only manual evidence and adds
-one document:
+With the dashboard turned on, the CLI also sends pass/fail counts per policy and run details such
+as the framework, period, repository, branch, commit, CLI version and CI run link. Never evidence
+files or their hashes, and never the names, emails or cloud account IDs of the resources and
+people checked.
+
+Output from step 4 of the [Quickstart](docs/quickstart.md), with only manual evidence configured:
 
 ```text
 SigComply check soc2/2026-Q4 — 133 policies

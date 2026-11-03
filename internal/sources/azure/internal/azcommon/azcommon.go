@@ -9,7 +9,7 @@
 // workload-identity federation — no long-lived secret); locally through
 // `az login` or the AZURE_* environment credential. ARM-plane sources scope to
 // a configured subscription_id; the Graph-plane source (azure.entra) uses the
-// credential's home tenant. See docs/configuration.md §Azure.
+// credential's home tenant. See docs/reference/sources.md#azure.
 package azcommon
 
 import (

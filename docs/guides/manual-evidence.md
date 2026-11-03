@@ -4,11 +4,9 @@ Supply the documents that no API can produce (policies, training records, access
 declarations) so the CLI can collect them for SOC 2 or ISO 27001. The examples use SOC 2; ISO
 27001 works the same way.
 
-For each entry, the CLI checks that the folder holds readable PDF or image files within the size
-limits, uploaded during the entry's period, and that they aren't an unchanged copy of the previous
-period's files. It merges the files into one PDF and signs a record of the hashes of each file and
-of the merged PDF. It never reads what a document says; your auditor does. Background:
-[Concepts](../concepts.md).
+For each entry, the CLI checks that the folder holds supported files for the entry's period,
+merges them into one PDF and signs a record of their hashes. It never reads what a document says;
+your auditor does. Background: [Concepts](../concepts.md).
 
 ## Prerequisites
 

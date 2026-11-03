@@ -64,7 +64,7 @@ func DerivePeriod(cfg *spec.PeriodConfig, commit time.Time) (Period, error) {
 
 // CadencePeriod computes the audit window a policy of the given cadence
 // files its manual evidence under. It is the folder scheme documented in
-// docs/configuration.md §Manual evidence, and it is deliberately NOT the
+// docs/reference/sources.md#manual-evidence, and it is deliberately NOT the
 // run's period: an annual attestation uploaded in January has to satisfy
 // a December run, which it cannot do from a folder that turns over every
 // quarter.

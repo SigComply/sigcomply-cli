@@ -38,7 +38,7 @@
 // Auth: Application Default Credentials with the Datastore scope (Cloud
 // Firestore exposes no dedicated read-only scope); restrict access at the
 // IAM layer with roles/datastore.viewer (grants firestore.databases.list).
-// See docs/configuration.md §GCP. The real adapter wraps *firestore.Service
+// See docs/reference/sources.md#gcp. The real adapter wraps *firestore.Service
 // and unit tests inject an in-memory fake via the API interface seam.
 package firestore
 

@@ -24,6 +24,9 @@ Where a control needs both, the tested half is a separate manual entry, for exam
 `soc2.a1.3.recovery_procedures_tested` and `iso27001.5.30.ict_continuity_tested`.
 `sigcomply report --view coverage` shows which kind of check backs each control in a period.
 
+A policy filed under two controls backs both, so one public bucket fails one policy, not one per
+control.
+
 ## Selecting a framework
 
 Set the framework in `.sigcomply.yaml` with the singular key `framework:`:

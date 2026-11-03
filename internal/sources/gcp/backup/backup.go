@@ -42,7 +42,7 @@
 // Auth: Application Default Credentials with the cloud-platform scope
 // (Backup and DR exposes no dedicated read-only scope); restrict access at
 // the IAM layer with roles/backupdr.viewer (grants backupdr.backupPlans.
-// list/get). See docs/configuration.md §GCP. The real adapter wraps
+// list/get). See docs/reference/sources.md#gcp. The real adapter wraps
 // *backupdr.Service and unit tests inject an in-memory fake via the API
 // interface seam.
 package backup

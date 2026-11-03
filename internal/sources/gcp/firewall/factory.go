@@ -14,7 +14,7 @@ func init() {
 
 // build constructs the gcp.firewall plugin from config. Firewalls are
 // project-scoped: project_id is required. Credentials come from ADC with
-// the read-only Compute scope (see docs/configuration.md §GCP).
+// the read-only Compute scope (see docs/reference/sources.md#gcp).
 func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
 	projectID := sources.StringOpt(env.Config, "project_id")
 	if projectID == "" {

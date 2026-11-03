@@ -14,7 +14,7 @@ func init() {
 
 // build constructs the azure.aks plugin from config. AKS is an ARM-plane source,
 // so subscription_id is required (ParseConfig true). Credentials come from the
-// shared DefaultAzureCredential (see docs/configuration.md §Azure).
+// shared DefaultAzureCredential (see docs/reference/sources.md#azure).
 func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
 	cfg, err := azcommon.ParseConfig(env.Config, true)
 	if err != nil {

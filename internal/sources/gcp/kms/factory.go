@@ -14,7 +14,7 @@ func init() {
 
 // build constructs the gcp.kms plugin from config. Keys are project-scoped:
 // project_id is required. Credentials come from ADC with the cloudkms scope
-// (see docs/configuration.md §GCP).
+// (see docs/reference/sources.md#gcp).
 func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
 	projectID := sources.StringOpt(env.Config, "project_id")
 	if projectID == "" {
