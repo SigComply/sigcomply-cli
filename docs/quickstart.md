@@ -1,8 +1,8 @@
 # Quickstart
 
-In this tutorial you run SigComply on your own machine with no cloud account and no
-credentials. You make one manual-evidence policy pass by adding a document, verify the signed
-evidence, and watch verification fail after you change a file. The checks send nothing anywhere.
+Run SigComply on your own machine with no cloud account and no credentials. You make one
+manual-evidence policy pass by adding a document, verify the signed evidence, and watch
+verification fail after you change a file. The checks send nothing anywhere.
 To see how the pieces fit together first, read [How SigComply works](how-it-works.md).
 
 ## Before you start
@@ -21,9 +21,7 @@ sigcomply version
 ```
 
 The script installs the latest release into `/usr/local/bin` and runs `sudo` if it can't write
-there. To install somewhere else, set `SIGCOMPLY_INSTALL_DIR` for the `sh` that runs the script
-(`... | SIGCOMPLY_INSTALL_DIR="$HOME/bin" sh`) and add that folder to your `PATH`. Other options
-are in [Install](guides/install.md).
+there. [Install](guides/install.md) covers other folders and pinned versions.
 
 ## 2. Create a project with only the manual-evidence source
 
@@ -64,7 +62,7 @@ sources:
 ```
 
 `manual.pdf` reads documents from `./evidence/manual/` (`manual/` is the default prefix inside
-that folder). The `vault:` block further down points at `./.sigcomply/vault`.
+that folder).
 
 ## 3. Run a check
 
@@ -144,13 +142,16 @@ The summary now shows one pass, and the policy's line reads:
 
 ```
   pass=1 fail=51 carried=0 skip=81 error=0 na=0 waived=0
+  of 1 passing: 0 verified by inspection, 1 by document presence
+  a document-presence pass means the file was there, not that its contents were checked
+  `sigcomply report --view coverage` shows which controls rest on which
   ...
   [pass] soc2.a1.2.business_continuity_plan — A1.2
 ```
 
 The CLI checked that a supported file is in the folder for the period, merged it into one PDF,
-and signed a record of its hash. It did not read the file. Judging what a document says is your
-auditor's job. The run still exits `1`, because the other manual policies still fail.
+and signed a record of its hash. Judging what a document says is your auditor's job. The run
+still exits `1`, because the other manual policies still fail.
 
 ## 5. Verify the evidence
 
@@ -222,9 +223,9 @@ write-once storage. [How SigComply works](how-it-works.md#signing-and-verificati
 ## 7. Optional: add an AWS account
 
 To see automated checks, you need AWS credentials with read-only access to one account, for
-example a user or role with the AWS managed policies `SecurityAudit` and `ViewOnlyAccess`. Sources only read:
-SigComply makes read calls, plus `iam:GenerateCredentialReport`, which asks AWS to build the
-account's credential report. The [source reference](reference/sources.md) lists every API action.
+example a user or role with the AWS managed policies `SecurityAudit` and `ViewOnlyAccess`.
+SigComply makes only read calls, plus `iam:GenerateCredentialReport`, which asks AWS to build
+the account's credential report. The [source reference](reference/sources.md) lists every API action.
 
 Export the credentials in your shell:
 
@@ -262,7 +263,7 @@ variables aren't set in this shell.
 ## Next steps
 
 - [Run SigComply in CI](getting-started.md): run SigComply on a schedule with a bucket vault,
-  and optionally send counts to the SigComply Cloud dashboard.
+  and optionally send counts to the SigComply dashboard.
 - [How SigComply works](how-it-works.md): what each run does, what leaves your pipeline, and the
   limits of the signatures.
 - [Manual evidence](guides/manual-evidence.md): folder names, file types, upload windows and the

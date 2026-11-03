@@ -306,9 +306,9 @@ the GitHub one through the release gate on the prerelease, then daily on `latest
 | Config key or env var | `docs/architecture/08-project-config.md` if the design changes | `docs/configuration.md`, the guide that uses it |
 | Source plugin | [recipes.md](./recipes.md), `docs/architecture/04-source-plugins.md` (matrix and per-plugin table), `docs/architecture/12-multicloud-sources.md` | `docs/reference/sources.md`, `docs/guides/configure-sources.md`, `README.md` if the provider list changes |
 | Policy, control mapping or framework | `docs/architecture/03-policy-spec.md` if the DSL changes | `docs/reference/frameworks.md` and every doc `TestDocFiguresMatchCode` names |
-| Manual evidence, catalog, fan-out | `docs/architecture/14-manual-evidence.md` | `docs/guides/manual-evidence.md`, `docs/guides/vendor-risk.md`, `docs/guides/isms-clauses.md`, `docs/reference/sources.md` §Manual evidence |
-| Signing, vault layout, `report` | `docs/architecture/05-vault-layout.md`, `SECURITY.md` (threat model owner) | `docs/guides/verify-evidence.md`, `docs/concepts.md` |
-| Cloud payload, aggregation, OIDC | `docs/architecture/06-aggregation.md`, [auth.md](./auth.md), the AGENTS.md cross-repo table; note the matching Rails change | `docs/guides/cloud-dashboard.md`, `docs/concepts.md` |
+| Manual evidence, catalog, fan-out | `docs/architecture/14-manual-evidence.md` | `docs/guides/manual-evidence.md`, `docs/guides/vendor-risk.md`, `docs/guides/isms-clauses.md`, `docs/reference/sources.md` §Manual evidence, `docs/how-it-works.md` and `docs/concepts.md` if they summarise what changed |
+| Signing, vault layout, `report` | `docs/architecture/05-vault-layout.md`, `SECURITY.md` (threat model owner) | `docs/guides/verify-evidence.md`, `docs/concepts.md`, `docs/how-it-works.md` |
+| Cloud payload, aggregation, OIDC | `docs/architecture/06-aggregation.md`, [auth.md](./auth.md), the AGENTS.md cross-repo table; note the matching Rails change | `docs/guides/cloud-dashboard.md`, `docs/concepts.md`, `docs/how-it-works.md` (the sent/stays table) |
 | Cadence, periods, CI scaffolding | `docs/architecture/10-cadence-model.md`, `docs/architecture/09-ci-execution-model.md` | `docs/guides/ci-github.md`, `docs/guides/ci-gitlab.md`, `examples/` |
 | Identity roster | `docs/architecture/03-policy-spec.md`, [recipes.md](./recipes.md) | `docs/guides/identity-roster.md` |
 | Errors and exit codes | `docs/architecture/09-ci-execution-model.md` §Results and exit codes | `docs/reference/commands.md`, `docs/guides/troubleshooting.md`, `docs/for-ai-agents.md`, `llms.txt` |

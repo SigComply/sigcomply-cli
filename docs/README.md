@@ -10,7 +10,7 @@ it? Start with the [Quickstart](quickstart.md).
 | Page | What you do |
 |---|---|
 | [Quickstart](quickstart.md) | Run a first check on your machine with no cloud account, add one document and verify the signed evidence |
-| [Run SigComply in CI](getting-started.md) | Move the project to CI with a bucket vault, AWS OIDC and, optionally, the SigComply Cloud dashboard |
+| [Run SigComply in CI](getting-started.md) | Move the project to CI with a bucket vault, AWS OIDC and, optionally, the SigComply dashboard |
 
 ## How-to guides
 
@@ -24,8 +24,8 @@ it? Start with the [Quickstart](quickstart.md).
 | [Manual evidence](guides/manual-evidence.md) | Upload documents to the right folder, and build declaration PDFs with the Evidence SPA |
 | [Vendor and third-party risk](guides/vendor-risk.md) | Declare your vendors and collect assurance documents per vendor |
 | [ISMS clauses and the SoA](guides/isms-clauses.md) | Cover ISO 27001's clause 4-10 requirements and generate the Statement of Applicability |
-| [Cloud dashboard](guides/cloud-dashboard.md) | Connect a repository to SigComply Cloud and invite your auditor |
-| [Verify evidence](guides/verify-evidence.md) | Check signatures, coverage and scope with `sigcomply report` and the `/verify` page |
+| [Cloud dashboard](guides/cloud-dashboard.md) | Connect a repository to the SigComply dashboard and invite your auditor |
+| [Verify evidence](guides/verify-evidence.md) | Check signatures with `sigcomply report` and the `/verify` page |
 | [Troubleshooting](guides/troubleshooting.md) | Fix common errors |
 
 ## Reference
@@ -42,8 +42,8 @@ it? Start with the [Quickstart](quickstart.md).
 
 | Page | Topic |
 |---|---|
-| [How SigComply works](how-it-works.md) | One run from start to finish, manual evidence, signing and its limits, what leaves your pipeline, what SigComply Cloud adds |
-| [Concepts](concepts.md) | What SigComply does and doesn't do, the two evidence flows, what leaves your environment, signing and its limits, what the score hides |
+| [How SigComply works](how-it-works.md) | What one run does, what leaves your pipeline, what the signatures prove, what the dashboard adds |
+| [Concepts](concepts.md) | For auditors and reviewers: what SigComply doesn't do, the two evidence flows, how policies find sources, the limits of the signatures and the score |
 | [SECURITY.md](../SECURITY.md) | Threat model and how to report a vulnerability |
 
 ## For AI agents

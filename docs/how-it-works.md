@@ -4,8 +4,8 @@ SigComply is a CLI, `sigcomply`, that runs as a step in your CI pipeline. It rea
 from your cloud and SaaS accounts with the credentials the pipeline already has, checks that the
 documents your auditor expects are in a folder you own, and evaluates SOC 2 or ISO 27001 policies
 against both. It signs every piece of evidence and writes it, with the results, to a bucket you
-own: the vault. Nothing leaves your pipeline unless you turn on SigComply Cloud, and then only
-pass/fail counts per policy and details of the run, such as the repository and commit.
+own: the vault. Nothing leaves your pipeline unless you turn on the SigComply dashboard, and then
+only pass/fail counts per policy and details of the run, such as the repository and commit.
 
 ```
   Your CI pipeline (GitHub Actions or GitLab CI)
@@ -22,8 +22,8 @@ pass/fail counts per policy and details of the run, such as the repository and c
                                 |                 :
                                 v                 : counts only, optional
               Your bucket (the vault)             v
-              signed evidence, results,      SigComply Cloud
-              merged PDFs, manifest.json     (dashboard, reports)
+              signed evidence, results,      SigComply dashboard
+              merged PDFs, manifest.json     (run history, reports)
 ```
 
 You can try all of this on your laptop with no cloud account: see the [Quickstart](quickstart.md).
@@ -36,58 +36,43 @@ You can try all of this on your laptop with no cloud account: see the [Quickstar
    picks the policies to evaluate (all of them, or with `--scheduled` the ones that are due),
    and binds each policy to the configured sources that can feed it.
 2. Collect. Each source reads its provider's API and returns evidence records. The CLI checks
-   every record against the JSON Schema of its evidence type, then signs the records and writes
-   them to the vault. If a source fails or returns a record that doesn't match its schema, the
-   policy that needed it gets the status `error`.
+   every record against the schema of its evidence type, then signs the records and writes them
+   to the vault. If a source fails or returns a record that doesn't match its schema, the policy
+   that needed it gets the status `error`.
 3. Evaluate. Each policy runs against the records it was bound to and gets a status: pass,
    fail, skip, error, not applicable, waived, or carried forward from an earlier run.
 4. Write results. The CLI writes each policy's `result.json`, a `summary.json`, and a signed
    `manifest.json` that lists the SHA-256 hash of every file in the run.
-5. Submit (optional). If cloud submission is on, the CLI sends counts to SigComply Cloud.
+5. Submit (optional). If the dashboard is turned on, the CLI sends counts to it.
 6. Exit. The exit code tells CI what happened.
 
-| `check` exit code | Meaning |
-|---|---|
-| `0` | No policy failed |
-| `1` | A policy failed (a violation) |
-| `2` | Execution error, for example a policy with status `error` or a failed vault write |
-| `3` | Configuration error, for example an invalid `.sigcomply.yaml` |
-
-When a run has both an error and a failed policy, it exits `2`. A violation fails the build by
-default. To keep the build green while policies fail, set `ci.fail_on_violation: false`; it
-doesn't change exit `2` or `3`. [Commands](reference/commands.md#exit-codes) has the full rules.
+`check` exits `1` when a policy fails, which fails the CI job, `2` on an execution error and `3`
+on a configuration error. Set `ci.fail_on_violation: false` to keep the job green while policies
+fail. [Commands](reference/commands.md#exit-codes) has the full rules.
 
 ## Automated evidence
 
 Credentials stay in your pipeline: an AWS role the job assumes through OIDC, or secrets stored
-in your CI. SigComply never receives them. You list the sources to read under `sources:` in
-`.sigcomply.yaml`; having a credential is not enough for the CLI to use it.
+in your CI. SigComply never receives them.
 
-Sources make read calls only. One exception: `aws.iam` calls `iam:GenerateCredentialReport`,
-which asks AWS to build the account's credential report before the CLI reads it. Every API
-action each source calls is in [Sources](reference/sources.md).
+Sources only read. [Sources](reference/sources.md) lists every API action each one calls,
+including the one that asks AWS to build its IAM credential report.
 
-Each source turns the provider's responses into normalized evidence records of a named type,
-such as `directory_user` for a user account in AWS IAM, Okta or Google Workspace. The vault
-stores those records, not the provider's responses as returned. This is what lets one policy,
-"MFA enforced for all users", work with any identity provider.
-
-The shipped policies are declarative definitions written in Go, so you can read exactly what
-each one checks in the source code. Rego (the Open Policy Agent language) is only for
-policies you add to your own project.
+Each source turns the provider's responses into normalized evidence records of a named type. The
+vault stores those records, not the provider's responses as returned. Because policies ask for
+evidence types rather than named sources, one policy works with any source that emits the type
+([Concepts](concepts.md#policies-and-sources-meet-through-evidence-types)).
 
 A policy that no configured source can feed is skipped. A skipped policy is left out of the
-compliance score, so a missing source raises the score instead of lowering it. `check` lists every skipped
-policy and the evidence type it needs. [Concepts](concepts.md#what-the-score-does-not-tell-you)
-explains this in detail.
+compliance score, so a missing source raises the score instead of lowering it. `check` lists every
+skipped policy and the evidence type it needs.
+[Concepts](concepts.md#what-the-score-does-not-tell-you) explains this in detail.
 
 ## Manual evidence
 
 Some controls have no API to ask: a signed NDA policy, a business continuity plan, a training
-record. The framework's catalog lists one entry per document the auditor expects. Each entry
-has a type: `document_upload` (a file you produce elsewhere), `declaration` or `checklist`.
-
-You put the files for an entry in a folder named after the entry and its period:
+record. The framework's catalog lists one entry per document the auditor expects. You put the
+files for an entry in a folder named after the entry and its period:
 
 ```
 <prefix><catalog_id>/<period>/
@@ -96,42 +81,34 @@ manual/access_review_quarterly/2026-Q4/     # quarterly entry
 ```
 
 The default prefix is `manual/`, in the storage configured for the `manual.pdf` source. Each
-entry has its own period: a calendar year for annual entries, a quarter for quarterly ones,
-with a grace period after it ends for late uploads (15 days for quarterly entries, 30 days
-for the others). Supported file types are PDF, JPEG
-(`.jpg`, `.jpeg`), PNG, GIF, TIFF (`.tif`, `.tiff`), WebP and BMP.
+entry has its own period, such as a calendar year for annual entries or a quarter for quarterly
+ones, and you upload within that period
+([Upload the files](guides/manual-evidence.md#3-upload-the-files)).
 
-For each entry, the CLI checks that:
-
-- a supported file is in the folder,
-- the latest file was uploaded within the period plus its grace period,
-- the files are not byte-identical to the previous period's.
-
-The CLI converts images to PDF and merges every file into one PDF, then runs basic checks that
-the result is a valid PDF. It records the SHA-256 hash of each original file and of the merged
-PDF in a signed evidence record, and stores the merged PDF in the vault next to it.
+For each entry, the CLI checks that the right files are in the folder for the period, merges them
+into one PDF and signs a record of their hashes. The merged PDF goes into the vault next to the
+record. [Concepts](concepts.md#the-two-evidence-flows) lists the exact checks.
 
 The CLI never reads or judges what a document says. A policy passes when the right files are in
 the right folder at the right time. Whether the content meets the control is your auditor's
 decision.
 
-To see which folders are still empty, run `sigcomply evidence due`. For `declaration` and
-`checklist` entries, the [Evidence SPA](https://sigcomply.github.io/sigcomply-evidence-spa/)
-renders a form and turns your answers into a PDF in your browser. It uploads nothing; you put the
-PDF in the folder yourself. [Manual evidence](guides/manual-evidence.md) has the details.
+To see which folders are still empty, run `sigcomply evidence due`. For entries that are a form,
+the [Evidence SPA](https://sigcomply.github.io/sigcomply-evidence-spa/) turns your answers into a
+PDF in your browser. It uploads nothing; you put the PDF in the folder yourself.
+[Manual evidence](guides/manual-evidence.md) has the details.
 
 ## Signing and verification
 
-The CLI signs each evidence file with Ed25519, using a new key pair for every signature. It
-stores the public key and the signature inside the file and discards the private key. Each run
-also writes `manifest.json` with the SHA-256 hash of every file in the run, signed the same way.
+The CLI signs each evidence file with Ed25519, using a new key pair for every signature, and
+keeps the public key and the signature inside the file. Each run also writes a signed
+`manifest.json` with the SHA-256 hash of every file in the run.
 
 You can verify evidence two ways:
 
-- `sigcomply report --period <id> --view integrity`, where `<id>` is the run period such as
-  `2026-Q4`, re-hashes every file in the period's runs,
-  checks each manifest signature, and flags files that are missing or that the manifest does not
-  list.
+- `sigcomply report --period 2026-Q4 --view integrity` re-hashes every file in the period's runs
+  and checks each manifest signature. It also flags files that are missing or that the manifest
+  doesn't list.
 - The [`/verify` page](https://sigcomply.github.io/sigcomply-evidence-spa/verify) checks one
   envelope, and its merged PDF for a manual policy, in your browser. Nothing is uploaded.
 
@@ -139,24 +116,18 @@ What this proves: a file changed or removed after the run fails verification.
 
 What it does not prove: who signed the file. The public key travels in the file, so anyone with
 write access to your bucket can replace a file and sign it again with a new key, and the result
-looks like an original. Runs are not chained to each other either. To protect evidence against
-deliberate changes, make the bucket write-once: S3 Object Lock, GCS Bucket Lock, or Azure
-immutable blob storage. The CLI doesn't configure that for you. [SECURITY.md](../SECURITY.md)
-has the threat model.
+looks like an original. To protect evidence against deliberate changes, make the bucket
+write-once (for example S3 Object Lock). The CLI doesn't configure that for you.
+[Limits of the signatures](concepts.md#limits-of-the-signatures) and [SECURITY.md](../SECURITY.md)
+have the details.
 
 ## What leaves your pipeline
 
-Nothing, unless all of these hold:
+Nothing leaves your pipeline unless you set `cloud.base_url` and `cloud.project_id` in
+`.sigcomply.yaml`. Even then, only full runs in GitHub Actions or GitLab CI (or with `--cloud`) submit
+([Commands](reference/commands.md#sigcomply-check) has the exact rule).
 
-- `cloud.base_url` is set in `.sigcomply.yaml` (or `--cloud-url` is passed),
-- `cloud.project_id` is set,
-- the run can get an OIDC token: it runs in GitHub Actions or GitLab CI, or you pass `--cloud`,
-- the run covers every policy: `sigcomply check` with no filter, or `--scheduled`,
-- you didn't pass `--no-cloud`.
-
-[Commands](reference/commands.md#sigcomply-check) has the full rule.
-
-| Sent to SigComply Cloud | Stays in your pipeline and bucket |
+| Sent to the SigComply dashboard | Stays in your pipeline and bucket |
 |---|---|
 | Each policy's ID, controls, status and counts (resources evaluated, resources failed) | Evidence records and envelopes |
 | Run summary counts and compliance score | Uploaded documents and merged PDFs |
@@ -165,37 +136,26 @@ Nothing, unless all of these hold:
 | CLI version and a link to the CI run | Each run's `manifest.json` and `result.json` |
 | | Your credentials |
 
-The exact field list is the `SubmissionPayload` type in
-[`internal/core/cloud.go`](../internal/core/cloud.go); it has no free-form fields and no list of
-failing resources, and a test fails the build if one is added. To see what a run would send without sending it, run
-`sigcomply check --capture-cloud-payload payload.json`. [Cloud dashboard](guides/cloud-dashboard.md)
-covers setup.
+The `SubmissionPayload` type in [`internal/core/cloud.go`](../internal/core/cloud.go) is the
+exact field list. It has no free-form fields and no list of failing resources, and a test fails
+the build if one is added. To see what a run would send without sending it, run
+`sigcomply check --capture-cloud-payload payload.json`.
 
-## SigComply Cloud
+## The SigComply dashboard
 
-SigComply Cloud is the paid dashboard, with a free trial. It works only from the counts above.
-
-- It keeps every submitted run for each project.
-- It builds reports (Compliance Summary, Drift Analysis, Control Matrix) as PDF, CSV or JSON
-  over a date range you choose, for example your audit window.
-- It has an auditor portal: you grant an auditor read-only access to one project, optionally
-  with an expiry date.
-- It emails your organization's owner when a project's scheduled checks stop arriving.
+The dashboard works only from the counts above. Your runs are always recorded. Without a plan,
+the dashboard shows each project's latest status and the last 30 days of runs. SigComply Cloud
+(paid, with a 2-month free trial) adds full run history, reports over your audit window (PDF, CSV
+or JSON), the Audit-window view, the auditor portal and an email when scheduled runs stop
+arriving. [Cloud dashboard](guides/cloud-dashboard.md) covers setup and plans.
 
 The ISO 27001 Statement of Applicability doesn't need SigComply Cloud: the CLI produces it for
 free with `sigcomply report --view soa`.
 
-## What SigComply doesn't do
+## Further reading
 
-- Vendor security reviews, security awareness training, device monitoring or background checks.
-  It checks that the documents these produce are on file.
-- A public trust center.
-- The audit. An auditor decides whether you are compliant; SigComply collects evidence and
-  evaluates policies.
-
-## Implementation details
-
-- [Concepts](concepts.md): evidence flows, how policies bind to sources, the limits of the score.
+- [Concepts](concepts.md): what SigComply doesn't do, the evidence flows, how policies bind to
+  sources, the limits of the signatures and the score.
 - [Commands](reference/commands.md) and [Configuration](configuration.md): every command, flag
   and config key.
 - [SECURITY.md](../SECURITY.md): threat model and how to report a vulnerability.

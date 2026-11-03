@@ -1,30 +1,32 @@
 # Run SigComply in CI
 
-In this tutorial you take a SigComply project into CI. It assumes you ran the
-[Quickstart](quickstart.md); you start again in your repository. By the end,
-SigComply runs on a schedule, stores signed evidence in a bucket you own, and, if you choose,
-sends counts to the SigComply Cloud dashboard. The examples use AWS and GitHub Actions; GitLab
-differences are noted where they apply. [How SigComply works](how-it-works.md) explains what
-each run does and what leaves your pipeline.
+Take SigComply from your laptop into CI. By the end, it runs every day in your repository's
+pipeline and writes signed evidence to an S3 bucket you own. You can also send counts to the
+SigComply dashboard. The examples use AWS and GitHub Actions; GitLab differences are noted where
+they apply. Work in the repository you want to check, not the [Quickstart](quickstart.md) folder.
 
 ## Before you start
 
 You need:
 
-- A GitHub or GitLab repository for this project. One repository holds one framework.
+- A GitHub or GitLab repository for this project. Each repository checks one framework.
 - The `sigcomply` CLI installed locally ([Install](guides/install.md)).
 - An AWS account where you can create an IAM role and an S3 bucket.
-- For the dashboard only: a SigComply Cloud account on the paid plan or in its free trial. The
-  first submission from a new organization starts the trial.
+- For the optional dashboard only: an account at [sigcomply.com](https://sigcomply.com).
 
-A run exits `1`, which fails the CI job, while any policy fails. On a new project that includes
-every manual policy until its document is on file. [Step 5](#5-run-it) shows how to keep the job
-green while you upload them.
+## 1. Create an evidence bucket
 
-## 1. Commit a config
+For evidence an auditor relies on, turn on S3 Object Lock, or versioning with MFA delete, before
+you store evidence in the bucket. Without it, anyone who can write to the bucket can replace a
+signed file and sign it again ([Limits of the signatures](concepts.md#limits-of-the-signatures)).
 
-Create the S3 bucket for evidence first, in the AWS console or with
-`aws s3 mb s3://<your-evidence-bucket> --region us-east-1`.
+Create the bucket in the AWS console or with:
+
+```sh
+aws s3 mb s3://<your-evidence-bucket> --region us-east-1
+```
+
+## 2. Commit a config
 
 In the root of the repository, scaffold the config if you haven't already, then edit it:
 
@@ -37,7 +39,7 @@ Change two things in `.sigcomply.yaml`:
 1. Under `sources:`, list every source you want evidence from. The CLI only reads sources you
    list here; having credentials isn't enough. Per-source keys and permissions are in
    [Sources](reference/sources.md).
-2. Point `vault:` and `manual.pdf` at a bucket instead of local folders, so evidence survives
+2. Point `vault:` and `manual.pdf` at the bucket instead of local folders, so evidence survives
    the CI job:
 
    ```yaml
@@ -57,37 +59,7 @@ Change two things in `.sigcomply.yaml`:
      prefix: sigcomply/
    ```
 
-   For evidence an auditor relies on, turn on S3 Object Lock or versioning on that bucket.
-   [Concepts](concepts.md#limits-of-the-signatures) explains why.
-
 Commit the file.
-
-## 2. Turn on cloud submission (dashboard users only)
-
-Skip this step if you don't use SigComply Cloud. The CLI then keeps everything in your bucket
-and sends nothing.
-
-1. Sign up at [sigcomply.com](https://sigcomply.com) and connect the repository by its URL. See
-   [Cloud dashboard](guides/cloud-dashboard.md).
-2. Copy the **Project ID** from the project's page on the dashboard.
-3. Add this block to `.sigcomply.yaml`, with your Project ID, and commit it:
-
-   ```yaml
-   cloud:
-     base_url: https://sigcomply.com
-     project_id: prj_7Xq2mKp9RtV4wNc8Bz3a   # your Project ID
-   ```
-
-The base URL is `https://sigcomply.com`. The OIDC audience of the token the CLI sends,
-`https://api.sigcomply.com`, is a fixed identifier, not a web address, so the two differ on
-purpose.
-
-Without `cloud.base_url`, the CLI never submits, even in CI. With it, the CLI submits when it
-runs in GitHub Actions or GitLab CI and can get an OIDC token. No API key or secret is involved.
-The project ID is not a secret: it tells SigComply Cloud which project the runs belong to. When a
-run that submits has a cloud URL and no `cloud.project_id`, `check` stops with exit `3` before it
-collects anything, locally too. Runs with `--no-cloud` and filtered runs (`--cadence`,
-`--cadences`, `--on-push`, `--pr`) never submit, so they don't need it.
 
 ## 3. Scaffold the CI workflows
 
@@ -98,11 +70,10 @@ sigcomply init-ci --ci github
 ```
 
 This writes two workflows to `.github/workflows/`. `compliance-scheduled.yml` runs
-`sigcomply check --scheduled` every day at 02:00 UTC: it evaluates the policies that are due and
-carries the rest forward, so each run covers every policy. It also runs
-`sigcomply evidence due --within-days 30`, which lists documents still missing whose period ends
-within 30 days and never fails the job. `compliance-on-push.yml` runs `sigcomply check --pr` on
-pull requests and pushes to `main`.
+`sigcomply check --scheduled` every day at 02:00 UTC. It evaluates the policies that are due and
+carries the rest forward, so each run covers every policy. `compliance-on-push.yml` runs
+`sigcomply check --pr` on pull requests and pushes to `main`.
+[CI on GitHub](guides/ci-github.md) describes both workflows.
 
 For GitLab CI, run `sigcomply init-ci --ci gitlab`. It writes one `.gitlab-ci.yml`; you then
 create one daily pipeline schedule. See [CI on GitLab](guides/ci-gitlab.md).
@@ -113,7 +84,7 @@ create one daily pipeline schedule. See [CI on GitLab](guides/ci-gitlab.md).
 ## 4. Let CI assume an AWS role
 
 The workflows get AWS credentials through OIDC, not stored keys. AWS gets its own OIDC token,
-with the audience `sts.amazonaws.com`; the token for SigComply Cloud has the audience
+with the audience `sts.amazonaws.com`; the token for the SigComply dashboard has the audience
 `https://api.sigcomply.com`, and no AWS role may trust that one. In AWS:
 
 1. Create an IAM OIDC identity provider for your CI host (`token.actions.githubusercontent.com`
@@ -133,20 +104,18 @@ policies, the bucket permissions and the full setup.
 
 ## 5. Run it
 
+The first scheduled run evaluates every policy, and the job fails (exit `1`) while any policy
+fails. On a new project that includes every document policy until its document is uploaded. To
+keep the job green meanwhile, set `ci.fail_on_violation: false` in `.sigcomply.yaml` before you
+push. Exit codes are listed in [Commands](reference/commands.md#exit-codes).
+
 Commit the workflows and push. Then start the scheduled workflow by hand from the **Actions**
 tab (it has a `workflow_dispatch` trigger), or wait for its schedule.
 
-The first scheduled run evaluates every policy. In the job log, `check` prints a summary line
-with the framework and the period, then one line per policy. The job fails (exit `1`) while any of those policies fails. To keep
-the job green on failing policies, set `ci.fail_on_violation: false` in `.sigcomply.yaml`. Exit
-codes are listed in [Commands](reference/commands.md#exit-codes).
-
-Document policies are part of every scheduled run. Until a document is uploaded for the
-current period, its policy fails, and it is checked again on each daily run. Once it passes, it
-carries forward until its cadence (annual or quarterly in the shipped catalogs) comes due again.
-
-If you turned on cloud submission, the run appears on the dashboard. The first submission from
-a new organization starts its trial; see [Cloud dashboard](guides/cloud-dashboard.md).
+In the job log, `check` prints a summary line with the framework and the period, then one line
+per policy. A document policy fails until its document is uploaded for the current period, and
+each daily run checks it again. Once it passes, it carries forward until its cadence (annual or
+quarterly in the shipped catalogs) comes due again.
 
 ## 6. Upload manual evidence
 
@@ -159,13 +128,31 @@ sigcomply evidence due --all
 ```
 
 Each row names a folder such as `s3://<your-evidence-bucket>/manual/nda_policy/2026/`. Upload
-one or more PDF or image files there during the period. The next scheduled run checks that a
-file is present for the period, merges the files into one PDF to validate them, and signs a
-record of each file's hash. It does not read the content. Start the scheduled workflow by hand to
-see the result right away.
+one or more PDF or image files there during the period. The next scheduled run picks them up;
+start the scheduled workflow by hand to see the result right away.
 
 [Manual evidence](guides/manual-evidence.md) covers folder names, file formats, the Evidence
 SPA form helper and upload windows.
+
+## 7. Optional: send counts to the SigComply dashboard
+
+Without this step, the CLI keeps everything in your bucket and sends nothing.
+
+1. Sign up at [sigcomply.com](https://sigcomply.com) and connect the repository by its URL. See
+   [Cloud dashboard](guides/cloud-dashboard.md).
+2. Copy the **Project ID** from the project's page on the dashboard.
+3. Add this block to `.sigcomply.yaml`, with your Project ID, and commit it:
+
+   ```yaml
+   cloud:
+     base_url: https://sigcomply.com
+     project_id: prj_7Xq2mKp9RtV4wNc8Bz3a   # your Project ID
+   ```
+
+In CI the CLI signs in with the pipeline's OIDC token, so you add no API key or secret. The
+Project ID isn't a secret. Only the scheduled run sends counts. The next one appears on the
+dashboard, and your organization's first submitted run starts its SigComply Cloud trial.
+[Cloud dashboard](guides/cloud-dashboard.md) has the rules and the plan details.
 
 ## Next steps
 
