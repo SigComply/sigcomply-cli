@@ -7,35 +7,9 @@ the [configuration reference](../configuration.md). Setup steps are in
 [Configure sources](../guides/configure-sources.md).
 
 Every source only reads. Each one resolves its credentials before collection starts; a listed
-source with no usable credentials stops the run with exit code `3`. A policy accepts evidence
-types, not sources, so any source that emits a type a policy accepts can satisfy it.
-
-## Source caveats
-
-These fields are emitted with a default value (almost always `false`) because the source cannot
-read them. The default can fail a policy but never pass one. When a policy reads one, the plan
-prints a `source-caveat:` warning naming the policies and, where another bound source can answer,
-the `bindings:` entry that pins the slot to it. Caveats never change a status, a count, or the
-score.
-
-An absolute caveat means no API exposes the value; record an exception or upload manual evidence.
-A conditional caveat means a more privileged token or a higher product tier can read it.
-
-| Source | Field | Kind | Why |
-|---|---|---|---|
-| `aws.identity_center` | `directory_user.mfa_enabled` | Absolute | AWS publishes no per-user MFA API for Identity Center. |
-| `github` | `source_control_org_policy.two_factor_required` | Conditional | GitHub returns the org 2FA requirement only to a token with `admin:org`. |
-| `gitlab` | `directory_user.mfa_enabled` | Absolute on gitlab.com | GitLab returns a member's 2FA state only to an instance administrator. A group-owner token does not see it, so on gitlab.com the field is always `false`. On self-managed GitLab an instance-admin token reads it. |
-| `gitlab` | `git_repository.secret_scanning_enabled` | Absolute | Secret Detection is configured in `.gitlab-ci.yml`; no settings API exposes it. |
-| `gitlab` | `git_repository.code_scanning_enabled` | Absolute | Same, for SAST. |
-| `gitlab` | `git_repository.dependabot_alerts_enabled` | Absolute | Same, for Dependency Scanning. |
-| `gitlab` | `git_repository.requires_signed_commits` | Conditional | A Premium push rule; on Free, or with no push rule, the read returns 404. |
-| `gitlab` | `git_repository.require_code_owner_reviews` | Conditional | A Premium protection setting; on Free, or with no exact-name rule on the default branch, it reads `false`. |
-| `gitlab` | `git_repository.required_reviewers_count` | Conditional | Approval rules are Premium; on Free the count reads `0`. |
-| `azure.keyvault` | `secret.rotation_enabled` | Absolute | Key Vault has no API-readable secret rotation policy. |
-| `azure.cosmos` | `nosql_table.deletion_protection` | Absolute | Cosmos DB has no deletion-protection property; Azure uses resource locks, which this source does not read. |
-| `azure.sql` | `managed_database_instance.deletion_protection` | Absolute | Same, for Azure SQL and the PostgreSQL and MySQL flexible servers. |
-| `azure.monitor` | `audit_log_trail.kms_encrypted` | Absolute | The Activity Log exposes no customer-managed-key state. |
+source with no usable credentials stops the run with exit code `3`. The Emits columns list
+evidence types; a policy accepts any source that emits a type it reads. Fields a source cannot
+read are listed in [Source caveats](#source-caveats) at the end of this page.
 
 ## AWS
 
@@ -82,7 +56,8 @@ read the same data again.
 
 The AWS SDK default chain: environment variables, shared config and profile, web identity
 (OIDC in CI), then the instance or task role. With `role_arn`, the CLI calls `sts:AssumeRole` from
-those credentials, so the ambient principal needs that permission on the target role.
+those credentials, so the ambient principal needs that permission on the target role, and the
+target role's trust policy must allow it, with the `external_id` condition if you set one.
 
 ### Sources
 
@@ -118,8 +93,6 @@ Shipped policies that read user accounts accept both `directory_user` and `direc
 
 There is no fixed list of which `aws.*` sources a framework needs. The plan's `coverage-gap` warning lists every slot with no configured source and the evidence types it accepts; add the sources above that emit them.
 
-For `role_arn`, the target role's trust policy must allow the ambient principal to call `sts:AssumeRole`, with the `external_id` condition if you set one.
-
 ### Caveats
 
 - `aws.ec2` skips shutting-down and terminated instances, and any instance whose root volume
@@ -127,14 +100,16 @@ For `role_arn`, the target role's trust policy must allow the ambient principal 
 - `aws.iam` emits no email. To link IAM users to the [identity roster](../guides/identity-roster.md),
   add `experimental.roster.aliases` keyed by username, or list them in `non_human`. The root
   account is treated as non-human.
-- `aws.iam` takes `unused_days` from the most recent console sign-in or access-key use in the
-  credential report, which AWS refreshes at most every four hours. `has_console_access` is true
-  when the report's `password_enabled` is true or the user has signed in to the console. For any
-  other user, `aws.iam` calls `iam:GetLoginProfile`, so a password set after AWS generated the
-  report still counts. `direct_policy_count` counts managed and inline policies attached
-  to the user. `is_admin` is true only for the AWS-managed `AdministratorAccess` policy, attached
-  to the user or to one of its groups; an inline or customer-managed policy that grants the same
-  access is not detected.
+- `aws.iam` fields:
+  - `unused_days` comes from the most recent console sign-in or access-key use in the
+    credential report, which AWS refreshes at most every four hours.
+  - `has_console_access` is true when the report's `password_enabled` is true or the user has
+    signed in to the console. For any other user, `aws.iam` calls `iam:GetLoginProfile`, so a
+    password set after AWS generated the report still counts.
+  - `direct_policy_count` counts managed and inline policies attached to the user.
+  - `is_admin` is true only for the AWS-managed `AdministratorAccess` policy, attached to the user
+    or to one of its groups. An inline or customer-managed policy that grants the same access is
+    not detected.
 - The all-users MFA policies (`soc2.cc6.1.mfa_enforced_all_users`,
   `iso27001.8.5.mfa_enforced_all_users`) skip IAM users without console access, such as a CI user
   that has only access keys.
@@ -257,12 +232,10 @@ run `azure/login` with OIDC before `sigcomply check`; locally, run `az login`. A
 sources share one identity per run, so instances can only vary `subscription_id`.
 
 With `azure/login`, keep `AZURE_CLIENT_ID` and `AZURE_TENANT_ID` out of the `sigcomply check`
-step's environment, including workflow-level `env:`. Pass the IDs to `azure/login` as inputs
-instead. With `AZURE_CLIENT_ID` set and no `AZURE_CLIENT_SECRET`, the chain skips environment
-variables and asks the runner's managed identity endpoint for that client ID. GitHub-hosted
-runners are Azure VMs, so the endpoint answers `400 Identity not found`, the chain stops there
-and never reaches the Azure CLI session, and the run exits `3` with `no usable Azure
-credentials`.
+step's environment, including workflow-level `env:`, and pass the IDs to `azure/login` as inputs.
+Otherwise, with no `AZURE_CLIENT_SECRET`, the chain asks the runner's managed identity endpoint
+for that client ID. On GitHub-hosted runners it answers `400 Identity not found`, the chain never
+reaches the Azure CLI session, and the run exits `3` with `no usable Azure credentials`.
 
 ### Sources
 
@@ -303,8 +276,8 @@ Assign roles on the subscription.
 - `azure.entra` `roster_entry` excludes guest users.
 - `azure.certs` reads App Service certificates and certificate orders. It does not read Key
   Vault certificates.
-- `azure.sql` reads a server whose public network access flag ARM does not report as publicly
-  accessible, never as private.
+- If ARM does not report a server's public network access flag, `azure.sql` reads the server as
+  publicly accessible, never as private.
 - `azure.storage` skips FileStorage (Premium Files) accounts. They have no blob service, so
   they are not object storage.
 - `azure.monitor` reports the Activity Log as enabled and subscription-wide, and omits
@@ -342,8 +315,7 @@ Caveats:
 
 - Members carry no email. Link them to the [identity roster](../guides/identity-roster.md) with
   `experimental.roster.aliases` keyed by login, or list them in `non_human`.
-- Archived repositories are skipped: they emit no `git_repository` record, because their settings
-  cannot change without unarchiving them. Changes merged into them during the audit period still
+- Archived repositories are skipped: they emit no `git_repository` record. Changes merged into them during the audit period still
   emit `pull_request` records. Forks owned by the organization are read like any other repository.
 - Branch protection combines classic branch protection and repository or organization rulesets
   that apply to the default branch. A branch with neither counts as unprotected, with force-push
@@ -357,12 +329,11 @@ Caveats:
 - `pull_request` and `deployment` list only changes merged and deployments created in the audit
   period. The exception is the `changes` slot of the two
   `production_deploys_from_approved_changes` policies, which also reads changes merged in the 90
-  days before the period, so a deployment can trace to a change merged before it started. Each
-  merged change costs four API calls (details, reviews, check runs and commit
-  status) on top of the listing pages, and each deployment one. Every policy bound to the source
-  collects again, so a run costs that many calls once per bound policy, against GitHub's 5,000
-  requests per hour for a token (1,000 for `GITHUB_TOKEN` in Actions). A large organization can
-  hit the limit; the affected policies then report `error`.
+  days before the period, so a deployment can trace to a change merged before it started.
+- API cost: four calls per merged change (details, reviews, check runs and commit status) on top
+  of the listing pages, and one per deployment, repeated for each policy bound to the source. A
+  large organization can exceed GitHub's limit of 5,000 requests per hour for a token (1,000 for
+  `GITHUB_TOKEN` in Actions); the affected policies then report `error`.
 - The organization's Dependabot alerts are read as none only when GitHub answers that alerts are
   disabled. A token without access makes the vulnerability policies report `error`.
 - The org 2FA requirement needs `admin:org`. See [Source caveats](#source-caveats).
@@ -381,16 +352,16 @@ Source ID: `gitlab`. Emits `git_repository`, `directory_user`, `pull_request`, `
 Token lookup order: `token`, then `token_env`, then `GITLAB_TOKEN`. The token needs the `read_api`
 scope, and its user needs Maintainer on each project to read the default branch's protection. If
 that read is refused, the source stops with an error rather than report force pushes as
-forbidden. A default branch with no protection rule is reported as unprotected, with force pushes
-allowed, which is GitLab's behaviour. Member MFA is readable only by an instance-admin token on
-self-managed GitLab.
+forbidden.
 
 Caveats:
 
 - Seven fields depend on tier or token privilege, or have no API. See
   [Source caveats](#source-caveats).
-- On Free tier, approval rules read as zero required approvals. The approver list is readable on
-  Free, and GitLab records no approval time, so an approval counts as before the merge.
+- A default branch with no protection rule is reported as unprotected, with force pushes
+  allowed, which is GitLab's behaviour.
+- The approver list is readable on Free, and GitLab records no approval time, so an approval
+  counts as before the merge.
 - `required_reviewers_count` is the highest approval count among the rules that apply to the
   default branch: rules with no branch scope, rules for all protected branches when the default
   branch has its own protection rule, and rules that name the default branch. Rules scoped to
@@ -433,7 +404,7 @@ An `SSWS` API token acts with its owner's admin role. The owner must be able to 
 | `directory_user` | users and their admin role assignments (for `is_admin`) | `okta.users.read`, `okta.roles.read` |
 | `roster_entry` | users | `okta.users.read` |
 | `password_policy.v2` | password policies; a read-only administrator role works, `ORG_ADMIN` is the fallback | `okta.policies.read` |
-| `okta_app` | applications (`/api/v1/apps`) | none listed in the code |
+| `okta_app` | applications (`/api/v1/apps`) | not documented |
 
 Caveats:
 
@@ -504,11 +475,37 @@ policy to collect (all automated, carried forward, or excepted as a whole) does 
 
 Credentials come from the backend's provider chain, the same as the matching `aws.*`, `gcp.*` or
 `azure.*` sources. The source needs list and read access on the prefix; for `s3` that is
-`s3:ListBucket` and `s3:GetObject`. The `s3` vault needs `s3:ListBucket`, `s3:GetObject` and `s3:PutObject`.
+`s3:ListBucket` and `s3:GetObject`. Vault permissions are in the
+[configuration reference](../configuration.md#storage-backends).
 
 The CLI reads `{prefix}{evidence_catalog_id}/{period_id}/`, checks that a supported file is
-present and was uploaded in the entry's cadence window, merges the files into one PDF to validate
-them, and signs a record that carries each file's hash and the merged PDF's hash. It stores the
-merged PDF in the vault's run folder, listed in the signed run manifest. It does not read what
-the documents say. Folder layout and file types:
+present and was uploaded in the entry's cadence window, merges the files into one PDF, and signs
+a record of their hashes. It does not read what the documents say. Folder layout and file types:
 [Manual evidence](../guides/manual-evidence.md).
+
+## Source caveats
+
+These fields are emitted with a default value (almost always `false`) because the source cannot
+read them. The default can fail a policy but never pass one. When a policy reads one, the plan
+prints a `source-caveat:` warning naming the policies and, where another bound source can answer,
+the `bindings:` entry that pins the slot to it. The warning itself changes no status, count or
+score.
+
+An absolute caveat means no API exposes the value; record an exception or upload manual evidence.
+A conditional caveat means a more privileged token or a higher product tier can read it.
+
+| Source | Field | Kind | Why |
+|---|---|---|---|
+| `aws.identity_center` | `directory_user.mfa_enabled` | Absolute | AWS publishes no per-user MFA API for Identity Center. |
+| `github` | `source_control_org_policy.two_factor_required` | Conditional | GitHub returns the org 2FA requirement only to a token with `admin:org`. |
+| `gitlab` | `directory_user.mfa_enabled` | Absolute on gitlab.com | GitLab returns a member's 2FA state only to an instance administrator, so on gitlab.com the field is always `false`. On self-managed GitLab an instance-admin token reads it. |
+| `gitlab` | `git_repository.secret_scanning_enabled` | Absolute | Secret Detection is configured in `.gitlab-ci.yml`; no settings API exposes it. |
+| `gitlab` | `git_repository.code_scanning_enabled` | Absolute | Same, for SAST. |
+| `gitlab` | `git_repository.dependabot_alerts_enabled` | Absolute | Same, for Dependency Scanning. |
+| `gitlab` | `git_repository.requires_signed_commits` | Conditional | A Premium push rule; on Free, or with no push rule, the read returns 404. |
+| `gitlab` | `git_repository.require_code_owner_reviews` | Conditional | A Premium protection setting; on Free, or with no exact-name rule on the default branch, it reads `false`. |
+| `gitlab` | `git_repository.required_reviewers_count` | Conditional | Approval rules are Premium; on Free the count reads `0`. |
+| `azure.keyvault` | `secret.rotation_enabled` | Absolute | Key Vault has no API-readable secret rotation policy. |
+| `azure.cosmos` | `nosql_table.deletion_protection` | Absolute | Cosmos DB has no deletion-protection property; Azure uses resource locks, which this source does not read. |
+| `azure.sql` | `managed_database_instance.deletion_protection` | Absolute | Same, for Azure SQL and the PostgreSQL and MySQL flexible servers. |
+| `azure.monitor` | `audit_log_trail.kms_encrypted` | Absolute | The Activity Log exposes no customer-managed-key state. |

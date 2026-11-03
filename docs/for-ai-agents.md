@@ -9,9 +9,9 @@ in the linked reference pages; read them rather than guessing.
 - One repository holds one framework. The key is singular: `framework: soc2` or
   `framework: iso27001`. No other framework exists.
 - Never put credentials in `.sigcomply.yaml`. The CLI reads them from the environment.
-- Never add identifiers (ARNs, emails, account IDs) to anything sent to SigComply Cloud. Only
-  counts leave the customer's environment. `experimental.roster.aliases` and
-  `experimental.vendors` may hold emails and vendor names; they stay in the repository.
+- The CLI sends SigComply Cloud only per-policy counts and run details, never identifiers (ARNs,
+  emails, account IDs). Emails in `experimental.roster.aliases` and vendor names in
+  `experimental.vendors` are fine: they stay in the repository.
 - Don't invent commands, flags or keys. The commands are `check`, `init`, `init-ci`, `build`,
   `report`, `evidence catalog`, `evidence due`, `version` and `completion`
   ([Commands](reference/commands.md)). Config keys: [Configuration](configuration.md).
@@ -35,7 +35,7 @@ named `sigcomply-cli`; see [Install](guides/install.md).
 Ask the customer which framework they need, then run, from the repository root:
 
 ```sh
-sigcomply init -f soc2
+sigcomply init -f soc2      # or: sigcomply init -f iso27001
 ```
 
 Expect exit `0`. Exit `3` with `refusing to overwrite` means `.sigcomply.yaml` exists. Edit it
@@ -44,7 +44,8 @@ instead, or pass `--force` only if the customer agrees to replace it.
 ## 3. Declare sources
 
 Edit `sources:` to list every provider the customer uses. A provider is only read if it is
-listed; credentials alone don't add it. Look up each source's ID, keys, credentials and
+listed; credentials alone don't add it. `init` writes three `aws.*` sources; remove them if the
+customer has no AWS, because a listed source without credentials exits `3`. Look up each source's ID, keys, credentials and
 permissions in [Sources](reference/sources.md).
 
 | Source | Credential from the environment | Required keys |
@@ -55,7 +56,7 @@ permissions in [Sources](reference/sources.md).
 | `github` | `GITHUB_TOKEN`, or the variable named by `token_env` | `org` |
 | `gitlab` | `GITLAB_TOKEN`, or the variable named by `token_env` | `group` |
 | `okta` | `OKTA_API_TOKEN`, or the variable named by `token_env` | `org_url` |
-| `active_directory` | `SIGCOMPLY_AD_BIND_PASSWORD` | `url`, `bind_dn` |
+| `active_directory` | `SIGCOMPLY_AD_BIND_PASSWORD`, or the variable named by `token_env` | `url`, `bind_dn` |
 
 `token_env` names a different variable per instance when one source appears twice, for example
 `"github[labs]"` with `token_env: GITHUB_TOKEN_LABS`.
@@ -90,16 +91,16 @@ failing policies exit `0`.
 
 ## 6. Scaffold CI
 
-Find where the repository is hosted, then run one of:
+Find where the repository is hosted. `init-ci` accepts only `--framework soc2` and defaults to
+the config's `framework:`, so an ISO 27001 project must pass `--framework soc2`; the workflows
+read the framework from the config. Run one of:
 
 ```sh
-sigcomply init-ci --ci github
-sigcomply init-ci --ci gitlab
+sigcomply init-ci --ci github      # framework: iso27001 → add --framework soc2
+sigcomply init-ci --ci gitlab      # framework: iso27001 → add --framework soc2
 ```
 
-`init-ci` accepts only `--framework soc2`. For an ISO 27001 project, run
-`sigcomply init-ci --ci github --framework soc2`; the workflows read the framework from the
-config. Then:
+Then:
 
 1. Replace the role placeholders with the customer's role ARNs: `AWS_ROLE_ARN` in each GitHub
    workflow, or `SIGCOMPLY_SCHEDULED_ROLE_ARN` and `SIGCOMPLY_ON_PUSH_ROLE_ARN` on GitLab. The
@@ -110,13 +111,15 @@ config. Then:
 3. On GitLab, tell the customer to create one daily pipeline schedule (for example `0 2 * * *`);
    the scheduled job runs `sigcomply check --scheduled`.
 4. Tell the customer the vault must be a bucket: `--scheduled` keeps per-policy state there.
+5. If `sources:` lists no `aws.*` source, delete the `aws-actions/configure-aws-credentials` step
+   from each GitHub workflow; otherwise it fails on the placeholder role ARN.
+6. The scaffolded workflows pass no GitHub, GitLab, Okta or Active Directory token. If `sources:`
+   lists one of those, the customer stores the token as a CI secret, and the workflow step maps
+   it to the variable in the table in step 3. Without it, `check` exits `3`. Steps and token
+   scopes:
+   [Supply credentials in CI](guides/configure-sources.md#supply-github-gitlab-okta-and-active-directory-credentials-in-ci).
 
 Setup details: [CI on GitHub](guides/ci-github.md), [CI on GitLab](guides/ci-gitlab.md).
-
-The scaffolded workflows pass no GitHub, GitLab, Okta or Active Directory token. If `sources:`
-lists one of those, the customer stores the token as a CI secret and the workflow step maps it to
-the variable in the table in step 3; without it, `check` exits `3`. Steps and token scopes:
-[Supply credentials in CI](guides/configure-sources.md#supply-github-gitlab-okta-and-active-directory-credentials-in-ci).
 
 ## 7. Cloud submission (only if the customer has SigComply Cloud)
 
@@ -128,13 +131,18 @@ cloud:
   project_id: prj_...   # ask the customer: the Project ID on their project's page
 ```
 
-`cloud.project_id` must be the customer's real Project ID (`prj_` followed by 20 base58 characters (letters and digits except 0, O, I and l));
-never invent one. A malformed value exits `3`. Without it, a run that submits exits `3` when a
-cloud URL is set, before it collects anything. Without `cloud.base_url`, nothing is submitted. With it, submission happens in CI with an OIDC
-token; no secret is needed. Only `sigcomply check` with no filter and `--scheduled` submit;
-`--cadence`, `--cadences`, `--on-push` and `--pr` runs check a subset and never submit, and no run
-in a pull request or merge request pipeline submits. The customer connects the repository on the dashboard
-([Cloud dashboard](guides/cloud-dashboard.md)).
+- `cloud.project_id` must be the customer's real Project ID: `prj_` followed by 20 base58
+  characters (letters and digits except 0, O, I and l). Never invent one. A malformed value
+  exits `3`.
+- With a cloud URL set and no `cloud.project_id`, a run that would submit exits `3` before it
+  collects anything.
+- Without `cloud.base_url`, nothing is submitted. With it, submission happens in CI with an OIDC
+  token; no secret is needed.
+- Only `sigcomply check` with no filter and `--scheduled` submit. `--cadence`, `--cadences`,
+  `--on-push` and `--pr` runs check a subset and never submit, and no run in a pull request or
+  merge request pipeline submits.
+- The customer connects the repository on the dashboard
+  ([Cloud dashboard](guides/cloud-dashboard.md)).
 
 ## 8. Report manual evidence to the customer
 
@@ -168,8 +176,8 @@ Docs: https://github.com/SigComply/sigcomply-cli/blob/main/docs/README.md
 - Config: `.sigcomply.yaml`. The framework key is singular: `framework:`.
 - Credentials come from the environment, never the config file.
 - Run: `sigcomply check` (no `--framework` flag). Read results with
-  `sigcomply report --period <period-id>`; `check` prints it as `<framework>/<period-id>`,
-  and either form works. A period with no runs exits 3.
+  `sigcomply report --period <period-id>`. `check` prints the period as
+  `<framework>/<period-id>`; `--period` takes either form. A period with no runs exits 3.
 - Exit codes: 0 no failures, 1 failing policies or incomplete scope, 2 execution
   error, 3 configuration error.
 - Missing documents: `sigcomply evidence due --all`.

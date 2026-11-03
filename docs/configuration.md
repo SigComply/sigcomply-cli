@@ -1,15 +1,19 @@
 # Configuration reference
 
-`sigcomply check` reads one YAML file, `.sigcomply.yaml`, from the current directory. Pass
-`-c/--config <path>` to read another file. There is no home-directory fallback. A missing file
-stops the run with `no config file found at <path>` and exit code `3`. Run `sigcomply init` to
-write a starter file.
+Every key of `.sigcomply.yaml` and the environment variables the CLI reads. The file sets the
+framework, the audit period, where evidence is stored, which sources to read, and per-policy and
+per-control decisions. Credentials come from environment variables and each cloud SDK's
+credential chain, not from this file. Command-line flags select the run mode; they are listed in
+[Commands](reference/commands.md). Per-source keys, credentials, and permissions are in the
+[source reference](reference/sources.md).
 
-The file sets the framework, the audit period, where evidence is stored, which sources to read,
-and per-policy and per-control decisions. Credentials come from environment variables and each
-cloud SDK's credential chain, not from this file. Command-line flags select the run mode; they
-are listed in [Commands](reference/commands.md). Per-source keys, credentials, and permissions
-are in the [source reference](reference/sources.md).
+`sigcomply check` reads `.sigcomply.yaml` from the current directory. Pass `-c/--config <path>`
+to read another file. There is no home-directory fallback. A missing file stops the run with
+`no config file found at <path>` and exit code `3`. Run `sigcomply init` to write a starter file.
+
+Relative paths in the file (`vault.path`, the `manual.pdf` `path`) resolve against the directory
+you run `sigcomply` in, not the directory of the config file. Run from the project root, or use
+absolute paths.
 
 ## Minimal example
 
@@ -37,10 +41,6 @@ skipped. A full example is at the [end of this page](#full-example).
 Unknown keys under `sources`, `vault` and `experimental` warn rather than fail, so a config
 written for a newer CLI still runs on an older one.
 
-Relative paths in the file (`vault.path`, the `manual.pdf` `path`) resolve against the directory
-you run `sigcomply` in, not the directory of the config file. Run from the project root, or use
-absolute paths.
-
 A policy ID or control ID that the framework does not define is a config error with a "did you
 mean" suggestion.
 
@@ -49,7 +49,7 @@ mean" suggestion.
 | Key | Type | Default | Effect |
 |---|---|---|---|
 | `schema_version` | string | none, required | Must be `project.v1`. |
-| `framework` | string | none, required | The one framework this project evaluates: `soc2` or `iso27001`. Any other value is a config error. `check` reads only this key; it ignores `SIGCOMPLY_FRAMEWORK`. |
+| `framework` | string | none, required | The one framework this project evaluates: `soc2` or `iso27001`. Any other value is a config error. |
 | `period` | map | calendar quarters, run time | How the audit period is derived. See [`period`](#period). |
 | `vault` | map | `backend: local`, `path: ./.sigcomply/vault` | Where signed evidence, results and the run manifest are written. See [`vault`](#vault). |
 | `sources` | map | none | The sources to read. See [`sources`](#sources). |
@@ -85,21 +85,46 @@ The run's period names the vault folder for the run and the period sent to SigCo
 Manual evidence folders use each catalog entry's own cadence window instead (for example `2026`
 for an annual entry). See [Manual evidence](guides/manual-evidence.md).
 
-Period boundaries are in UTC. A run at 22:00 on 31 March in New York (02:00 UTC on 1 April)
-belongs to `2026-Q2`, and so does its manual evidence folder for a quarterly entry.
+Period boundaries are in UTC.
 
 ## `vault`
 
 `vault` is one flat map: `backend` plus that backend's keys, with no nested sub-blocks. Omit the
 block to write to `./.sigcomply/vault`. Keys per backend are in
-[Storage backends](#storage-backends).
+[Storage backends](#storage-backends) below.
 
 | Key | Type | Default | Allowed values |
 |---|---|---|---|
 | `vault.backend` | string | `local` | `local`, `s3`, `gcs`, `azure_blob` |
 
-For tamper resistance, the bucket must be write-once or versioned at the storage layer. The CLI
-does not configure this. See [SECURITY.md](../SECURITY.md).
+Signatures show that a file changed, but they don't stop someone with write access from
+replacing a file and signing it again. To prevent that, make the bucket write-once or versioned.
+The CLI does not configure this. See [SECURITY.md](../SECURITY.md).
+
+In CI, `check` warns when the vault or `manual.pdf` is a local folder: the runner's disk is
+deleted when the job ends, and a local evidence folder sees only committed files.
+
+### Storage backends
+
+`vault` and `sources.manual.pdf` use the same backend names and similar keys, but they are read
+separately and their key sets differ. Credentials come from each provider's ambient chain; no
+storage block takes credential keys.
+
+| Backend | `vault` keys | `manual.pdf` keys |
+|---|---|---|
+| `local` | `path` (default `./.sigcomply/vault`) | `path` (required); `prefix` (default `manual/`); `bucket` (defaults to `path`; files are always read from under `path`) |
+| `s3` | `bucket`, `region` (required); `prefix` (default none); `endpoint`, `force_path_style` for S3-compatible stores | `bucket`, `region` (required; `region` falls back to `vault.region`); `prefix` (default `manual/`); `endpoint`, `force_path_style` |
+| `gcs` | `bucket` (required); `prefix` | `bucket` (required); `prefix` (default `manual/`) |
+| `azure_blob` | `account` (the storage account name: 3 to 24 lowercase letters and digits), `container` (required); `prefix` | `account`, `container` (required); `prefix` (default `manual/`) |
+
+`backend` defaults to `local` in both blocks. Both blocks add a trailing `/` to a `prefix` that
+lacks one. Manual evidence is read from `{prefix}{evidence_catalog_id}/{period_id}/` under the
+bucket (or `path`), so `manual` and `manual/` name the same folders. See
+[Manual evidence](guides/manual-evidence.md).
+
+`endpoint` must be `https://`; plain `http://` is accepted only for a loopback host
+(`localhost`, `127.0.0.1`, `::1`). `force_path_style` takes `true` or `false`, quoted or not. The
+`s3` vault needs `s3:ListBucket`, `s3:GetObject` and `s3:PutObject` on the bucket.
 
 ## `sources`
 
@@ -119,8 +144,7 @@ sources:
 | Settings | Each source's keys are listed in the [source reference](reference/sources.md). Values are strings unless the reference says otherwise. Quote numeric IDs: `project_id: "12345"`. |
 | Binding | The CLI binds every configured source to every policy slot that accepts a type the source emits. Narrow this with [`policies.<id>.bindings`](#policies). |
 | Credentials | Each listed source resolves its credentials before collection. Missing or unusable credentials are a config error, exit `3`. |
-| `manual.pdf` | The manual-evidence source. One per project; it takes no `[instance]` suffix. If it is not configured and the run would collect a manual policy, `check` stops before collecting with a config error (exit `3`) that names `sources.manual.pdf`. |
-| AWS region | An `aws.*` source without `region` uses `vault.region` when the vault sets one, then the AWS SDK's own region setting (`AWS_REGION`). |
+| `manual.pdf` | The manual-evidence source. One per project, with no `[instance]` suffix. See [Manual evidence](reference/sources.md#manual-evidence). |
 
 ### Multiple instances of one source
 
@@ -147,7 +171,7 @@ sources:
 | Roster matching | `experimental.roster` `aliases` and `non_human` entries match the prefixed or the bare ID. |
 | Separate credentials | `aws.*`: `role_arn` (plus optional `external_id`, `role_session_name`). `github`, `gitlab`, `okta`, `active_directory`: `token_env` naming an environment variable, or the token key. |
 | One identity only | `gcp.*` and `azure.*` use one ambient identity per run. Instances vary only the project, organization, or subscription queried. |
-| Region | A regional `aws.*` source reads one region, so one instance per region covers several (`"aws.ec2[eu]"` with `region: eu-west-1`). For the account-wide sources (`aws.iam`, `aws.iam_access_key`, `aws.password_policy`, `aws.s3`) an instance that differs only by `region` reads the same data twice. See [Regions](reference/sources.md#regions). |
+| Region | A regional `aws.*` source reads one region; add one instance per region (`"aws.ec2[eu]"` with `region: eu-west-1`). See [Regions](reference/sources.md#regions). |
 | Not allowed | `manual.pdf[...]`; a bracketed source as `experimental.roster.source`. |
 
 ### Source key warnings
@@ -160,11 +184,8 @@ values that are not strings:
 [warn] source-config: sources.gcp.compute: "project_id" is int, not a string, so it reads as unset; quote it (project_id: "12345")
 ```
 
-Warnings never stop a run. Keys a source reads as a boolean, number or list are not checked
-here: `active_directory`'s `start_tls`, `page_size`, `timeout` (as seconds) and
-`service_account_ous`, and `manual.pdf`'s `force_path_style`. Keep those values unquoted.
-`active_directory` rejects a quoted one with exit `3`. `force_path_style` also accepts `"true"`
-or `"false"` and rejects any other value with exit `3`.
+Warnings never stop a run. Keys that take a boolean, number or list are not checked here; the
+[source reference](reference/sources.md) gives each key's type and how a wrong type fails.
 
 ### Source caveats
 
@@ -198,13 +219,15 @@ the policy IDs it evaluated.
 | `approved_at` | string | none | `YYYY-MM-DD`. |
 | `expires_at` | string | none | `YYYY-MM-DD`, inclusive. After this day the exception is ignored and the policy is evaluated normally. |
 
-Without a scope, the exception applies to the whole policy: the policy's status becomes `waived`
-or `na` and it is not evaluated. With a scope, matching failures are removed; if none remain, the
-status becomes `waived`, `resources_failed` is 0, and the result message counts the waived
-resources, for example `Waived by exception (2 of 3 resources affected).` Every unexpired
-exception in the list applies, each to its own scope, so you can waive several resources with one
-entry each. An unexpired exception with no scope overrides the scoped ones; if several have no
-scope, the first one in the list applies.
+- Without a scope, the exception applies to the whole policy: its status becomes `waived` or
+  `na` and it is not evaluated.
+- With a scope, matching failures are removed. If none remain, the status becomes `waived`,
+  `resources_failed` is 0, and the message counts the waived resources, for example
+  `Waived by exception (2 of 3 resources affected).`
+- Every unexpired exception in the list applies, each to its own scope, so you can waive several
+  resources with one entry each.
+- An unexpired exception with no scope overrides the scoped ones. If several have no scope, the
+  first one in the list applies.
 
 ### Cadence values
 
@@ -242,13 +265,19 @@ error.
 
 | Key | Type | Default | Effect |
 |---|---|---|---|
-| `cloud.base_url` | string | none | SigComply Cloud endpoint. Set `https://sigcomply.com` to submit. With no value and no `--cloud-url` flag, nothing is submitted. Must be `https://`; plain `http://` is accepted only for a loopback host (`localhost`, `127.0.0.1`, `::1`), and anything else is a config error, exit `3`. |
-| `cloud.project_id` | string | none | The **Project ID** from your project's page on the SigComply dashboard: `prj_` followed by 20 base58 characters (letters and digits except 0, O, I and l). Sent in the `X-SigComply-Project` header, never in the payload. Any other shape is a config error, exit `3`. When an unfiltered or `--scheduled` `check` without `--no-cloud` has a cloud URL, from `cloud.base_url` or `--cloud-url`, and this key is not set, `check` stops with exit `3` before collecting. This applies locally too, where nothing would be submitted, so the mistake shows up before CI. Filtered runs never submit, so they don't need it. There is no flag or environment variable for it: the committed file is what shows the repository chose the project. |
+| `cloud.base_url` | string | none | SigComply Cloud endpoint. Set `https://sigcomply.com` to submit. With no value and no `--cloud-url` flag, nothing is submitted. Must be `https://` (plain `http://` only for `localhost`, `127.0.0.1` or `::1`); anything else is a config error, exit `3`. |
+| `cloud.project_id` | string | none | The **Project ID** from your project's page on the SigComply dashboard: `prj_` followed by 20 base58 characters (letters and digits except 0, O, I and l). Sent in the `X-SigComply-Project` header, never in the payload. Any other shape is a config error, exit `3`. There is no flag or environment variable for it. |
 
-A run submits when `cloud.base_url` (or `--cloud-url`, which overrides it) is set, the run is in
-CI, and an OIDC token is available. The CLI does not follow redirects: a `3xx` answer is a
-failed submission that names the redirect target, so set the final URL. `--no-cloud` turns submission off. Only per-policy counts are
-sent. Setup: [Cloud dashboard](guides/cloud-dashboard.md).
+An unfiltered or `--scheduled` `check` that has a cloud URL (from `cloud.base_url` or
+`--cloud-url`) and no `cloud.project_id` stops with exit `3` before collecting, also on a local
+run that would not submit. `--no-cloud` and filtered runs don't need the key.
+
+A run submits when a cloud URL is set, the run is in CI, and an OIDC token is available; the full
+rules are in [Commands](reference/commands.md#sigcomply-check). The CLI does not follow
+redirects: a `3xx` answer is a failed submission that names the redirect target, so set the final
+URL. A submission carries per-policy counts and run details such as the framework, period,
+repository, branch, commit, CLI version and CI run link, never the identifiers of resources or
+people. Setup: [Cloud dashboard](guides/cloud-dashboard.md).
 
 ## `ci`
 
@@ -258,9 +287,8 @@ sent. Setup: [Cloud dashboard](guides/cloud-dashboard.md).
 
 ## `experimental`
 
-Each feature reads its own key and reports its own errors; the loader checks the shape of
-`experimental.scope` itself. The keys are `scope`, `vendors`, `risks` and `roster`; any other key
-under `experimental`, and an unknown sub-key of one of them, prints a warning.
+The keys are `scope`, `vendors`, `risks` and `roster`. Each feature reads its own key and
+reports its own errors; the loader checks the shape of `experimental.scope` itself.
 
 <a id="experimentalscope--declaring-the-estate"></a>
 
@@ -351,7 +379,7 @@ one account aliased to two emails. Alias and `non_human` entries that match no a
 
 | Variable | Read by | Effect |
 |---|---|---|
-| `SIGCOMPLY_FRAMEWORK` | `init`, `evidence catalog` | Framework when `-f` is not given. `check` and `evidence due` ignore it: they take `-f` (`evidence due` only), then the config's `framework:`. |
+| `SIGCOMPLY_FRAMEWORK` | `init`, `evidence catalog` | Framework when `-f` is not given. `check` and `evidence due` ignore it ([Framework resolution](reference/commands.md#framework-resolution)). |
 | `SIGCOMPLY_ID_TOKEN` | `check` | OIDC token for SigComply Cloud in GitLab CI. Define an `id_tokens:` entry with this name and `aud: https://api.sigcomply.com`; the CLI refuses to send a token with another audience. |
 | `ACTIONS_ID_TOKEN_REQUEST_URL`, `ACTIONS_ID_TOKEN_REQUEST_TOKEN` | `check` | Set by GitHub Actions when the job has `id-token: write`; the CLI uses them to request an OIDC token. |
 | `SIGCOMPLY_AD_BIND_PASSWORD` | `active_directory` source | Bind password when the config sets neither `bind_password` nor `token_env`. |
@@ -375,69 +403,20 @@ one account aliased to two emails. Alias and `non_human` entries that match no a
 | `GITHUB_SHA`, then `CI_COMMIT_SHA` | Commit SHA recorded for the run. Without either, the CLI runs `git rev-parse HEAD`. |
 | `GITHUB_EVENT_HEAD_COMMIT_TIMESTAMP` | Commit time, which sets the audit period only when `time_basis: commit`. Without it, the CLI runs `git show -s --format=%cI HEAD`; if that fails, it uses the current time. |
 | `GITHUB_REF_NAME`, then `CI_COMMIT_REF_NAME`, then `GIT_BRANCH` | Branch recorded for the run. |
-| `CI`, `GITHUB_ACTIONS`, `GITLAB_CI` | Any of these marks the run as in CI, which cloud submission requires. In CI, `check` also warns when the vault or `manual.pdf` is a local folder: the runner's disk is deleted when the job ends, and a local evidence folder sees only committed files. |
+| `CI`, `GITHUB_ACTIONS`, `GITLAB_CI` | Any of these marks the run as in CI, which cloud submission requires. In CI, `check` warns about a local vault or `manual.pdf` folder (see [`vault`](#vault)). |
 | `GITHUB_WORKFLOW`, `GITHUB_RUN_ID`, `GITHUB_REPOSITORY` | GitHub Actions workflow name and run URL recorded for the run. |
 | `CI_JOB_NAME`, `CI_JOB_URL` | GitLab CI job name and URL recorded for the run. |
 | `GITHUB_STEP_SUMMARY` | `evidence due` appends its report to this file. When `GITHUB_ACTIONS=true` it also prints workflow annotations. |
 
-## Storage backends
-
-`vault` and `sources.manual.pdf` use the same backend names and similar keys, but they are read
-separately and their key sets differ. Credentials come from each provider's ambient chain; no
-storage block takes credential keys.
-
-| Backend | `vault` keys | `manual.pdf` keys |
-|---|---|---|
-| `local` | `path` (default `./.sigcomply/vault`) | `path` (required); `prefix` (default `manual/`); `bucket` (defaults to `path`; files are always read from under `path`) |
-| `s3` | `bucket`, `region` (required); `prefix` (default none); `endpoint` (`https://`, or `http://` to a loopback host (`localhost`, `127.0.0.1`, `::1`)), `force_path_style` (`true` or `false`, quoted or not) for S3-compatible stores | `bucket`, `region` (required; `region` falls back to `vault.region`); `prefix` (default `manual/`); `endpoint`, `force_path_style` |
-| `gcs` | `bucket` (required); `prefix` | `bucket` (required); `prefix` (default `manual/`) |
-| `azure_blob` | `account` (the storage account name: 3 to 24 lowercase letters and digits), `container` (required); `prefix` | `account`, `container` (required); `prefix` (default `manual/`) |
-
-`backend` defaults to `local` in both blocks. Both blocks add a trailing `/` to a `prefix` that
-lacks one. Manual evidence is read from `{prefix}{evidence_catalog_id}/{period_id}/` under the
-bucket (or `path`), so `manual` and `manual/` name the same folders. See
-[Manual evidence](guides/manual-evidence.md).
-
 ## Sources by provider
 
 Each provider's source IDs, keys, credentials, permissions and caveats are in the source
-reference.
-
-## AWS
-
-See [AWS in the source reference](reference/sources.md#aws).
-
-## GCP
-
-See [GCP in the source reference](reference/sources.md#gcp).
-
-## Azure
-
-See [Azure in the source reference](reference/sources.md#azure).
-
-## GitHub
-
-See [GitHub in the source reference](reference/sources.md#github).
-
-## GitLab
-
-See [GitLab in the source reference](reference/sources.md#gitlab).
-
-## Okta
-
-See [Okta in the source reference](reference/sources.md#okta).
-
-## Active Directory
-
-See [Active Directory in the source reference](reference/sources.md#active-directory).
-
-<a id="folder-layout-per-evidence-id"></a>
-
-## Manual evidence
-
-See [Manual evidence in the source reference](reference/sources.md#manual-evidence) for the
-`manual.pdf` keys, and the [Manual evidence guide](guides/manual-evidence.md) for the folder
-layout.
+reference: [AWS](reference/sources.md#aws), [GCP](reference/sources.md#gcp),
+[Azure](reference/sources.md#azure), [GitHub](reference/sources.md#github),
+[GitLab](reference/sources.md#gitlab), [Okta](reference/sources.md#okta),
+[Active Directory](reference/sources.md#active-directory) and
+[Manual evidence](reference/sources.md#manual-evidence). The manual evidence folder layout is in
+the [Manual evidence guide](guides/manual-evidence.md).
 
 ## Full example
 

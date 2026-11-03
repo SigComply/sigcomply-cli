@@ -9,12 +9,8 @@ same flags.
 |---|---|
 | `0` | Success. For `check`: no policy failed, or `ci.fail_on_violation: false` is set. |
 | `1` | `check`: a policy failed, or a source declared under `experimental.scope` is incomplete. Set `ci.fail_on_violation: false` to exit `0` instead. `report --view integrity`: a run failed verification. |
-| `2` | Execution error, including any policy with status `error`, a credential the provider rejected, a failed write of the run's results, summary or manifest to the vault, and a flag the command does not know, a flag value of the wrong type, or two flags that cannot be combined. |
-| `3` | Configuration error: a missing or invalid config, an unknown framework, a listed source whose credentials are missing, a run that would submit without `cloud.project_id`, a missing required flag value such as `report --period`, or a value a flag does not accept (`report --view bogus`, `report --format xml`, `init-ci --ci jenkins`, `evidence -o csv`). For `report`, also a vault path that does not exist or a period with no runs. |
-
-A missing credential exits `3` before any collection starts. A credential the provider rejects
-can only be found during collection, so the affected policies end as `error` and the run exits
-`2`.
+| `2` | Execution error: a policy with status `error`; a credential the provider rejected (found only during collection, so the affected policies end as `error`); a failed write of results, summary or manifest to the vault; an unknown flag, a flag value of the wrong type, or two flags that can't be combined. |
+| `3` | Configuration error, found before any collection starts: a missing or invalid config, an unknown framework, a listed source whose credentials are missing, a run that would submit without `cloud.project_id`, a missing required flag value such as `report --period`, or a value a flag does not accept (`report --view bogus`, `report --format xml`, `init-ci --ci jenkins`, `evidence -o csv`). For `report`, also a vault path that does not exist or a period with no runs. |
 
 ## Framework resolution
 
@@ -22,7 +18,7 @@ can only be found during collection, so the affected policies end as `error` and
 |---|---|
 | `check` | `framework:` in the config only. No flag; `SIGCOMPLY_FRAMEWORK` is ignored. Missing: exit `3`. |
 | `init`, `evidence catalog` | `-f/--framework`, then `SIGCOMPLY_FRAMEWORK`, then `soc2` |
-| `evidence due` | `-f/--framework`, then `framework:` in the config. The config must set `framework:`, so `SIGCOMPLY_FRAMEWORK` never applies. |
+| `evidence due` | `-f/--framework`, then `framework:` in the config. `SIGCOMPLY_FRAMEWORK` is ignored. |
 | `init-ci` | `--framework`, then the `framework:` line of the config, then `soc2` |
 | `report` | `-f/--framework`, then `framework:` in the config. Neither: exit `3`. |
 
@@ -42,33 +38,21 @@ from the HEAD commit instead). The first summary line prints it, for example
 
 | Flag | Short | Default | Meaning |
 |---|---|---|---|
-| `--cadence <value>` | | | Only evaluate policies whose effective cadence matches: `continuous`, `hourly`, `daily`, `weekly`, `monthly`, `quarterly`, `annual` |
+| `--cadence <value>` | | | Only evaluate policies whose effective cadence matches: `continuous`, `hourly`, `daily`, `weekly`, `monthly`, `quarterly`, `annual` or `every:<duration>` |
 | `--cadences <list>` | | | Comma-separated cadence set; a policy matches if any of its cadences is in the set. `on_push` selects on-push policies. |
 | `--on-push` | | | Only evaluate policies whose `on_push` attribute is true |
-| `--pr` | | | Pull request mode: on-push policies. A slot that fails with a throttling, `5xx` or network error is tried up to 5 times, with about 3 minutes of waits in total. |
+| `--pr` | | | Pull request mode: evaluates on-push policies, never submits and never updates the cadence state, so a later `--scheduled` run never carries a pull request's result forward. Retries a slot that fails with throttling, a `5xx` or a network error up to 5 times (about 3 minutes of waits in total). |
 | `--scheduled` | | | Run whichever cadences are due according to the vault's execution state, then advance the state |
-| `--cloud` | | | Submit even outside CI. Needs an OIDC token, `cloud.base_url` (or `--cloud-url`) and `cloud.project_id`; without a URL it warns and skips, without the project ID it exits `3`. |
+| `--cloud` | | | Submit even outside CI. Still needs a base URL, an OIDC token and `cloud.project_id`; without a URL it warns and skips. |
 | `--no-cloud` | | | Never submit |
-| `--cloud-url <url>` | | `cloud.base_url` | SigComply Cloud base URL. Setting it turns submission on, like `cloud.base_url`. Without `cloud.project_id` in the config, a run that submits exits `3`; the project ID has no flag. |
+| `--cloud-url <url>` | | `cloud.base_url` | SigComply Cloud base URL. Overrides `cloud.base_url` and turns submission on like it. `cloud.project_id` has no flag. |
 | `--capture-cloud-payload <file>` | | | Write the submission payload to this file instead of sending it. A failed write exits `2`. |
 | `--config <path>` | `-c` | `.sigcomply.yaml` | Config file |
 | `--verbose` | `-v` | `false` | Verbose logging |
 
 `--cadence`, `--cadences`, `--on-push`, `--pr` and `--scheduled` are mutually exclusive;
-combining two exits `2`. A `--cadence` or `--cadences` value that is not a cadence (or
-`every:<duration>`, or `on_push` in `--cadences`) exits `3` and lists the valid values. `check`
-has no `--framework` flag.
-
-Without `--cloud` or `--no-cloud`, the CLI submits only when all of these hold: a base URL is
-set, the run is in GitHub Actions or GitLab CI, and an OIDC token is available. A failed
-submission does not change the exit code. SigComply Cloud records runs only from GitHub
-`push`, `schedule` and `workflow_dispatch` events and GitLab `push`, `schedule`, `web`, `api` and
-`trigger` pipelines, and refuses the rest ([Connect to SigComply Cloud](../guides/cloud-dashboard.md#3-turn-on-submission)).
-The base URL must be `https://` (plain `http://` only to a loopback host: `localhost`,
-`127.0.0.1`, `::1`), or the run exits `3` before collecting. A run that would submit (unfiltered
-or `--scheduled`, with or without `--cloud`) also exits `3` before collecting when
-`cloud.project_id` is not set in `.sigcomply.yaml`, even when the URL comes from `--cloud-url`.
-`--no-cloud`, `--capture-cloud-payload` and filtered runs don't need it.
+combining two exits `2`. Any other `--cadence` or `--cadences` value exits `3` and lists the
+valid ones.
 
 The run ends with the vault folder it wrote and the command that reads it back:
 
@@ -77,16 +61,28 @@ Results written to ./.sigcomply/vault/soc2/2026-Q4/run_20261026T201203Z_14f82a86
 Next: sigcomply report --period 2026-Q4 (add --view integrity to verify the signatures)
 ```
 
-Only a run that covers every policy submits: `check` with no filter, or `--scheduled`. A run with
-`--cadence`, `--cadences`, `--on-push` or `--pr` prints `cloud submission skipped: this run
-evaluates a subset of policies` and sends nothing (`--capture-cloud-payload` still writes the
-file). A `--pr` run also leaves the cadence state in the vault unchanged, so a pull request's
-result is never carried forward by a later `--scheduled` run. Any run in a pull-request
-pipeline (`GITHUB_EVENT_NAME` is `pull_request`, `pull_request_target`, `pull_request_review`,
-`pull_request_review_comment` or `merge_group`) or a GitLab merge request or external pull request
-pipeline (GitLab sets `CI_MERGE_REQUEST_IID` or `CI_EXTERNAL_PULL_REQUEST_IID`) also leaves the state unchanged and never
-submits, whatever its flags; it prints `cloud submission skipped: this run is in a pull request
-or merge request pipeline`.
+### When check submits
+
+- Without `--cloud` or `--no-cloud`, the CLI submits only when a base URL is set
+  (`cloud.base_url` or `--cloud-url`), the run is in GitHub Actions or GitLab CI, and an OIDC
+  token is available.
+- Only a run that covers every policy submits: `check` with no filter, or `--scheduled`. A run
+  with `--cadence`, `--cadences`, `--on-push` or `--pr` prints `cloud submission skipped: this run
+  evaluates a subset of policies` and sends nothing. `--capture-cloud-payload` still writes the
+  file.
+- A run in a pull request or merge request pipeline never submits and leaves the cadence state
+  unchanged, whatever its flags. It prints `cloud submission skipped: this run is in a pull request
+  or merge request pipeline`. On GitHub that is a `GITHUB_EVENT_NAME` of `pull_request`,
+  `pull_request_target`, `pull_request_review`, `pull_request_review_comment` or `merge_group`; on
+  GitLab, a pipeline that sets `CI_MERGE_REQUEST_IID` or `CI_EXTERNAL_PULL_REQUEST_IID`.
+- The run exits `3` before collecting when the base URL is not `https://` (plain `http://` is
+  accepted only for a loopback host: `localhost`, `127.0.0.1`, `::1`), or when a run that would
+  submit (unfiltered or `--scheduled`, with or without `--cloud`) has no `cloud.project_id` in
+  `.sigcomply.yaml`, even with `--cloud-url`. `--no-cloud`, `--capture-cloud-payload` and
+  filtered runs don't need the project ID.
+- SigComply Cloud records runs only from GitHub `push`, `schedule` and `workflow_dispatch` events
+  and GitLab `push`, `schedule`, `web`, `api` and `trigger` pipelines, and refuses the rest.
+- A failed or refused submission does not change the exit code.
 
 ## `sigcomply init`
 
@@ -112,31 +108,30 @@ local vault.
 sigcomply init-ci --ci <github|gitlab> [flags]
 ```
 
-Writes CI files that install the CLI release, after checking the archive against the release's
-`checksums.txt`, and run `check`.
+Writes CI files that install the CLI release and run `check`. The install step verifies the
+archive against the release's `checksums.txt` before extracting it.
 
 - `--ci github` writes `compliance-scheduled.yml` (daily at 02:00 UTC and on demand,
   `sigcomply check --scheduled`) and `compliance-on-push.yml` (pull requests and pushes to
-  `main`, `sigcomply check --pr`) to `.github/workflows/`.
+  `main`, `sigcomply check --pr`) to `.github/workflows/`. The scheduled workflow then runs
+  `sigcomply evidence due --within-days 30`.
 - `--ci gitlab` writes one `.gitlab-ci.yml` with a `compliance:scheduled` job that runs
   `sigcomply check --scheduled` in any scheduled pipeline, and a `compliance:on_push` job that
-  runs `sigcomply check --pr` on merge requests and pushes to the default branch. Create one
-  daily pipeline schedule.
+  runs `sigcomply check --pr` on merge requests and pushes to the default branch. The scheduled
+  job then runs `sigcomply evidence due --within-days 30`. Create one daily pipeline schedule.
 
-Only the scheduled run submits to SigComply Cloud. The scheduled workflow (GitHub) and job
-(GitLab) also run `sigcomply evidence due` as a step that cannot fail the job. It runs even
-when the check fails, which is when it has entries to list.
+Only the scheduled run submits to SigComply Cloud. The `evidence due` step never fails the job
+and runs even when `check` fails.
 
 | Flag | Short | Default | Meaning |
 |---|---|---|---|
 | `--ci <value>` | | | Required. `github` or `gitlab`. Missing: exit `3`. |
-| `--framework <value>` | | config, then `soc2` | Framework. Only `soc2` is accepted. |
+| `--framework <value>` | | config, then `soc2` | `soc2` only; any other value exits `3`. |
 | `--out <path>` | | `.github/workflows/` (github), repository root (gitlab) | Output directory |
 | `--force` | | `false` | Overwrite existing files. Without it, any existing target file exits `3`. |
 | `--config <path>` | `-c` | `.sigcomply.yaml` | Config used to default `--framework` |
 
-Any framework other than `soc2` exits `3`. The workflows don't name a framework (`check` reads
-it from the config), so an ISO 27001 project can run `init-ci --ci github --framework soc2` and
+The workflows don't name a framework (`check` reads it from the config), so an ISO 27001 project can run `init-ci --ci github --framework soc2` and
 keep `framework: iso27001` in its config.
 
 ## `sigcomply build`
@@ -145,10 +140,10 @@ keep `framework: iso27001` in its config.
 sigcomply build [flags]
 ```
 
-Compiles a binary that includes the Go extensions under `.sigcomply/` (source plugins, vault
-backends, manual readers). With no Go extensions it does nothing and needs no `go.mod`; YAML
-policies, Rego rules, evidence-type JSON schemas and the local vault under `.sigcomply/` are not
-Go extensions. YAML policies, Rego rules and schemas load at every `check` without a build.
+Compiles a binary that includes the Go extensions under `.sigcomply/`: source plugins, vault
+backends and manual readers. YAML policies, Rego rules and evidence-type JSON schemas are not Go
+extensions; they load at every `check` without a build. With no Go extensions, `build` does
+nothing and needs no `go.mod`. It ignores the local vault under `.sigcomply/`.
 
 Extensions import `github.com/sigcomply/sigcomply-cli/plugin`, and the project's `go.mod` must
 require the CLI module at the version of the binary you build with. An extension's top-level
@@ -188,8 +183,7 @@ An `s3://` URI without `?region=` takes the region from `AWS_REGION`, then
 (`endpoint`, `force_path_style`) can only come from the config.
 
 A local vault path that does not exist exits `3`; `report` does not create it. A period with no
-runs exits `3` and lists the periods the vault holds, so a mistyped period or vault never reads
-as a clean result. The `soa` view is the exception: it renders with no runs, and every control
+runs exits `3` and lists the periods the vault holds. The `soa` view is the exception: it renders with no runs, and every control
 then reads "not evaluated".
 
 | View | Shows |
@@ -201,25 +195,24 @@ then reads "not evaluated".
 | `coverage` | For each control, whether automated or manual checks are mapped to it, whether the automated checks inspected anything, and whether documents exist for the period |
 | `soa` | The ISO 27001 Statement of Applicability: one row per Annex A control with applicability, justification and status |
 
+### Coverage view
+
 `--view coverage` covers every control in the framework, including controls whose cadence did
-not run this period. Here and in `--view soa`, a project-local policy counts toward the control
-it names, read from its result in the vault. It splits controls into two kinds, which the score counts the same: backed
-only by document checks, or with at least one automated check mapped.
-For SOC 2, 29 of 43 criteria are the first kind. The kind comes from the mapped policies, not
-from what ran, so `This period` splits the automated controls by what their automated checks
-did:
+not run this period. Each control is one of two kinds, set by the policies mapped to it, not by
+what ran: backed only by document checks, or with at least one automated check mapped.
+For SOC 2, 29 of 43 criteria are the first kind. The `This period` section then splits the
+automated controls by what their automated checks did:
 
-- inspected: at least one automated check examined resources. It ended `pass` or `fail`, was
-  `waived` after evaluation because every violation matched a resource-scoped exception, or
-  ended `carried_forward` from an earlier pass.
-- skipped: no automated check was inspected or errored, and at least one ended `skip`, usually
-  because no configured source emits the evidence the check reads.
-- waived or not applicable: every automated result was `na`, or `waived` by an exception that
-  covers the whole policy. Neither collects anything.
-- not evaluated or errored: the rest.
+| Term | Meaning |
+|---|---|
+| inspected | At least one automated check examined resources: it ended `pass` or `fail`, was `waived` after evaluation because every violation matched a resource-scoped exception, or ended `carried_forward` from an earlier pass. |
+| skipped | No automated check was inspected or errored, and at least one ended `skip`, usually because no configured source emits the evidence the check reads. |
+| waived or not applicable | Every automated result was `na`, or `waived` by an exception that covers the whole policy. Neither collects anything. |
+| not evaluated or errored | The rest. |
+| evidence on file | For a manual control: its document checks ended `pass`, or `carried_forward` from an earlier pass, this period. |
 
-A manual control has evidence on file when its document checks ended `pass`, or
-`carried_forward` from an earlier pass, this period.
+In this view and in `--view soa`, a project-local policy counts toward the control it names, read
+from its result in the vault.
 
 Sample output from a SOC 2 project with only the manual evidence source configured:
 
@@ -234,17 +227,20 @@ This period
   0 manual control(s) with evidence on file, 29 without
 ```
 
-`--format json`, like `result.json` in the vault, uses Go field names as keys (`PolicyID`,
-`Status`); some nested objects use `snake_case`. `--format csv` uses `snake_case` column names
-throughout. A CSV cell that would start with `=`, `+`, `-`, `@`, a tab or a carriage return gets a
-leading `'`, so a spreadsheet shows it as text instead of running it as a formula.
+### Statement of Applicability view
 
 `--view soa` needs the project config, because applicability decisions exist only in
 `.sigcomply.yaml`. If you pass both `--vault` and `--framework`, the config is read only when you
-also pass `-c <path>`; without it the view exits `3`.
-It is built for ISO 27001; for SOC 2 it lists the criteria. How to read and fill it:
-[ISMS clauses and the SoA](../guides/isms-clauses.md). The other views:
-[Verify evidence](../guides/verify-evidence.md).
+also pass `-c <path>`; without it the view exits `3`. It is built for ISO 27001; for SOC 2 it
+lists the criteria. How to read and fill it: [ISMS clauses and the SoA](../guides/isms-clauses.md).
+The other views: [Verify evidence](../guides/verify-evidence.md).
+
+### Output formats
+
+`--format json` uses Go field names as keys (`PolicyID`, `Status`), like `result.json` in the
+vault; some nested objects use `snake_case`. `--format csv` uses `snake_case` column names
+throughout, and prefixes a cell that starts with `=`, `+`, `-`, `@`, a tab or a carriage return
+with `'`, so a spreadsheet shows it as text instead of running it as a formula.
 
 ## `sigcomply evidence catalog`
 
@@ -272,16 +268,16 @@ sigcomply evidence due [flags]
 
 Lists manual-evidence entries whose folder for the current period is empty, with the folder to
 upload to. An entry disappears once its folder has a file. Each entry's period is its own
-cadence window (an annual entry's runs to 31 December), measured on the same clock as
+cadence window (an annual entry's period ends on 31 December), measured on the same clock as
 `check`. A per-vendor entry is listed once per vendor that owes a document.
 
-It only lists the storage. It downloads nothing, writes nothing and contacts no cloud API.
+It only lists folders: it downloads no file, writes nothing and contacts no cloud API.
 
 When empty folders exist but none closes within `--within-days`, it says so, for example
 `2 of 50 entries have no upload for the current period; none closes within 30 days`; it prints
 an all-clear only when every folder has a file. The `DUE IN` column counts to the end of the
-entry's period. Upload during the period: once it ends, runs read the next period's folder, so a
-late upload into the old folder is never checked.
+entry's period. Upload during the period: a late upload is never checked
+([Manual evidence](../guides/manual-evidence.md)).
 
 | Flag | Short | Default | Meaning |
 |---|---|---|---|
@@ -291,9 +287,8 @@ late upload into the old folder is never checked.
 | `--within-days <n>` | | `30` | Only list entries whose period ends within this many days. `0` lists entries whose period ends less than a day away. A negative value lists every empty folder. |
 | `--all` | | `false` | List every empty folder, ignoring `--within-days` |
 
-Exit codes: `0` whenever the scan completes, whatever it finds. If the storage cannot be opened
-or listed, it prints why and still exits `0`. `3` for a missing or invalid config, an unknown
-framework or an invalid `-o`.
+Exits `0` whatever it finds, including when the storage can't be opened or listed (it prints
+why). Exits `3` for a missing or invalid config, an unknown framework or an invalid `-o`.
 
 In GitHub Actions it also writes `::warning` annotations (at most ten) and a table to the job
 summary. Annotations don't change the job result.
