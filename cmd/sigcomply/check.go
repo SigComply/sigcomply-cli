@@ -155,6 +155,7 @@ func runCheck(ctx context.Context, stdout io.Writer, flags *checkFlags) error {
 		Logger:             logger,
 		CapturePayloadPath: flags.capturePayloadPath,
 		Mode:               mode,
+		FormLinks:          formLinks(fw),
 		Filter: planner.Filter{
 			Cadence:  flags.cadence,
 			OnPush:   flags.onPush,

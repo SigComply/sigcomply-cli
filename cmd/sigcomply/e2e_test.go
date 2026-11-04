@@ -315,6 +315,38 @@ func TestBinaryE2E_Check_MissingEvidenceExits1(t *testing.T) {
 	}
 	// A failing run is still a complete, signed audit record.
 	assertVaultSigned(t, runDir)
+
+	// A declaration entry points at its SPA form; a document_upload
+	// entry has no form, so its policy gets no link.
+	formLine := "      ↳ fill in the form: " + manualcatalog.FormURL("soc2", "code_of_conduct_acknowledgment") + "\n"
+	if !strings.Contains(res.stdout, formLine) {
+		t.Errorf("stdout missing the form link %q:\n%s", formLine, res.stdout)
+	}
+	if strings.Contains(res.stdout, "evidence/soc2/security_awareness_training") {
+		t.Errorf("a document_upload entry got a form link:\n%s", res.stdout)
+	}
+	// The link is terminal output only; the audit record never carries it.
+	assertVaultHasNoFormLinks(t, runDir)
+}
+
+func assertVaultHasNoFormLinks(t *testing.T, runDir string) {
+	t.Helper()
+	err := filepath.WalkDir(runDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		b, err := os.ReadFile(path) //nolint:gosec // #nosec G304 -- walking the test's own vault
+		if err != nil {
+			return err
+		}
+		if bytes.Contains(b, []byte(manualcatalog.DefaultFormBaseURL)) {
+			t.Errorf("%s carries a form link", path)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 // With period.time_basis unset, the period follows the run clock, not a

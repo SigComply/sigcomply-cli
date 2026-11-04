@@ -157,6 +157,8 @@ Rules:
   (`manualcatalog.Entry`, consumed by the SPA) must stay config-independent; its field count is
   pinned by `internal/manualcatalog/catalog_test.go`.
 - An entry with no members behaves exactly like a single-folder entry.
+- Every fan-out entry is a `document_upload`, so none gets a form link: the SPA route has no
+  member segment. `TestFanOutEntriesAreDocumentUploads` fails if a fan-out entry becomes a form.
 
 ## What the CLI does not do
 
@@ -165,7 +167,12 @@ Rules:
 - Detect fabrication. The CLI signs what it reads.
 - Branch on catalog presentation fields. Catalog `type` (`declaration`, `checklist`,
   `document_upload`), `items` and `declaration_text` are hints for the Evidence SPA form helper;
-  the evaluator ignores them.
+  the evaluator ignores them. The one other reader of `type` is output: for a `declaration` or
+  `checklist` entry, a failing `check` line and each `evidence due` row print a link to the
+  entry's SPA form (`manualcatalog.FormLinks`, route `/evidence/<framework>/<evidence_id>` under
+  `DefaultFormBaseURL`). The command layer builds the map, since the orchestrator doesn't know
+  frameworks. The link goes to stdout and `evidence due -o json` only, never into a result, the
+  vault or the cloud payload. A `document_upload` entry has no SPA page and gets no link.
 
 Estate-level completeness ("was every declared source reached?") is a separate opt-in run-level
 check (`internal/scope`, `experimental.scope`). It never inspects a document.
@@ -188,6 +195,7 @@ between periods gets an exception under `policies.<id>.exceptions`; there is no 
   [`docs/guides/manual-evidence.md`](../guides/manual-evidence.md) change together.
 - Catalog export shape: `internal/manualcatalog` and the SPA's `src/types/catalog.ts` change
   together; run `sigcomply evidence catalog -o json` to check.
+- Form link: `manualcatalog.FormURL` and the SPA's route in `src/App.tsx` change together.
 - Catalog entry count: `TestDocFiguresMatchCode` names every doc that quotes it.
 - Tests: `internal/sources/manual/manual_test.go`, `instances_test.go`,
   `internal/evaluator/manual_instances_test.go`.

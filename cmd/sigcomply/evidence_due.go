@@ -11,6 +11,7 @@ import (
 
 	"github.com/sigcomply/sigcomply-cli/internal/frameworks"
 	"github.com/sigcomply/sigcomply-cli/internal/log"
+	"github.com/sigcomply/sigcomply-cli/internal/manualcatalog"
 	"github.com/sigcomply/sigcomply-cli/internal/manualdue"
 	"github.com/sigcomply/sigcomply-cli/internal/orchestrator"
 	"github.com/sigcomply/sigcomply-cli/internal/planner"
@@ -133,6 +134,12 @@ func runEvidenceDue(ctx context.Context, stdout io.Writer, parent *evidenceFlags
 		notef(stdout, "manual evidence: could not list the evidence store, skipping the due check (%v)\n", err)
 		return nil
 	}
+	if factory, ok := frameworks.Lookup(fwID); ok {
+		links := formLinks(factory)
+		for i := range rep.Missing {
+			rep.Missing[i].FormURL = links[rep.Missing[i].CatalogID]
+		}
+	}
 	return renderDue(stdout, parent.output, rep)
 }
 
@@ -169,6 +176,18 @@ func manualCatalogFor(flagFramework, configFramework string) (catalog map[string
 			err: fmt.Errorf("evidence due: framework %q has no manual catalog", fwID)}
 	}
 	return factory.ManualCatalog(), fwID, nil
+}
+
+// formLinks maps each of the framework's catalog IDs that has an
+// Evidence SPA form to its link. It reads the exported catalog because
+// the runtime one carries no entry type. Only `check` and `evidence due`
+// print these, to the operator's terminal.
+func formLinks(factory frameworks.Factory) map[string]string {
+	if factory.ManualCatalogExport == nil {
+		return nil
+	}
+	cat := factory.ManualCatalogExport()
+	return manualcatalog.FormLinks(cat.Framework, cat)
 }
 
 func renderDue(stdout io.Writer, output string, rep *manualdue.Report) error {

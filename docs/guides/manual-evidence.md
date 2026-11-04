@@ -81,10 +81,12 @@ manual evidence: 52 of 52 entries have an empty folder (run period 2026-Q4)
   ENTRY                             CADENCE    PERIOD   DUE IN  UPLOAD TO
   access_review_quarterly           quarterly  2026-Q4  66d     file://./evidence/manual/access_review_quarterly/2026-Q4/
   accountability_for_controls       annual     2026     66d     file://./evidence/manual/accountability_for_controls/2026/
+    form: https://sigcomply.github.io/sigcomply-evidence-spa/evidence/soc2/accountability_for_controls
 ```
 
 Without `--all`, `evidence due` lists only the folders whose period ends within 30 days
-(`--within-days` changes that).
+(`--within-days` changes that). A `declaration` or `checklist` entry gets a `form:` line with a
+link to its form in the Evidence SPA (next section).
 
 ### Make a declaration or checklist PDF in the Evidence SPA
 
@@ -93,14 +95,14 @@ For entries of type `declaration` or `checklist`, you can produce the PDF in the
 browser and sends nothing to a server. Entries of type `document_upload` (exports, certificates,
 reports) don't appear there; produce those files yourself.
 
-1. Open <https://sigcomply.github.io/sigcomply-evidence-spa/> and pick your framework.
-2. Open the entry you need.
-3. Check the period, accept the declaration or confirm each checklist step, and enter who
+1. Open the `form:` link that `evidence due` or `check` printed for the entry. Or open
+   <https://sigcomply.github.io/sigcomply-evidence-spa/>, pick your framework and open the entry.
+2. Check the period, accept the declaration or confirm each checklist step, and enter who
    completed it.
-4. Select **Download evidence.pdf**.
-5. Upload the file as in step 3. The SPA shows the path for the default `manual/` prefix and
-   calendar periods. If your project sets another prefix or a fiscal or custom calendar, use the
-   path from `sigcomply evidence due --all` instead.
+3. Select **Download evidence.pdf**.
+4. Upload the file as in [section 3](#3-upload-the-files). The SPA shows the path for the
+   default `manual/` prefix and calendar periods. If your project sets another prefix or a fiscal
+   or custom calendar, use the path from `sigcomply evidence due --all` instead.
 
 ## 3. Upload the files
 
@@ -171,6 +173,15 @@ One with no file fails and names the folder it read:
 ```text
   [fail] soc2.a1.2.business_continuity_plan — A1.2
       ↳ manual evidence not found; expected files in: file://./evidence/manual/business_continuity_plan/2026/
+```
+
+When the entry is a `declaration` or `checklist`, a second line links to its form in the
+Evidence SPA:
+
+```text
+  [fail] soc2.cc1.5.accountability_for_controls — CC1.5
+      ↳ manual evidence not found; expected files in: file://./evidence/manual/accountability_for_controls/2026/
+      ↳ fill in the form: https://sigcomply.github.io/sigcomply-evidence-spa/evidence/soc2/accountability_for_controls
 ```
 
 `sigcomply report --period 2026-Q4 --view latest` shows the same results from the vault.

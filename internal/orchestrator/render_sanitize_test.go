@@ -39,7 +39,7 @@ func TestRenderAndExitCode_SanitizesUntrustedText(t *testing.T) {
 		{PolicyID: "p2", Status: core.StatusError, Diag: map[string]any{"collect_error": hostileText}},
 		{PolicyID: "p3", Status: core.StatusError, Diag: map[string]any{"rule_error": hostileText}},
 	}
-	renderAndExitCode(&buf, plan, results, spec.CIConfig{}, nil)
+	renderAndExitCode(&buf, plan, results, nil, spec.CIConfig{}, nil)
 	assertSafeOutput(t, buf.String())
 	if !strings.Contains(buf.String(), "forged") {
 		t.Errorf("the reason text itself should still be shown: %q", buf.String())

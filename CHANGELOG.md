@@ -11,6 +11,14 @@ this file lists the changes a user notices.
 
 ## [Unreleased]
 
+### Added
+
+- `check` and `evidence due` print a link to the Evidence SPA form for a missing `declaration` or
+  `checklist` entry. `check` adds a `↳ fill in the form: <url>` line under a failing manual
+  policy, and `evidence due` adds a `form: <url>` line under the row, `form_url` in JSON output,
+  and the link in its GitHub annotation and job summary. `document_upload` entries have no form
+  and get no link.
+
 ### Fixed
 
 - `azure.defender` reads vulnerability findings from Defender for Cloud's individual

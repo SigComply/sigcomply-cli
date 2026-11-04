@@ -161,3 +161,40 @@ func assertExitCode(t *testing.T, err error, want int) {
 		t.Errorf("exit code = %d; want %d", ec.code, want)
 	}
 }
+
+// A declaration entry carries its SPA form link in every output; a
+// document_upload entry has no form and gets none.
+func TestEvidenceDue_FormLinks(t *testing.T) {
+	const declaration = "code_of_conduct_acknowledgment"
+	wantURL := "https://sigcomply.github.io/sigcomply-evidence-spa/evidence/soc2/" + declaration
+	_, cfg := writeDueProject(t)
+
+	text, err := runDue(t, cfg, &evidenceFlags{output: outputText}, &evidenceDueFlags{all: true})
+	if err != nil {
+		t.Fatalf("runEvidenceDue: %v", err)
+	}
+	if !strings.Contains(text, "\n    form: "+wantURL+"\n") {
+		t.Errorf("text output missing the form line for %s:\n%s", declaration, text)
+	}
+
+	raw, err := runDue(t, cfg, &evidenceFlags{output: outputJSON}, &evidenceDueFlags{all: true})
+	if err != nil {
+		t.Fatalf("runEvidenceDue: %v", err)
+	}
+	var rep manualdue.Report
+	if err := json.Unmarshal([]byte(raw), &rep); err != nil {
+		t.Fatalf("unmarshal: %v\n%s", err, raw)
+	}
+	for _, e := range rep.Missing {
+		switch e.CatalogID {
+		case declaration:
+			if e.FormURL != wantURL {
+				t.Errorf("%s form_url = %q; want %q", e.CatalogID, e.FormURL, wantURL)
+			}
+		case "security_awareness_training":
+			if e.FormURL != "" {
+				t.Errorf("document_upload entry %s got form_url %q", e.CatalogID, e.FormURL)
+			}
+		}
+	}
+}

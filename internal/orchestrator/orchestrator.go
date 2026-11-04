@@ -111,6 +111,14 @@ type Options struct {
 	// scheduled). See the Mode type for semantics. ModeManual is
 	// the default and preserves legacy single-run behavior.
 	Mode Mode
+
+	// FormLinks maps a manual catalog ID to the Evidence SPA form that
+	// produces its PDF, for entries that have one. A failing manual
+	// policy prints the link so the operator can fill the gap without
+	// looking it up. The command layer builds it from the framework; the
+	// link goes to stdout only, never into a result, the vault or the
+	// cloud payload. Nil prints no links.
+	FormLinks map[string]string
 }
 
 // Result is what Run returns to the CLI command. ExitCode is the
@@ -217,7 +225,7 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 	payload := buildPayload(opts, results, plan, runID, startedAt, completedAt)
 	submitted, submittedAt, captureErr := handleSubmission(ctx, opts, &payload, completedAt, filter.IsExplicit())
 
-	exitCode := renderAndExitCode(opts.Stdout, plan, results, opts.Config.CI, scopeReport)
+	exitCode := renderAndExitCode(opts.Stdout, plan, results, opts.FormLinks, opts.Config.CI, scopeReport)
 	if captureErr != nil {
 		return Result{ExitCode: ExitExecution, RunID: runID, RunRoot: runRoot, Summary: payload.Summary}, captureErr
 	}
@@ -1012,7 +1020,7 @@ func renderAssurance(stdout io.Writer, results []core.PolicyResult) {
 	}
 }
 
-func renderAndExitCode(stdout io.Writer, plan *planner.RunPlan, results []core.PolicyResult, ci spec.CIConfig, scopeReport *scope.Report) int {
+func renderAndExitCode(stdout io.Writer, plan *planner.RunPlan, results []core.PolicyResult, formLinks map[string]string, ci spec.CIConfig, scopeReport *scope.Report) int {
 	c := countStatuses(results)
 	_, _ = fmt.Fprintf(stdout, "SigComply check %s/%s — %d policies\n", plan.Framework, plan.Period.ID, len(results))                                                  //nolint:errcheck // status output
 	_, _ = fmt.Fprintf(stdout, "  pass=%d fail=%d carried=%d skip=%d error=%d na=%d waived=%d\n", c.passed, c.failed, c.carried, c.skipped, c.errored, c.na, c.waived) //nolint:errcheck // status output
@@ -1020,6 +1028,7 @@ func renderAndExitCode(stdout io.Writer, plan *planner.RunPlan, results []core.P
 	sortedResults := make([]core.PolicyResult, len(results))
 	copy(sortedResults, results)
 	sort.Slice(sortedResults, func(i, j int) bool { return sortedResults[i].PolicyID < sortedResults[j].PolicyID })
+	catalogEntries := manualCatalogEntries(plan)
 	for i := range sortedResults {
 		r := &sortedResults[i]
 		_, _ = fmt.Fprintf(stdout, "  [%s] %s — %s\n", r.Status, r.PolicyID, core.PrimaryControlID(r.Controls)) //nolint:errcheck // status output
@@ -1032,6 +1041,9 @@ func renderAndExitCode(stdout io.Writer, plan *planner.RunPlan, results []core.P
 		// log.Sanitize (no newlines, workflow commands or escapes).
 		if reason := core.ResultReason(r); reason != "" {
 			_, _ = fmt.Fprintf(stdout, "      ↳ %s\n", log.Sanitize(reason)) //nolint:errcheck // status output
+		}
+		if link := formLinkFor(r, catalogEntries, formLinks); link != "" {
+			_, _ = fmt.Fprintf(stdout, "      ↳ fill in the form: %s\n", log.Sanitize(link)) //nolint:errcheck // status output
 		}
 	}
 	if c.skipped > 0 {
@@ -1050,6 +1062,31 @@ func renderAndExitCode(stdout io.Writer, plan *planner.RunPlan, results []core.P
 		return ExitViolation
 	}
 	return ExitOK
+}
+
+// manualCatalogEntries maps each planned manual policy to the catalog
+// entry it reads, after any project override of catalog_entry.
+func manualCatalogEntries(plan *planner.RunPlan) map[string]string {
+	entries := make(map[string]string, len(plan.Policies))
+	for i := range plan.Policies {
+		if p := &plan.Policies[i].Spec; p.EvidenceMode == core.EvidenceModeManual && p.CatalogEntry != "" {
+			entries[p.ID] = p.CatalogEntry
+		}
+	}
+	return entries
+}
+
+// formLinkFor returns the form link for a failing manual policy, or "".
+// A fail covers a missing, late or invalid file, and a fresh PDF from
+// the form fixes each of them. Only a fail qualifies: an error
+// means the store could not be read, and a link would send the operator
+// to redo work that may already be done. An overridden catalog_entry
+// that is not in the framework's catalog has no form, so no link.
+func formLinkFor(r *core.PolicyResult, catalogEntries, formLinks map[string]string) string {
+	if r.Status != core.StatusFail || r.EvidenceMode != core.EvidenceModeManual {
+		return ""
+	}
+	return formLinks[catalogEntries[r.PolicyID]]
 }
 
 // renderSkipExplanations prints, to stdout, why each skipped policy was

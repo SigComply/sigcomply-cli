@@ -20,9 +20,11 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 	"text/tabwriter"
 	"time"
 
+	"github.com/sigcomply/sigcomply-cli/internal/log"
 	"github.com/sigcomply/sigcomply-cli/internal/planner"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual"
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
@@ -101,6 +103,12 @@ type Entry struct {
 	// "one of your vendors does".
 	Instance     string `json:"instance,omitempty"`
 	InstanceName string `json:"instance_name,omitempty"`
+
+	// FormURL is the Evidence SPA form that produces this entry's PDF,
+	// set by the command layer for declaration and checklist entries.
+	// Empty for an entry with no form: the SPA has no page for a
+	// document_upload, so a link there would 404.
+	FormURL string `json:"form_url,omitempty"`
 }
 
 // Report is the result of one scan.
@@ -264,18 +272,7 @@ func FormatText(w io.Writer, rep *Report) error {
 		len(rep.Missing), rep.Checked, plural(rep.Checked), rep.PeriodID); err != nil {
 		return err
 	}
-	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	if _, err := fmt.Fprintln(tw, "  ENTRY\tCADENCE\tPERIOD\tDUE IN\tUPLOAD TO"); err != nil {
-		return err
-	}
-	for i := range rep.Missing {
-		e := &rep.Missing[i]
-		if _, err := fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\t%s\n",
-			entryLabel(e), dash(e.Cadence), e.PeriodID, dueIn(e), e.FolderURI); err != nil {
-			return err
-		}
-	}
-	if err := tw.Flush(); err != nil {
+	if err := writeTable(w, rep.Missing); err != nil {
 		return err
 	}
 	if rep.Suppressed > 0 {
@@ -288,6 +285,44 @@ func FormatText(w io.Writer, rep *Report) error {
 	_, err := fmt.Fprintf(w,
 		"manual evidence: upload during the period; once it ends, runs read the next period's folder. This notice does not fail the build.\n")
 	return err
+}
+
+// writeTable prints one row per missing entry, each followed by its form
+// line when it has a form.
+func writeTable(w io.Writer, missing []Entry) error {
+	// The table is laid out in a buffer first so a form line can go under
+	// its row: tabwriter ends a column block at any line without cells,
+	// so writing the form line through it would realign every row after.
+	var table strings.Builder
+	tw := tabwriter.NewWriter(&table, 0, 0, 2, ' ', 0)
+	if _, err := fmt.Fprintln(tw, "  ENTRY\tCADENCE\tPERIOD\tDUE IN\tUPLOAD TO"); err != nil {
+		return err
+	}
+	for i := range missing {
+		e := &missing[i]
+		if _, err := fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\t%s\n",
+			entryLabel(e), dash(e.Cadence), e.PeriodID, dueIn(e), e.FolderURI); err != nil {
+			return err
+		}
+	}
+	if err := tw.Flush(); err != nil {
+		return err
+	}
+	// Line 0 is the header and line i+1 is missing[i]: no cell holds
+	// a newline, so each row is exactly one line.
+	rows := strings.Split(strings.TrimSuffix(table.String(), "\n"), "\n")
+	for i, row := range rows {
+		if _, err := io.WriteString(w, row+"\n"); err != nil {
+			return err
+		}
+		if i == 0 || missing[i-1].FormURL == "" {
+			continue
+		}
+		if _, err := fmt.Fprintf(w, "    form: %s\n", log.Sanitize(missing[i-1].FormURL)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // withinLabel renders the lead time for the summary lines.
@@ -333,8 +368,12 @@ func FormatGitHubAnnotations(w io.Writer, rep *Report) error {
 	}
 	for i := range shown {
 		e := &shown[i]
-		if _, err := fmt.Fprintf(w, "::warning title=Manual evidence due::%s (%s) has no file for period %s — %s. Upload to %s\n",
-			e.CatalogID, dash(e.Cadence), e.PeriodID, dueIn(e), e.FolderURI); err != nil {
+		form := ""
+		if e.FormURL != "" {
+			form = ". Or fill in the form: " + log.Sanitize(e.FormURL)
+		}
+		if _, err := fmt.Fprintf(w, "::warning title=Manual evidence due::%s (%s) has no file for period %s — %s. Upload to %s%s\n",
+			e.CatalogID, dash(e.Cadence), e.PeriodID, dueIn(e), e.FolderURI, form); err != nil {
 			return err
 		}
 	}
@@ -370,8 +409,12 @@ func FormatMarkdown(w io.Writer, rep *Report) error {
 	}
 	for i := range rep.Missing {
 		e := &rep.Missing[i]
-		if _, err := fmt.Fprintf(w, "| `%s` | %s | `%s` | %s | `%s` |\n",
-			e.CatalogID, dash(e.Cadence), e.PeriodID, dueIn(e), e.FolderURI); err != nil {
+		entry := "`" + e.CatalogID + "`"
+		if e.FormURL != "" {
+			entry = "[" + entry + "](" + log.Sanitize(e.FormURL) + ")"
+		}
+		if _, err := fmt.Fprintf(w, "| %s | %s | `%s` | %s | `%s` |\n",
+			entry, dash(e.Cadence), e.PeriodID, dueIn(e), e.FolderURI); err != nil {
 			return err
 		}
 	}

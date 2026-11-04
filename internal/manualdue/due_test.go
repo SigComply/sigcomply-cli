@@ -488,3 +488,123 @@ func TestScan_CustomCalendarKeepsOnePeriodForEveryEntry(t *testing.T) {
 		}
 	}
 }
+
+const testFormURL = "https://forms.example/evidence/soc2/security_awareness_training"
+
+// formReport is a scanned report where the training entry has a form and
+// the access review does not.
+func formReport(t *testing.T) *manualdue.Report {
+	t.Helper()
+	in := baseInput(t, map[string]manual.InMemoryFile{}, mustTime(t, "2026-03-17T00:00:00Z"))
+	rep, err := manualdue.Scan(context.Background(), &in)
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	for i := range rep.Missing {
+		if rep.Missing[i].CatalogID == testCatalogTraining {
+			rep.Missing[i].FormURL = testFormURL
+		}
+	}
+	return rep
+}
+
+// The form line sits under its own row and leaves the table's columns
+// aligned: every row's UPLOAD TO column starts where the header's does.
+func TestFormatText_FormLinkUnderItsRow(t *testing.T) {
+	var buf bytes.Buffer
+	if err := manualdue.FormatText(&buf, formReport(t)); err != nil {
+		t.Fatalf("FormatText: %v", err)
+	}
+	lines := strings.Split(buf.String(), "\n")
+	var header, access, training, form int
+	for i, l := range lines {
+		switch {
+		case strings.HasPrefix(l, "  ENTRY"):
+			header = i
+		case strings.HasPrefix(l, "  "+testCatalogAccess):
+			access = i
+		case strings.HasPrefix(l, "  "+testCatalogTraining):
+			training = i
+		case strings.Contains(l, "form: "):
+			form = i
+		}
+	}
+	if form != training+1 || lines[form] != "    form: "+testFormURL {
+		t.Fatalf("form line not right under the training row:\n%s", buf.String())
+	}
+	if strings.Count(buf.String(), "form: ") != 1 {
+		t.Errorf("an entry without a form got a form line:\n%s", buf.String())
+	}
+	col := strings.Index(lines[header], "UPLOAD TO")
+	for _, i := range []int{access, training} {
+		if strings.Index(lines[i], "s3://") != col {
+			t.Errorf("row %q: UPLOAD TO column misaligned (header at %d)\n%s", lines[i], col, buf.String())
+		}
+	}
+}
+
+func TestFormatJSON_FormURLOnlyWhenSet(t *testing.T) {
+	var buf bytes.Buffer
+	if err := manualdue.FormatJSON(&buf, formReport(t)); err != nil {
+		t.Fatalf("FormatJSON: %v", err)
+	}
+	if n := strings.Count(buf.String(), `"form_url"`); n != 1 {
+		t.Errorf(`"form_url" appears %d times; want 1 (omitted when empty):\n%s`, n, buf.String())
+	}
+	if !strings.Contains(buf.String(), `"form_url": "`+testFormURL+`"`) {
+		t.Errorf("form_url missing:\n%s", buf.String())
+	}
+}
+
+func TestFormatGitHubAnnotations_FormLink(t *testing.T) {
+	var buf bytes.Buffer
+	if err := manualdue.FormatGitHubAnnotations(&buf, formReport(t)); err != nil {
+		t.Fatalf("FormatGitHubAnnotations: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("want one ::warning line per entry, got:\n%s", buf.String())
+	}
+	for _, l := range lines {
+		hasForm := strings.HasSuffix(l, ". Or fill in the form: "+testFormURL)
+		if strings.Contains(l, testCatalogTraining) != hasForm {
+			t.Errorf("form link on the wrong annotation: %q", l)
+		}
+	}
+}
+
+func TestFormatMarkdown_LinksEntryToForm(t *testing.T) {
+	var buf bytes.Buffer
+	if err := manualdue.FormatMarkdown(&buf, formReport(t)); err != nil {
+		t.Fatalf("FormatMarkdown: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "| [`"+testCatalogTraining+"`]("+testFormURL+") |") {
+		t.Errorf("training entry not linked to its form:\n%s", out)
+	}
+	if !strings.Contains(out, "| `"+testCatalogAccess+"` |") {
+		t.Errorf("entry without a form should stay plain:\n%s", out)
+	}
+}
+
+// The link is printed, so it goes through the same sanitizing as any
+// other text a workflow log shows.
+func TestFormat_FormLinkIsSanitized(t *testing.T) {
+	rep := formReport(t)
+	for i := range rep.Missing {
+		rep.Missing[i].FormURL = "x\n::error::forged\x1b[2K)"
+	}
+	for name, format := range map[string]func(*bytes.Buffer) error{
+		"text":     func(b *bytes.Buffer) error { return manualdue.FormatText(b, rep) },
+		"github":   func(b *bytes.Buffer) error { return manualdue.FormatGitHubAnnotations(b, rep) },
+		"markdown": func(b *bytes.Buffer) error { return manualdue.FormatMarkdown(b, rep) },
+	} {
+		var buf bytes.Buffer
+		if err := format(&buf); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if strings.Contains(buf.String(), "\n::error") || strings.Contains(buf.String(), "\x1b") {
+			t.Errorf("%s: unsanitized form link:\n%q", name, buf.String())
+		}
+	}
+}

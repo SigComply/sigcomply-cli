@@ -281,6 +281,11 @@ an all-clear only when every folder has a file. The `DUE IN` column counts to th
 entry's period. Upload during the period: a late upload is never checked
 ([Manual evidence](../guides/manual-evidence.md)).
 
+A `declaration` or `checklist` entry also gets a link to its form in the Evidence SPA: a
+`form: <url>` line under its row in text output, and `form_url` in JSON output (left out for
+other entries). In GitHub Actions the link ends that entry's annotation and the entry name in the
+job summary links to it.
+
 | Flag | Short | Default | Meaning |
 |---|---|---|---|
 | `--config <path>` | `-c` | `.sigcomply.yaml` | Config file |

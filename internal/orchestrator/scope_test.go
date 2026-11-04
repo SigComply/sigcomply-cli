@@ -33,7 +33,7 @@ func passingResults() []core.PolicyResult {
 func TestRenderAndExitCode_IncompleteScopeFailsAnAllPassingRun(t *testing.T) {
 	var buf bytes.Buffer
 	plan := &planner.RunPlan{Framework: testFramework}
-	code := renderAndExitCode(&buf, plan, passingResults(), spec.CIConfig{}, incompleteReport())
+	code := renderAndExitCode(&buf, plan, passingResults(), nil, spec.CIConfig{}, incompleteReport())
 	if code != ExitViolation {
 		t.Fatalf("exit = %d; want %d (ExitViolation)", code, ExitViolation)
 	}
@@ -55,7 +55,7 @@ func TestRenderAndExitCode_IncompleteScopeFailsAnAllPassingRun(t *testing.T) {
 func TestRenderAndExitCode_ScopeRespectsFailOnViolation(t *testing.T) {
 	var buf bytes.Buffer
 	off := false
-	code := renderAndExitCode(&buf, &planner.RunPlan{}, passingResults(), spec.CIConfig{FailOnViolation: &off}, incompleteReport())
+	code := renderAndExitCode(&buf, &planner.RunPlan{}, passingResults(), nil, spec.CIConfig{FailOnViolation: &off}, incompleteReport())
 	if code != ExitOK {
 		t.Fatalf("exit = %d; want %d with fail_on_violation:false", code, ExitOK)
 	}
@@ -71,7 +71,7 @@ func TestRenderAndExitCode_CompleteAndUndeclaredAreSilent(t *testing.T) {
 		{Status: scope.StatusComplete, Sources: []scope.SourceReport{{SourceID: sourceGitHub, State: scope.SourceOK}}},
 	} {
 		var buf bytes.Buffer
-		code := renderAndExitCode(&buf, &planner.RunPlan{}, passingResults(), spec.CIConfig{}, rep)
+		code := renderAndExitCode(&buf, &planner.RunPlan{}, passingResults(), nil, spec.CIConfig{}, rep)
 		if code != ExitOK {
 			t.Errorf("exit = %d; want ExitOK for %+v", code, rep)
 		}
@@ -85,7 +85,7 @@ func TestRenderAndExitCode_CompleteAndUndeclaredAreSilent(t *testing.T) {
 func TestRenderAndExitCode_ErrorOutranksScope(t *testing.T) {
 	var buf bytes.Buffer
 	results := []core.PolicyResult{{PolicyID: "p1", Status: core.StatusError}}
-	if code := renderAndExitCode(&buf, &planner.RunPlan{}, results, spec.CIConfig{}, incompleteReport()); code != ExitExecution {
+	if code := renderAndExitCode(&buf, &planner.RunPlan{}, results, nil, spec.CIConfig{}, incompleteReport()); code != ExitExecution {
 		t.Fatalf("exit = %d; want %d (ExitExecution)", code, ExitExecution)
 	}
 }
