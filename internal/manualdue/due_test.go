@@ -608,3 +608,33 @@ func TestFormat_FormLinkIsSanitized(t *testing.T) {
 		}
 	}
 }
+
+// A vendor name comes from project config and may hold a newline or a
+// tab. The table must keep one line per row, so each form line still
+// lands under its own entry and nothing panics on a row count mismatch.
+func TestFormatText_ControlCharactersInVendorNameKeepRowsIntact(t *testing.T) {
+	rep := formReport(t)
+	for i := range rep.Missing {
+		if rep.Missing[i].CatalogID == testCatalogTraining {
+			rep.Missing[i].Instance = "acme"
+			rep.Missing[i].InstanceName = "Acme\nCloud\tInc"
+		}
+	}
+	var buf bytes.Buffer
+	if err := manualdue.FormatText(&buf, rep); err != nil {
+		t.Fatalf("FormatText: %v", err)
+	}
+	lines := strings.Split(buf.String(), "\n")
+	for i, l := range lines {
+		if strings.HasPrefix(l, "  "+testCatalogTraining) {
+			if !strings.Contains(l, "[Acme Cloud Inc]") {
+				t.Errorf("vendor name not flattened onto its row: %q", l)
+			}
+			if i+1 >= len(lines) || lines[i+1] != "    form: "+testFormURL {
+				t.Fatalf("form line not right under the vendor row:\n%s", buf.String())
+			}
+			return
+		}
+	}
+	t.Fatalf("vendor row missing:\n%s", buf.String())
+}

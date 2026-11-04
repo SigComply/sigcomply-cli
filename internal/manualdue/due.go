@@ -300,22 +300,24 @@ func writeTable(w io.Writer, missing []Entry) error {
 	}
 	for i := range missing {
 		e := &missing[i]
+		// A vendor name comes from project config and can hold a newline
+		// or tab; flattening the cells keeps each row on one line.
 		if _, err := fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\t%s\n",
-			entryLabel(e), dash(e.Cadence), e.PeriodID, dueIn(e), e.FolderURI); err != nil {
+			log.Sanitize(entryLabel(e)), dash(e.Cadence), e.PeriodID, dueIn(e), log.Sanitize(e.FolderURI)); err != nil {
 			return err
 		}
 	}
 	if err := tw.Flush(); err != nil {
 		return err
 	}
-	// Line 0 is the header and line i+1 is missing[i]: no cell holds
-	// a newline, so each row is exactly one line.
+	// Line 0 is the header and line i+1 is missing[i]: the cells are
+	// sanitized above, so each row is exactly one line.
 	rows := strings.Split(strings.TrimSuffix(table.String(), "\n"), "\n")
 	for i, row := range rows {
 		if _, err := io.WriteString(w, row+"\n"); err != nil {
 			return err
 		}
-		if i == 0 || missing[i-1].FormURL == "" {
+		if i == 0 || i > len(missing) || missing[i-1].FormURL == "" {
 			continue
 		}
 		if _, err := fmt.Fprintf(w, "    form: %s\n", log.Sanitize(missing[i-1].FormURL)); err != nil {
