@@ -84,7 +84,7 @@ The script installs the latest release into `/usr/local/bin`. For a pinned versi
 folder or `go install`, see [Install](docs/guides/install.md).
 
 The [Quickstart](docs/quickstart.md) runs SigComply on your laptop with manual evidence only, so
-it needs no credentials. You run a check, add one PDF to make a control pass, verify the
+it needs no credentials. You run a check, add one PDF to make one policy pass, verify the
 signatures, then change a file and watch verification fail. Its last step adds a read-only AWS
 account to see automated checks.
 
