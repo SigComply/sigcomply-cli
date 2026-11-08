@@ -1046,6 +1046,51 @@ func TestGrantTraversalErrorFailsTheCollection(t *testing.T) {
 	}
 }
 
+// accountInstanceMsg is sso-admin's verbatim answer to ListPermissionSets on an
+// account instance (recorded 2026-11-08 against a live account instance).
+const accountInstanceMsg = "This operation is not supported for account instances of IAM Identity Center."
+
+// TestAccountInstanceHasNoGrants: an account instance supports no permission
+// sets, so sso-admin refuses the traversal with a ValidationException. That is
+// "no grants", not a failure: every user is still emitted, nobody is admin,
+// and there are no iam_binding records.
+func TestAccountInstanceHasNoGrants(t *testing.T) {
+	api := grantFake()
+	api.grantErr = &ssotypes.ValidationException{Message: s(accountInstanceMsg)}
+	p := newFakePlugin(t, api, testStoreID)
+	recs := collect(t, p, EvidenceTypeDirectoryUser, EvidenceTypeRosterEntry, EvidenceTypeIAMBinding)
+
+	counts := map[string]int{}
+	for i := range recs {
+		counts[recs[i].Type]++
+		if recs[i].Type == EvidenceTypeDirectoryUser {
+			if u := payloadOf[userPayload](t, &recs[i]); u.IsAdmin {
+				t.Errorf("user %s is_admin = true; an account instance grants no AWS account", u.ID)
+			}
+		}
+	}
+	want := map[string]int{EvidenceTypeDirectoryUser: 2, EvidenceTypeRosterEntry: 2}
+	if len(counts) != len(want) || counts[EvidenceTypeDirectoryUser] != 2 || counts[EvidenceTypeRosterEntry] != 2 {
+		t.Errorf("records by type = %v, want %v and no iam_binding", counts, want)
+	}
+	if api.listAssignments != 0 || api.describeGroups != 0 || api.listMemberships != 0 {
+		t.Errorf("traversal went on after the refusal: assignments=%d groups=%d memberships=%d",
+			api.listAssignments, api.describeGroups, api.listMemberships)
+	}
+}
+
+// TestOtherValidationExceptionStillFails: only the account-instance refusal is
+// read as "no grants"; any other ValidationException is a real failure.
+func TestOtherValidationExceptionStillFails(t *testing.T) {
+	api := grantFake()
+	api.grantErr = &ssotypes.ValidationException{Message: s("1 validation error detected: Value at 'instanceArn' failed to satisfy constraint")}
+	p := newFakePlugin(t, api, testStoreID)
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeDirectoryUser}})
+	if err == nil || !strings.Contains(err.Error(), "instanceArn") {
+		t.Fatalf("err = %v, want the ValidationException to fail the collection", err)
+	}
+}
+
 // TestRecordsAreGloballyIDSorted: the conformance harness asserts a single
 // ascending ID order across every emitted type, not per type group.
 func TestRecordsAreGloballyIDSorted(t *testing.T) {

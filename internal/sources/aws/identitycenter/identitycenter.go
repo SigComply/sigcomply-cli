@@ -90,6 +90,14 @@
 // none of the sso:* permissions — designating Identity Center as the roster
 // stays a two-permission operation.
 //
+// An account instance (Identity Center enabled in a standalone or member
+// account rather than for the organization) supports no permission sets and
+// no AWS-account access; sso-admin answers ListPermissionSets with a
+// ValidationException saying so. That is read as "no grants", not as a
+// failure: users are emitted with is_admin false (true of an account
+// instance, which cannot grant an AWS account to anyone) and no iam_binding
+// records. Any other error from the traversal still fails the collection.
+//
 // # What this plugin cannot answer, and why it never guesses
 //
 //   - mfa_enabled — Identity Center exposes no per-user MFA enrollment state
@@ -126,6 +134,7 @@ package identitycenter
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -603,6 +612,12 @@ func (p *Plugin) collectGrants(ctx context.Context, storeID, instanceARN string,
 	emails := userEmails(users)
 
 	sets, err := p.listPermissionSets(ctx, instanceARN)
+	if isAccountInstanceRefusal(err) {
+		// An account instance cannot hold permission sets or grant access to
+		// any AWS account, so it has no grants: no iam_binding records, and
+		// nobody is admin through it. Its users are still listed in full.
+		return idx, nil
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -619,6 +634,23 @@ func (p *Plugin) collectGrants(ctx context.Context, storeID, instanceARN string,
 		}
 	}
 	return idx, nil
+}
+
+// isAccountInstanceRefusal reports whether err is sso-admin's answer for an
+// account instance of IAM Identity Center: a ValidationException saying the
+// operation "is not supported for account instances". An account instance
+// (one enabled in a standalone or member account, not the organization's)
+// supports users and applications but no permission sets and no AWS-account
+// access, so there is nothing to traverse. Matched on both the exception type
+// and its message: any other ValidationException is a real failure, and a
+// missing permission (AccessDeniedException, also HTTP 400) must still fail
+// the collection rather than read as "no grants".
+func isAccountInstanceRefusal(err error) bool {
+	var ve *ssotypes.ValidationException
+	if !errors.As(err, &ve) {
+		return false
+	}
+	return strings.Contains(strings.ToLower(ve.ErrorMessage()), "account instance")
 }
 
 // grantMemo carries the lookups shared across one traversal: the user id →

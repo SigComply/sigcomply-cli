@@ -117,6 +117,10 @@ There is no fixed list of which `aws.*` sources a framework needs. The plan's `c
   emails, so they join the roster directly. It can be the roster source. Used only as the roster,
   it needs just `sso:ListInstances` and `identitystore:ListUsers`.
 - `aws.identity_center` cannot read per-user MFA. See [Source caveats](#source-caveats).
+- `aws.identity_center` reads an account instance (Identity Center enabled in one account, not for
+  the organization) as having no grants. An account instance supports no permission sets and no
+  AWS-account access, so its users are listed with `is_admin: false` and it emits no
+  `iam_binding` records.
 - `aws.acm` lists certificates of every key type. A certificate that was never issued (pending or
   failed validation) has no expiry date and emits no record. `auto_renew` is true only while ACM
   reports the certificate as eligible for renewal; an Amazon-issued certificate that no AWS

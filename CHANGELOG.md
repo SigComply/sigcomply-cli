@@ -21,6 +21,12 @@ this file lists the changes a user notices.
 
 ### Fixed
 
+- `aws.identity_center` reads an Identity Center account instance. AWS refuses
+  `sso:ListPermissionSets` on an account instance (`ValidationException`: not supported for
+  account instances), and the CLI failed the source on it, so every policy it was bound to was
+  `error`. An account instance has no permission sets and grants no AWS account, so its users are
+  now listed with `is_admin: false` and it emits no `iam_binding` records. Any other error still
+  fails the source.
 - `azure.defender` reads vulnerability findings from Defender for Cloud's individual
   recommendations, through Azure Resource Graph. Microsoft retired the security sub-assessments it
   read before on 2026-07-31; they now answer `404 SubAssessmentsDeprecated`, which made
