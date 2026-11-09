@@ -29,33 +29,33 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/sql/armsql v1.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v4 v4.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.2
-	github.com/aws/aws-sdk-go-v2 v1.47.4
-	github.com/aws/aws-sdk-go-v2/config v1.33.10
-	github.com/aws/aws-sdk-go-v2/credentials v1.20.10
-	github.com/aws/aws-sdk-go-v2/service/acm v1.50.6
-	github.com/aws/aws-sdk-go-v2/service/backup v1.69.3
-	github.com/aws/aws-sdk-go-v2/service/cloudtrail v1.65.6
-	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.75.1
-	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.90.2
-	github.com/aws/aws-sdk-go-v2/service/configservice v1.74.6
-	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.72.1
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.341.0
-	github.com/aws/aws-sdk-go-v2/service/ecr v1.66.6
-	github.com/aws/aws-sdk-go-v2/service/eks v1.104.3
-	github.com/aws/aws-sdk-go-v2/service/guardduty v1.101.1
-	github.com/aws/aws-sdk-go-v2/service/iam v1.64.5
-	github.com/aws/aws-sdk-go-v2/service/identitystore v1.49.3
-	github.com/aws/aws-sdk-go-v2/service/inspector2 v1.61.5
-	github.com/aws/aws-sdk-go-v2/service/kms v1.61.6
-	github.com/aws/aws-sdk-go-v2/service/lambda v1.113.3
-	github.com/aws/aws-sdk-go-v2/service/macie2 v1.59.5
-	github.com/aws/aws-sdk-go-v2/service/rds v1.131.1
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.5
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.50.6
-	github.com/aws/aws-sdk-go-v2/service/securityhub v1.85.2
-	github.com/aws/aws-sdk-go-v2/service/ssoadmin v1.51.0
-	github.com/aws/aws-sdk-go-v2/service/sts v1.51.5
-	github.com/aws/smithy-go v1.28.6
+	github.com/aws/aws-sdk-go-v2 v1.47.5
+	github.com/aws/aws-sdk-go-v2/config v1.33.13
+	github.com/aws/aws-sdk-go-v2/credentials v1.20.13
+	github.com/aws/aws-sdk-go-v2/service/acm v1.51.1
+	github.com/aws/aws-sdk-go-v2/service/backup v1.69.5
+	github.com/aws/aws-sdk-go-v2/service/cloudtrail v1.65.8
+	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.75.3
+	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.91.0
+	github.com/aws/aws-sdk-go-v2/service/configservice v1.74.8
+	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.72.3
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.343.0
+	github.com/aws/aws-sdk-go-v2/service/ecr v1.67.2
+	github.com/aws/aws-sdk-go-v2/service/eks v1.105.2
+	github.com/aws/aws-sdk-go-v2/service/guardduty v1.101.3
+	github.com/aws/aws-sdk-go-v2/service/iam v1.64.6
+	github.com/aws/aws-sdk-go-v2/service/identitystore v1.49.5
+	github.com/aws/aws-sdk-go-v2/service/inspector2 v1.62.1
+	github.com/aws/aws-sdk-go-v2/service/kms v1.62.2
+	github.com/aws/aws-sdk-go-v2/service/lambda v1.114.0
+	github.com/aws/aws-sdk-go-v2/service/macie2 v1.60.1
+	github.com/aws/aws-sdk-go-v2/service/rds v1.131.2
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.6
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.50.8
+	github.com/aws/aws-sdk-go-v2/service/securityhub v1.85.4
+	github.com/aws/aws-sdk-go-v2/service/ssoadmin v1.52.2
+	github.com/aws/aws-sdk-go-v2/service/sts v1.51.6
+	github.com/aws/smithy-go v1.28.7
 	github.com/getkin/kin-openapi v0.152.0
 	github.com/go-asn1-ber/asn1-ber v1.5.8
 	github.com/go-ldap/ldap/v3 v3.4.15
@@ -89,19 +89,19 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.62.0 // indirect
 	github.com/agnivade/levenshtein v1.2.2 // indirect
 	github.com/apache/arrow-go/v18 v18.8.0 // indirect
-	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.24 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.4 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.7 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.7 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.7 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.22 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.11.8 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/endpoint-discovery v1.13.7 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.7 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.20.7 // indirect
-	github.com/aws/aws-sdk-go-v2/service/signin v1.10.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.38.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.43.5 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.25 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.5 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.8 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.8 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.8 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.23 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.11.9 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/endpoint-discovery v1.13.8 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.8 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.20.8 // indirect
+	github.com/aws/aws-sdk-go-v2/service/signin v1.12.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.39.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.44.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/cncf/xds/go v0.0.0-20260202195803-dba9d589def2 // indirect
