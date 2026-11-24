@@ -2,6 +2,8 @@ package storagetest
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/xml"
 	"io"
 	"net/http"
@@ -17,8 +19,8 @@ import (
 )
 
 // S3 is a fake Amazon S3 endpoint holding one bucket, addressed path-style.
-// It serves GetObject and ListObjectsV2, the calls the manual-evidence
-// reader makes.
+// It serves PutObject, GetObject and ListObjectsV2: the calls the S3 vault
+// and the manual-evidence reader make.
 type S3 struct {
 	*store
 	bucket string
@@ -55,6 +57,13 @@ func (s *S3) serve(w http.ResponseWriter, r *http.Request) {
 	bucketPath := "/" + s.bucket
 	q := r.URL.Query()
 	switch {
+	case r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, bucketPath+"/"):
+		name, err := url.PathUnescape(strings.TrimPrefix(r.URL.EscapedPath(), bucketPath+"/"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		s.putObject(w, r, name)
 	case r.Method == http.MethodGet && (r.URL.Path == bucketPath || r.URL.Path == bucketPath+"/") && q.Get("list-type") == "2":
 		s.list(w, q)
 	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, bucketPath+"/"):
@@ -68,6 +77,50 @@ func (s *S3) serve(w http.ResponseWriter, r *http.Request) {
 		s.t.Errorf("storagetest: unexpected S3 request %s %s", r.Method, r.URL)
 		http.Error(w, "unexpected request", http.StatusNotImplemented)
 	}
+}
+
+// metaHeader is the prefix of S3 user-defined metadata headers. S3 returns
+// metadata keys in lower case, so the fake stores them that way.
+const metaHeader = "x-amz-meta-"
+
+// putObject stores the body with its content type and x-amz-meta-*
+// metadata. Over plain HTTP the SDK sends the body unchunked and signs its
+// SHA-256 in x-amz-content-sha256; the fake checks that digest, so a body
+// the SDK mangled fails here. A streaming (aws-chunked) body is refused
+// rather than stored with its chunk framing: if an SDK upgrade starts
+// sending one over HTTP, the test fails loudly instead of passing on
+// corrupt data.
+func (s *S3) putObject(w http.ResponseWriter, r *http.Request, name string) {
+	sum := r.Header.Get("X-Amz-Content-Sha256")
+	if strings.HasPrefix(sum, "STREAMING-") || strings.Contains(r.Header.Get("Content-Encoding"), "aws-chunked") {
+		s.t.Errorf("storagetest: S3 PutObject with a streaming body (x-amz-content-sha256 %q) is not supported", sum)
+		http.Error(w, "streaming body not supported", http.StatusNotImplemented)
+		return
+	}
+	data, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if sum != "UNSIGNED-PAYLOAD" {
+		got := sha256.Sum256(data)
+		if sum != hex.EncodeToString(got[:]) {
+			s.t.Errorf("storagetest: S3 PutObject %q: x-amz-content-sha256 %q does not match the body", name, sum)
+			http.Error(w, "content sha256 mismatch", http.StatusBadRequest)
+			return
+		}
+	}
+	var meta map[string]string
+	for k, v := range r.Header {
+		if lk := strings.ToLower(k); strings.HasPrefix(lk, metaHeader) && len(v) > 0 {
+			if meta == nil {
+				meta = map[string]string{}
+			}
+			meta[strings.TrimPrefix(lk, metaHeader)] = v[0]
+		}
+	}
+	s.putTyped(name, data, meta, r.Header.Get("Content-Type"))
+	w.WriteHeader(http.StatusOK)
 }
 
 func (s *S3) get(w http.ResponseWriter, name string) {

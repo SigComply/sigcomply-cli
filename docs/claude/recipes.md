@@ -438,7 +438,7 @@ factories (step 3 of the source recipe).
 4. **Write integration tests** (see `internal/vault/vaulttest/`): run the
    contract suite against an in-memory fake of your API interface, and
    again against the real SDK client pointed at a fake server
-   (`internal/storagetest`: GCS and Azure Blob, read-only S3), with a listing
+   (`internal/storagetest`: GCS, Azure Blob and S3), with a listing
    longer than one page and a missing key. Write
    evidence using the period-first run layout — see the
    [vault layout](../architecture/05-vault-layout.md#layout) (`{framework}/{period_id}/

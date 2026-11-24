@@ -1,14 +1,13 @@
 // Package storagetest serves in-memory object stores over the wire
-// protocols of Google Cloud Storage (JSON and XML APIs) and Azure Blob
-// Storage, so the vault and manual-evidence adapters can be tested through
-// the real vendor SDKs: request building, pagination, response decoding
-// and error mapping included.
+// protocols of Google Cloud Storage (JSON and XML APIs), Azure Blob Storage
+// and Amazon S3 (path-style), so the vault and manual-evidence adapters can
+// be tested through the real vendor SDKs: request building, signing,
+// pagination, response decoding and error mapping included.
 //
 // The in-memory fakes next to each adapter test the adapter's own logic
-// behind its API interface. They never run the SDK code the adapter's
-// realGCS / realAzure type calls, which is where a pagination or not-found
-// bug would live. These servers cover that code without credentials or
-// network access.
+// behind its API interface. They never run the SDK code the adapter calls,
+// which is where a pagination or not-found bug would live. These servers
+// cover that code without credentials or network access.
 //
 // Each server implements only the operations the adapters use: upload,
 // download, and a flat prefix listing that returns at most PageSize
@@ -23,11 +22,13 @@ import (
 	"time"
 )
 
-// Object is one stored object.
+// Object is one stored object. ContentType is recorded only by the S3
+// server.
 type Object struct {
-	Data     []byte
-	Updated  time.Time
-	Metadata map[string]string
+	Data        []byte
+	Updated     time.Time
+	Metadata    map[string]string
+	ContentType string
 }
 
 // store is the state both servers share: objects by name, plus the page
@@ -75,9 +76,13 @@ func (s *store) PageTokens() []string {
 }
 
 func (s *store) put(name string, data []byte, meta map[string]string) Object {
+	return s.putTyped(name, data, meta, "")
+}
+
+func (s *store) putTyped(name string, data []byte, meta map[string]string, contentType string) Object {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	o := Object{Data: append([]byte(nil), data...), Updated: s.now, Metadata: meta}
+	o := Object{Data: append([]byte(nil), data...), Updated: s.now, Metadata: meta, ContentType: contentType}
 	s.objects[name] = o
 	return o
 }
