@@ -15,8 +15,9 @@ name: Live E2E
 # `live-e2e` environment. Credentials come from OIDC (AWS, GCP, Azure) or
 # environment secrets (SaaS). Account identifiers (role ARN, project,
 # subscription, bucket names, e-mails) are secrets too, not variables:
-# GitHub prints a step's `with:` and `env:` values and masks only secrets. Nothing the CLI prints reaches the log, and
-# nothing is uploaded: the CLI's output names cloud resources.
+# GitHub prints a step's `with:` and `env:` values and masks only secrets.
+# Nothing the CLI prints reaches the log, and nothing is uploaded: the
+# CLI's output names cloud resources.
 # Setup and variables: docs/claude/live-e2e.md.
 
 on:
@@ -54,6 +55,19 @@ jobs:
         uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
         with:
           egress-policy: audit
+
+      # The provider jobs run only from main or a v* tag (and the live-e2e
+      # environment allows nothing else). From any other ref they would all
+      # be skipped and the run would be green with nothing tested.
+      - name: Refuse other refs
+        run: |
+          case "$GITHUB_REF" in
+            refs/heads/main|refs/tags/v*) ;;
+            *)
+              echo "::error::Run the live E2E tier from main or a v* tag, not $GITHUB_REF."
+              exit 1
+              ;;
+          esac
 
       # The tests check out and install the same tag, so the harness and
       # the binary always come from one release.

@@ -164,9 +164,9 @@ environment of this repository can present.
 5. Wait until a release that contains the tier is the latest release: with `LIVE_E2E` off,
    releases are promoted without it. The workflow checks out the tag it tests, so an older tag
    has no live tests to run.
-6. Dispatch `live-e2e.yml` from `main` (no tag: the latest release) and read every job's
-   result. When every job passes, set the repository variable `LIVE_E2E` to `on`. That turns
-   on the release gate and the nightly run together.
+6. Dispatch `live-e2e.yml` from `main` (any other branch fails at once) with no tag, so it tests
+   the latest release, and read every job's result. When every job passes, set the repository
+   variable `LIVE_E2E` to `on`. That turns on the release gate and the nightly run together.
 
 ## When a run fails
 
@@ -184,7 +184,8 @@ reproduce locally with `LIVE_E2E_OUTPUT_DIR` set.
    live-tested.
 
 Local reproduction, with only the fixture account's credentials visible (AGENTS.md rule 13).
-Create the throwaway home, log in to the fixture account inside it, then run the test:
+Create the throwaway home, log in to the fixture account inside it, then run the test. The Go
+SDKs ignore `CLOUDSDK_CONFIG`, so name the credentials file with `GOOGLE_APPLICATION_CREDENTIALS`:
 
 ```sh
 S="$(mktemp -d)"
@@ -193,6 +194,7 @@ env -i HOME="$S" PATH="$PATH" \
   GOPATH="$(go env GOPATH)" GOCACHE="$(go env GOCACHE)" GOMODCACHE="$(go env GOMODCACHE)" \
   AWS_CONFIG_FILE=/dev/null AWS_SHARED_CREDENTIALS_FILE=/dev/null \
   CLOUDSDK_CONFIG="$S/gcloud" AZURE_CONFIG_DIR="$S/azure" \
+  GOOGLE_APPLICATION_CREDENTIALS="$S/gcloud/application_default_credentials.json" \
   LIVE_E2E_GCP_PROJECT_ID=... LIVE_E2E_GCP_VAULT_BUCKET=... \
   go test -tags live -count=1 -run '^TestLiveE2E_GCP$' ./cmd/sigcomply
 ```

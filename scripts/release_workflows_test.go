@@ -356,6 +356,28 @@ func TestLiveE2E_CloudCredentialsStayInTheProtectedEnvironment(t *testing.T) {
 	}
 }
 
+// TestLiveE2E_DispatchFromOtherRefFails: a dispatch from another branch
+// skips every guarded job, so resolve must fail it; otherwise the run is
+// green with nothing tested, and the setup steps read a green dispatch as
+// the signal to turn the gate on.
+func TestLiveE2E_DispatchFromOtherRefFails(t *testing.T) {
+	live := loadWorkflows(t)[liveWorkflow]
+	if r, ok := live.Jobs["resolve"]; !ok || !refusesOtherRefs(&r) {
+		t.Errorf("%s: the resolve job does not fail a run from a ref other than main or a v* tag", liveWorkflow)
+	}
+}
+
+// refusesOtherRefs: a step fails the job unless GITHUB_REF is main or a v*
+// tag.
+func refusesOtherRefs(j *workflowJob) bool {
+	for _, st := range j.Steps {
+		if strings.Contains(st.Run, "refs/heads/main|refs/tags/v*)") && strings.Contains(st.Run, "exit 1") {
+			return true
+		}
+	}
+	return false
+}
+
 // runsLiveTestRequired: the job runs a TestLiveE2E_ test with skips turned
 // into failures and against the installed binary, not one built from source.
 func runsLiveTestRequired(j *workflowJob) bool {
@@ -436,14 +458,20 @@ func TestReleaseWorkflows_PromoteCallersGrantOIDC(t *testing.T) {
 // e-mail) must come from secrets. Only these non-identifying switches may
 // be variables.
 func TestLiveE2E_IdentifiersAreSecrets(t *testing.T) {
-	allowed := map[string]bool{"LIVE_E2E": true, "LIVE_E2E_AWS_REGION": true, "LIVE_E2E_AWS_INSPECTOR": true}
-	data, err := os.ReadFile(filepath.Join("..", ".github", "workflows", liveWorkflow))
-	if err != nil {
-		t.Fatal(err)
+	// The live workflow and the two that call it; RELEASE_GATE is the E2E
+	// gate's switch.
+	allowed := map[string]bool{
+		"LIVE_E2E": true, "LIVE_E2E_AWS_REGION": true, "LIVE_E2E_AWS_INSPECTOR": true, "RELEASE_GATE": true,
 	}
-	for _, m := range regexp.MustCompile(`vars\.([A-Z0-9_]+)`).FindAllStringSubmatch(string(data), -1) {
-		if !allowed[m[1]] {
-			t.Errorf("%s reads vars.%s; store it as a live-e2e environment secret, the log prints variables", liveWorkflow, m[1])
+	for _, name := range []string{liveWorkflow, "live-e2e-nightly.yml", filepath.Base(promoteWorkflow)} {
+		data, err := os.ReadFile(filepath.Join("..", ".github", "workflows", name)) //nolint:gosec // #nosec G304 -- repository workflow files
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, m := range regexp.MustCompile(`vars\.([A-Z0-9_]+)`).FindAllStringSubmatch(string(data), -1) {
+			if !allowed[m[1]] {
+				t.Errorf("%s reads vars.%s; store it as a live-e2e environment secret, the log prints variables", name, m[1])
+			}
 		}
 	}
 }
