@@ -119,7 +119,14 @@ declares via `Emits()`. It never references a policy. Live example:
    disposable server container. See the non-HTTP exemption in the
    checklist above and `11-testing-strategy.md` §4.
 
-6. **No policy changes** are needed if the plugin emits an existing
+6. **Live E2E.** An AWS, GCP, Azure or SaaS source that runs without
+   errors in a mostly empty account goes into its provider's allowlist in
+   `cmd/sigcomply/live_e2e_test.go`; one that needs a paid or
+   tenant-level service goes behind an env-gated extra. Update the
+   sources table in [`live-e2e.md`](live-e2e.md), and tell the human what
+   the fixture account needs (an API to enable, a role to grant).
+
+7. **No policy changes** are needed if the plugin emits an existing
    evidence type — every policy already accepting that type can now bind
    to this source (the substitutability property).
 

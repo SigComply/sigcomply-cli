@@ -34,8 +34,9 @@ overview `../AGENTS.md` exists only on maintainer machines; nothing here may dep
   clause applies.
 - A push to `main` runs the tests and cuts a GitHub Release unless every changed file is
   path-ignored. Nested READMEs, `llms.txt`, `examples/**` and `.github/` templates are not
-  ignored. The release is published as a prerelease and promoted to latest, after the E2E release
-  gate when the repository variable `RELEASE_GATE` is `on`. Release mechanics:
+  ignored. The release is published as a prerelease and promoted to latest after two gates, each
+  on when its repository variable is `on`: the live E2E tier against real cloud and SaaS accounts
+  (`LIVE_E2E`) and the E2E repos' release gate (`RELEASE_GATE`). Release mechanics:
   `docs/claude/development-workflow.md`.
 
 ## Every task
@@ -82,7 +83,7 @@ lenses `review-security`, `review-testing`, `review-performance`; docs: `writing
 | Full tests | `make test-full` | `go test -race ./...`; CI adds coverage |
 | Coverage | `make test-coverage` | Full suite plus `coverage/`; prints the total; only CI enforces the floor |
 | L2 contract tests | `make test-contract` | Cassette conformance; fixture-vs-spec for GitHub and Okta |
-| L4a live tests | `make test-live` | Real vendor APIs with your creds; only when the task needs it, inside the `env -i` wrapper (rule 13) |
+| L4a live tests | `make test-live` | Real vendor APIs with your creds, including the live E2E tests (`TestLiveE2E_*`, `docs/claude/live-e2e.md`); each skips without its variables; only when the task needs it, inside the `env -i` wrapper (rule 13) |
 | Lint | `make lint` | mise-pinned golangci-lint (`mise.toml`) |
 | Format, vet | `make fmt`, `make fmt-check`, `make vet` | gofmt and `go vet` |
 | Fixture scan | `make check-fixtures` | Secrets and PII in `testdata/` and `contracts/` |
@@ -105,6 +106,8 @@ Agent-internal (read when):
 - `docs/claude/recipes.md`: adding a source, policy, evidence type, framework or vault backend.
 - `docs/claude/auth.md`: OIDC and cloud submission auth.
 - `docs/architecture/11-testing-strategy.md`: choosing a test layer.
+- `docs/claude/live-e2e.md`: the live E2E tier (release gate and nightly drift run against real
+  accounts), its variables and fixture accounts, and triage.
 - `SECURITY.md`: signing, the vault, the threat model (owner).
 - `CONTRIBUTING.md`, `.github/pull_request_template.md`: human contribution rules.
 
@@ -236,7 +239,7 @@ Full package map: `ARCHITECTURE.md` and `docs/architecture/02-layers.md`.
 | `manual.FolderPrefix`, default prefix `manual/`; manual folder periods (`planner.CadencePeriod`) | SPA `src/lib/storage-path.ts`, `src/lib/period.ts`, `public/config.json` | `internal/sources/manual/paths_test.go`; golden `internal/planner/testdata/spa-golden/periods.json`, copied to the SPA's `src/lib/__fixtures__/golden/periods.json` |
 | Form deep link `/evidence/<framework>/<evidence_id>` under `manualcatalog.DefaultFormBaseURL` (`check` and `evidence due` output); only declaration/checklist entries | SPA route in `src/App.tsx` | `internal/manualcatalog/formlink_test.go` |
 | Envelope and manifest format (`internal/sign`) | SPA `/verify` page (`src/lib/verification/`) | `internal/sign` tests; golden vectors `internal/sign/testdata/spa-golden/`, copied to the SPA's `src/lib/verification/__fixtures__/golden/` |
-| Release asset names, `checksums.txt`, command flags, exit codes | E2E repos `../sigcomply-cli-testing-project-{github,gitlab}` (the GitHub one runs `release-gate.yml` per release candidate) | `cmd/sigcomply/e2e_*_test.go`, `cmd/sigcomply/init_ci_contract_test.go`; the release gate |
+| Release asset names, `checksums.txt`, command flags, exit codes, the `check` counts line, `report --view integrity` | E2E repos `../sigcomply-cli-testing-project-{github,gitlab}`: thin integration checks that install the released binary, run `check` with a local vault, submit to SigComply Cloud and read the run back (the GitHub one runs `release-gate.yml` per release candidate). Real-API correctness is checked here, by the live E2E tier | `cmd/sigcomply/e2e_*_test.go`, `cmd/sigcomply/init_ci_contract_test.go`; the release gate |
 
 Push order: the receiving side first. The dashboard silently drops fields it does not allow-list,
 so it must accept a new field before the CLI sends it. Refresh the SPA copies of all three SPA

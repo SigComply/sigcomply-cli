@@ -26,11 +26,11 @@ fail loudly.
 | L1 mapping unit | fake API response to `EvidenceRecord`; fields populated; deterministic | No | every push | CLI | `make test` |
 | L2 contract | cassette replayed through the real SDK deserializer; cassette and fixtures validated against the vendor's published spec | Only on re-record or snapshot refresh | every push | CLI | `make test-contract` |
 | L3 spec-diff drift | the vendor's machine-readable API model, diffed against `contracts/` | Yes, shape changes | weekly (`contract-drift.yml`, Monday 00:00 UTC) | CLI | `make contracts-diff` |
-| L4a live SaaS | real calls to free accounts, `//go:build live` | Yes, including behaviour | nightly (`live-saas.yml`, 03:00 UTC) | CLI | `make test-live` |
+| L4a live | real calls with the released binary and the per-source live tests, `//go:build live`: AWS, GCP and Azure sources against permanent fixture accounts with the vault on S3, GCS and Azure Blob read back and verified, and the SaaS sources against free accounts ([live-e2e.md](../claude/live-e2e.md)) | Yes, including behaviour | per release candidate (gate, when `LIVE_E2E` is `on`) and nightly (`live-e2e.yml`) | CLI | `make test-live` |
 | Binary E2E | the built binary as a process (`cmd/sigcomply/e2e_*_test.go`): exact exit codes 0/1/2/3, vault tree, manifest and envelope signatures, the cloud submission (fake OIDC endpoint and cloud), `check` for SOC 2 and ISO 27001, `report` on the vault `check` wrote (including a tampered file), `--scheduled` state carried through the vault, `--pr`, `evidence due`, `evidence catalog`, `init-ci` and every command its workflows run. Every policy's outcome is pinned in `cmd/sigcomply/testdata/e2e-outcomes/` (regenerate with `-update`). The only automated source is GitHub, replaying its committed cassette from a local server through `base_url`; sources with no endpoint override stay in-process | No | every push | CLI | `make test` |
 | Policy outcomes | every shipped policy of every framework, planned by the real planner for a project that configures every fixture source and run through the real evaluator against one committed evidence fixture in three scenarios (compliant, noncompliant, sparse). Every policy must pass in compliant and fail in noncompliant; the status, resource counts and flagged resource IDs per policy are pinned in a golden (`internal/frameworks/policy_outcomes_test.go`). A policy with no golden entry fails. A companion static check fails when a clause reads a field that no evidence type its slot accepts declares (`clause_fields_test.go`) | n/a | every push | CLI | `make test` |
 | Cross-repo goldens | committed fixtures the other repos copy byte for byte: the run payload (Rails), envelope vectors, the period and folder table, the manual catalogs (Evidence SPA). Regenerated with `-update`; a stale golden fails the test | n/a | every push | CLI | `make test` |
-| L4b cloud and pipeline E2E | provision minimal cloud infra, run the released binary, assert per-policy outcomes, tear down | Yes, including integration | per release candidate (gate) and scheduled | E2E repos | see the E2E repos |
+| L4b integration E2E | the released binary on a real CI platform: install with checksum and provenance, `check` with a local vault and local manual evidence, `report --view integrity`, submission to SigComply Cloud with the platform's OIDC token, and read-back of counts and provenance. No cloud accounts | Integration only | per release candidate (GitHub, gate) and scheduled | E2E repos | see the E2E repos |
 
 How these layers group into per-push, post-deploy, release and scheduled tiers, and what each
 costs: [§8](#8-system-tiers).
@@ -39,22 +39,23 @@ L3 covers AWS (Smithy models), Azure (`azure-rest-api-specs` Swagger), GCP (Disc
 GitHub (`github/rest-api-description`) and Okta (OpenAPI). GitLab's published spec is too thin;
 GitLab relies on L4a.
 
-To list which sources have live tests: `grep -rl 'go:build live' internal/sources`. AWS, GCP
-(except `gcp.cloud_identity`) and Azure ARM sources have no live layer; they rely on recorded L2
-cassettes and L4b.
+To list which sources have a per-source live test: `grep -rl 'go:build live' internal/sources`.
+AWS, GCP and Azure ARM sources are checked live by the live E2E tests in
+`cmd/sigcomply/live_e2e_test.go`, against permanent fixture accounts; which sources run and what
+each account needs is in [live-e2e.md](../claude/live-e2e.md). Sources whose posture an empty
+account cannot produce keep their non-empty mapping in L2 cassettes.
 
 ## 3. Repo split
 
-- `sigcomply-cli` owns L0 to L4a, the binary E2E tests and the goldens. These need no
-  provisioning; L4a needs only a free account and a token.
-- The E2E repos own L4b: provisioning, OIDC plumbing per CI platform, setup/teardown scripts and
-  a leak sweeper. L4b tests the released binary, including the prerelease the release gate
-  checks. In
-  `sigcomply-cli-testing-project-github`, see `scripts/assert_outcomes.py`, `scripts/setup-*.sh`,
-  `scripts/teardown-*.sh` and `scripts/sweep-aws.sh` (a custom AWS-only sweeper that deletes
-  resources named with the `sigcomply-e2e-` prefix).
-- The CLI repo never provisions cloud resources in CI. The E2E repos contain no Go unit tests of
-  mappers.
+- `sigcomply-cli` owns correctness: L0 to L4a, the binary E2E tests and the goldens. L4a reads
+  permanent fixture accounts (AWS, GCP, Azure, and free SaaS accounts) set up once by hand
+  ([live-e2e.md](../claude/live-e2e.md)).
+- The E2E repos own L4b, integration on a real CI platform: install, OIDC submission and
+  read-back against SigComply Cloud. They test the released binary, including the prerelease the
+  GitHub one gates. They hold no cloud accounts and no per-policy expectations.
+- The CLI repo never provisions per run: CI creates no cloud resource except the vault files of
+  a live run, which the bucket's lifecycle rule expires. The E2E repos contain no Go unit tests
+  of mappers.
 
 ## 4. Conventions
 
@@ -98,9 +99,12 @@ cassettes and L4b.
    `internal/fixturehygiene` proves it catches planted secrets. A fixture that leaks identity
    breaks the rule that evidence stays in the customer's storage.
 5. **Build tags.**
-   - `live`: L4a. The test's first call is `sourcetest.RequireEnv(t, ...)`, which skips when any
-     named variable is unset. The nightly workflow runs `go test -tags live -count=1 -run Live
-     ./...`, so name every live test `Test*Live*` or it never runs nightly.
+   - `live`: L4a. A per-source live test's first call is `sourcetest.RequireEnv(t, ...)`, which
+     skips when any named variable is unset. The `saas` job of `live-e2e.yml` runs
+     `go test -tags live -run Live ./internal/...`, so name every per-source live test
+     `Test*Live*` or it never runs. It reports errors with `sourcetest.PublicError` and schema
+     drift as counts per type: the log is public. The live E2E tests (`TestLiveE2E_*`) skip the
+     same way unless `LIVE_E2E_REQUIRED=1`, which makes a missing variable fail.
    - `record`: committed recorders (`<service>_record_test.go`) for GCP and Azure ARM packages,
      using `gcptest.RecordLiveOptions` / `gcptest.RecordLiveClient` and
      `azuretest.RecordLiveOptions`. Run with live credentials:
@@ -120,10 +124,10 @@ cassettes and L4b.
 7. **Shared harness.** All source tests use `internal/sources/sourcetest/` (schema conformance,
    field completeness, determinism, metadata, go-vcr wiring, live gating). See
    [`internal/sources/sourcetest/README.md`](../../internal/sources/sourcetest/README.md).
-8. **Resource names.** Live and E2E resources use the `sigcomply-e2e-` prefix so sweepers can
-   find leaks.
-9. **Drift jobs are alert-only.** They open or update a GitHub issue and never run on pull
-   requests or block a push.
+8. **Resource names.** A resource kept in a fixture account uses the `sigcomply-e2e-` prefix.
+9. **Drift jobs never run on pull requests or block a push.** They open or update a GitHub
+   issue. The live E2E tier is also a release gate: there it keeps a failing release a
+   prerelease.
 10. **Non-HTTP sources.** `active_directory` (LDAP) cannot use cassettes or L3. Its L2 layer is an
     in-process protocol responder behind a package-private dial seam
     (`internal/sources/activedirectory/fakedc_test.go`): it decodes real client requests and
@@ -133,10 +137,10 @@ cassettes and L4b.
 
 ### Recorded and hand-authored cassettes
 
-- GCP and Azure ARM cassettes are recorded from seeded test projects/subscriptions through the
-  committed `record` drivers. The setup and teardown scripts in the E2E repo
-  (`setup-gcp.sh`, `setup-azure.sh`, `teardown-gcp.sh`, `teardown-azure.sh`) provision the posture and document
-  provider quirks. To see which packages have a recorder: `grep -rl 'go:build record'
+- GCP and Azure ARM cassettes are recorded through the committed `record` drivers, against the
+  permanent fixture project and subscription of the live tier
+  ([live-e2e.md](../claude/live-e2e.md)), with any posture a recording needs created by hand
+  and removed afterwards. To see which packages have a recorder: `grep -rl 'go:build record'
   internal/sources`.
 - Some cassettes stay hand-authored because the posture cannot be produced cheaply: GCP `scc`
   and `directory`, Azure `defender` and `certs`, and the Entra MFA registration report
@@ -162,7 +166,6 @@ cassettes and L4b.
 | Spec diff | `scripts/contracts-diff.sh` (`make contracts-diff`) running `scripts/contracts/diff_contracts.py`: removed or changed operations, shapes, fields and enums the mapper reads are breaking; additions are not |
 | Spec toolchain | `curl`, `python3`, and `ruby` (Okta YAML to JSON) |
 | Schema validation | `internal/evidence_types` (`gojsonschema`) |
-| Leak sweeper | `scripts/sweep-aws.sh` in the GitHub E2E repo |
 
 ## 6. L3 drift triage
 
@@ -192,10 +195,11 @@ still counts). Never silence real drift by editing the differ.
 
 ## 7. L4a live setup
 
-Each live test skips unless its variables are set. In CI they come from repository secrets mapped
-in `live-saas.yml` (GitHub secrets are stored as `GH_TEST_*` because secret names cannot start with
-`GITHUB_`). The `live-saas.yml` run stays green even when tests fail; a failure opens or comments
-on a GitHub issue labelled `live-drift`. Read the issue, not the run's colour.
+Each live test skips unless its variables are set. In CI they come from the `live-e2e`
+environment's secrets, mapped in `live-e2e.yml` (GitHub secrets are stored as `GH_TEST_*` because
+secret names cannot start with `GITHUB_`). A nightly failure turns `live-e2e-nightly.yml` red and
+opens or comments on a GitHub issue labelled `live-drift`. The cloud fixture accounts, their
+variables and the live E2E tests: [live-e2e.md](../claude/live-e2e.md). The SaaS accounts:
 
 | Provider | Env the test reads | CI secret | Free credential |
 |---|---|---|---|
@@ -203,8 +207,8 @@ on a GitHub issue labelled `live-drift`. Read the issue, not the run's colour.
 | GitLab | `GITLAB_TEST_TOKEN`, `GITLAB_TEST_GROUP`, optional `GITLAB_TEST_BASE_URL` | same names | gitlab.com free group; classic `read_api` PAT (fine-grained tokens get 403 on `/user`) |
 | Okta | `OKTA_TEST_TOKEN`, `OKTA_TEST_ORG_URL` | same names | Okta Integrator Free Plan org; SSWS API token whose owner can read policies and roles (the test expects at least one `password_policy`, so zero means missing permission) |
 | Entra | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | same names | Free Azure tenant; app registration with admin-consented application permissions `User.Read.All`, `AuditLog.Read.All`, `Domain.Read.All`. Without P1/P2 the MFA report test skips after proving auth; the password-policy test skips on `Authorization_RequestDenied` |
-| Active Directory | `SIGCOMPLY_AD_TEST_URL`, `SIGCOMPLY_AD_TEST_BIND_DN`, `SIGCOMPLY_AD_TEST_PASSWORD`, optional `SIGCOMPLY_AD_TEST_*` | none (not in the nightly workflow) | Local `diegogslomp/samba-ad-dc` container; see the header of `activedirectory_live_test.go` |
-| GCP Cloud Identity | `GCP_TEST_TARGET_SERVICE_ACCOUNT`, `GCP_TEST_IMPERSONATE_SUBJECT` | none (not in the nightly workflow) | A Workspace or Cloud Identity tenant; see `cloudidentity_live_test.go` |
+| Active Directory | `SIGCOMPLY_AD_TEST_URL`, `SIGCOMPLY_AD_TEST_BIND_DN`, `SIGCOMPLY_AD_TEST_PASSWORD`, optional `SIGCOMPLY_AD_TEST_*` | none (not in `live-e2e.yml`) | Local `diegogslomp/samba-ad-dc` container; see the header of `activedirectory_live_test.go` |
+| GCP Cloud Identity | `GCP_TEST_TARGET_SERVICE_ACCOUNT`, `GCP_TEST_IMPERSONATE_SUBJECT` | none (not in `live-e2e.yml`) | A Workspace or Cloud Identity tenant; see `cloudidentity_live_test.go` |
 
 Remediating a live failure: reproduce with `make test-live`, fix the mapper or schema, re-record
 the affected cassette, and re-baseline the L3 snapshot if the upstream shape moved. L3 catches
@@ -219,11 +223,11 @@ moment and costs a different amount.
 |---|---|---|---|
 | T1 per-push gate | every push, in each repo | unit, integration, cross-repo goldens and the repo's own E2E layer. Here: L0 to L2 and the binary E2E tests in `test.yml`, which a release waits for | $0 |
 | T2 post-deploy smoke | after the dashboard or the Evidence SPA deploys | a check that the deployed site answers; owned by those repos | $0 |
-| T3 release gate | every CLI release candidate, when `RELEASE_GATE` is `on` | `release-gate.yml` in the GitHub E2E repo runs the prerelease against a small real AWS set, the GitHub source and manual evidence, asserts the exit code and every policy outcome, verifies the vault with the SPA's verifier, submits counts to SigComply Cloud and reads them back. The release becomes latest only if it passes | about $0.05 of AWS per run; SaaS accounts are free tiers |
-| T4 scheduled | daily, nightly, weekly | the release gate on `latest` daily (account and vendor drift), L4a nightly, L3 weekly, the AWS leak sweeper | about $1 a month |
+| T3 release gates | every CLI release candidate; each gate runs when its repository variable is `on` | `LIVE_E2E`: the live E2E tier (`live-e2e.yml`) runs the prerelease against the AWS, GCP, Azure and SaaS fixture accounts and reads the vault back from real storage. `RELEASE_GATE`: `release-gate.yml` in the GitHub E2E repo runs the prerelease with local manual evidence, verifies the vault with the SPA's verifier, submits counts to SigComply Cloud and reads them and the run's provenance back. The release becomes latest only if every gate that is on passes | cents per run (API calls and vault storage); SaaS accounts are free tiers |
+| T4 scheduled | daily, nightly, weekly | the live E2E tier on `latest` nightly, the release gate on `latest` daily, L3 weekly | about $1 a month |
 
 The daily release-gate run on `latest` lives in the GitHub E2E repo, which is private. A failure shows
 as a red run in that repo, not as an issue here.
 
-The full AWS, GCP and Azure tiers in the E2E repo cost far more per run and are dispatched by
-hand, never on a gate or a schedule.
+No tier provisions clusters, databases or VMs per run. Their list APIs are still called live and
+return empty; their non-empty mapping stays covered by L2 cassettes.

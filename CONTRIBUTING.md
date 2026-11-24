@@ -63,7 +63,7 @@ Other checks, depending on the change:
 | `make test-coverage` | You add a package or remove tests. CI fails below 80% total coverage. |
 | `make test-contract` | You change a source plugin, a cassette or `contracts/`. |
 | `make check-fixtures` | You add or change files under `testdata/` or `contracts/`. |
-| `make test-live` | You need to check a source against the real API. Needs your own credentials; each test skips without them. Run it with only the test account's credentials set (see below). |
+| `make test-live` | You need to check a source against the real API. Needs your own credentials; each test skips without them. It also runs the live end-to-end tests (`TestLiveE2E_*`), which the maintainers run against their own test accounts before each release. Run it with only the test account's credentials set (see below). |
 
 The test layers and their conventions are described in
 [`docs/architecture/11-testing-strategy.md`](./docs/architecture/11-testing-strategy.md).

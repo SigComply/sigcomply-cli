@@ -67,14 +67,19 @@ tracker. Don't import those assumptions from the Rails dashboard repo.
   3. Installs the prerelease on Linux and macOS with `install.sh` and
      `SIGCOMPLY_REQUIRE_PROVENANCE=1` (the `verify` job), so a release whose checksum or build
      provenance does not verify is never promoted.
-  4. Promotes the prerelease to latest (`release-promote.yml`). With the repository variable
-     `RELEASE_GATE` set to `on`, it first dispatches `release-gate.yml` in the GitHub E2E repo
-     for that exact tag and waits for it: up to 10 minutes for the gate run to appear, then up to
-     60 minutes for it to finish. A cancelled gate run is dispatched once more (the job is capped
-     at 150 minutes for both attempts). A failed or timed-out run, a second cancel, or a missing
-     `E2E_GATE_TOKEN` secret fails the `E2E Release Gate` job: the release run (Auto Release or
-     Release) turns red and the release stays a prerelease. Without the variable it promotes at
-     once and prints a warning that the release was not E2E-gated.
+  4. Promotes the prerelease to latest (`release-promote.yml`) after two gates, which run in
+     parallel. Each runs only when its repository variable is `on`; a gate that is off is
+     skipped, and promotion prints a warning that the release was not checked by it. A failed
+     gate turns the release run (Auto Release or Release) red and the release stays a
+     prerelease.
+     - `RELEASE_GATE`: dispatches `release-gate.yml` in the GitHub E2E repo for that exact tag
+       and waits for it: up to 10 minutes for the gate run to appear, then up to 60 minutes for
+       it to finish. A cancelled gate run is dispatched once more (the job is capped at 150
+       minutes for both attempts). A failed or timed-out run, a second cancel, or a missing
+       `E2E_GATE_TOKEN` secret fails the `E2E Release Gate` job.
+     - `LIVE_E2E`: runs `live-e2e.yml` for the tag, the released binary against the live fixture
+       accounts in the protected `live-e2e` environment. Setup, variables and triage:
+       [live-e2e.md](live-e2e.md).
 
   Releases run one at a time: the release job (not the tests) holds `concurrency: release`,
   shared with `release.yml`, from version bump to promotion. A red test run or a skip-marker push
@@ -89,9 +94,10 @@ tracker. Don't import those assumptions from the Rails dashboard repo.
   `SECURITY.md`, `CONTRIBUTING.md` and `docs/**/*.md` except `docs/claude/**` and
   `docs/architecture/**`; every customer doc when `.vale.ini`, `.vale/**` or the workflow itself
   changes) and fails on error-level alerts.
-- The GitHub E2E repo's `release-gate.yml` tests each release candidate when the gate is on,
-  and runs daily on `releases/latest`. The GitLab E2E repo runs the release its
-  `SIGCOMPLY_VERSION` names.
+- `live-e2e-nightly.yml` runs the live E2E tier on `releases/latest` every night and opens the
+  `live-drift` issue on a failure. The GitHub E2E repo's `release-gate.yml` tests each release
+  candidate when its gate is on, and runs daily on `releases/latest`. The GitLab E2E repo
+  resolves the latest release at run time.
 
 Doc paths that are not path-ignored, so a push that changes only them still cuts a (patch)
 release:
@@ -122,18 +128,19 @@ stays a prerelease, any other goes through the same gate and promotion. It also 
 the build, and refuses a tag that already exists at another commit; to re-release an existing tag,
 dispatch it with the tag as the ref.
 
-A release stuck as a prerelease (gate red or cancelled):
+A release stuck as a prerelease (a gate red or cancelled):
 
-1. Open the gate run linked in the failed job's summary and find the cause.
+1. Open the failed gate: the E2E gate run linked in the job's summary, or the failed `Live E2E`
+   job ([live-e2e.md](live-e2e.md) "When a run fails"). Find the cause.
 2. If the cause was outside the release (a flaky vendor, a cancelled or broken E2E run), use
    "Re-run failed jobs" on the release run. The gate's correlation ID includes the run attempt,
    so the re-run dispatches a fresh gate run for the same tag.
 3. If the release itself is wrong, fix forward: fix the cause and push. The next release is gated
    again, and the bad one stays a prerelease.
-4. Promote by hand with `gh release edit <tag> --prerelease=false --latest` only when a gate run
-   for that exact tag passed outside the release run (for example, a manual dispatch of
-   `release-gate.yml` with that `cli_version`). Link that gate run where you report the release.
-   Never promote by hand without a passing gate run for the tag.
+4. Promote by hand with `gh release edit <tag> --prerelease=false --latest` only when every gate
+   that is on passed for that exact tag outside the release run (for example, a manual dispatch
+   of `release-gate.yml` with that `cli_version`, or of `live-e2e.yml` with that `tag`). Link
+   those runs where you report the release. Never promote by hand without them.
 
 After pushing, watch the runs: `gh run list --branch main`, then `gh run watch <id>`. A red
 `main` is fixed before anything else.
@@ -166,7 +173,8 @@ gate yourself and read the output before you commit.
   `gitleaks protect --staged`.
 - pre-push: `make lint`, `go test -short -race ./...`, `gitleaks detect`.
 - Only CI runs: the full suite without `-short`, the coverage floor, the cross-platform build
-  matrix, the `security.yml` scanners, weekly `contract-drift.yml` and nightly `live-saas.yml`.
+  matrix, the `security.yml` scanners, weekly `contract-drift.yml` and the live E2E tier
+  (`live-e2e.yml`, per release candidate and nightly).
 
 `make ci` (`deps lint test build`) and `make pre-commit` are local bundles. Neither reproduces CI:
 both use `-short` tests and neither enforces coverage.
@@ -290,8 +298,12 @@ make build
 
 No browser is involved here; any machine-specific setup is in `AGENTS.local.md`.
 
-For source-plugin or CI-integration changes that need real infrastructure, the L4b E2E repos run
-the released binary:
+A source-plugin change is checked against real APIs only by the live E2E tier, which runs after
+the change is released: per release candidate when `LIVE_E2E` is on, and nightly. To check it
+before pushing, run `make test-live` with the fixture account's credentials inside the wrapper
+([live-e2e.md](live-e2e.md)); that needs the human's credentials. CI-integration changes
+(install, OIDC submission, read-back) are checked by the L4b E2E repos, which run the released
+binary:
 [sigcomply-cli-testing-project-github](https://github.com/SigComply/sigcomply-cli-testing-project-github)
 and
 [sigcomply-cli-testing-project-gitlab](https://gitlab.com/sigcomply/sigcomply-cli-testing-project-gitlab)
@@ -314,7 +326,7 @@ the GitHub one through the release gate on the prerelease, then daily on `latest
 | Errors and exit codes | `docs/architecture/09-ci-execution-model.md` §Results and exit codes | `docs/reference/commands.md`, `docs/guides/troubleshooting.md`, `docs/for-ai-agents.md`, `llms.txt` |
 | Install, release, packaging | this doc | `docs/guides/install.md`, `README.md` |
 | Architecture or layer change | the owning `docs/architecture/` doc and `ARCHITECTURE.md` | `docs/concepts.md` if the model a user sees changes |
-| Test process | `docs/architecture/11-testing-strategy.md`, this doc | `CONTRIBUTING.md` |
+| Test process | `docs/architecture/11-testing-strategy.md`, this doc; [live-e2e.md](./live-e2e.md) for the live tier | `CONTRIBUTING.md` |
 | Agent workflow or process | AGENTS.md, this doc | `CONTRIBUTING.md` |
 | Any user-visible change | | `CHANGELOG.md` under `[Unreleased]` (hand-written; GitHub Release notes are generated separately) |
 | New or renamed customer doc | | `docs/README.md`, `llms.txt`, `README.md` doc table |
@@ -372,4 +384,6 @@ against the diff, and also:
    `{framework}/{period_id}/run_*/` show what was collected, evaluated and signed.
 3. CI failures: `gh run list`, then `gh run view <id> --log-failed`. Reproduce with
    `make pre-commit` then `make test-full`, or `make test-coverage` for a coverage failure.
-4. Real-infrastructure failures reproduce in the E2E repos against the released binary.
+4. Real-API failures reproduce with the live E2E tests and `LIVE_E2E_OUTPUT_DIR`
+   ([live-e2e.md](live-e2e.md)); CI-integration failures reproduce in the E2E repos against the
+   released binary.

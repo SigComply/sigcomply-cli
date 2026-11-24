@@ -78,6 +78,10 @@ env := sourcetest.RequireEnv(t, "GITHUB_TEST_TOKEN", "GITHUB_TEST_ORG")
 `RequireEnv(t, keys...)` skips the test unless every variable is set, and returns their values.
 Run live tests with `make test-live`.
 
+Live tests run in a public CI log. Report a collect or credential error with
+`sourcetest.PublicError(err)` (the error's type, not its text), and schema drift as counts per
+evidence type. Never log a record ID, a payload or an error message.
+
 ## Rules
 
 - The harness makes no network calls of its own. It replays cassettes, or the caller passes a

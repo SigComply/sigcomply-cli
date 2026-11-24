@@ -137,7 +137,7 @@ Full definitions in [`01-conceptual-model.md`](docs/architecture/01-conceptual-m
 | [`08-project-config.md`](docs/architecture/08-project-config.md) | Design rationale for `.sigcomply.yaml`. The key reference is [`docs/configuration.md`](docs/configuration.md). |
 | [`09-ci-execution-model.md`](docs/architecture/09-ci-execution-model.md) | How the CLI runs in CI; `init-ci` scaffolding. |
 | [`10-cadence-model.md`](docs/architecture/10-cadence-model.md) | Cadence and period, state shards, carry-forward, manual evidence periods. |
-| [`11-testing-strategy.md`](docs/architecture/11-testing-strategy.md) | Test layers L0 to L4b and their conventions. |
+| [`11-testing-strategy.md`](docs/architecture/11-testing-strategy.md) | Test layers L0 to L4b, the live E2E tier and the E2E repos' split, and their conventions. |
 | [`12-multicloud-sources.md`](docs/architecture/12-multicloud-sources.md) | AWS, GCP and Azure parity across shared evidence types. |
 | [`13-isms-clauses-and-soa.md`](docs/architecture/13-isms-clauses-and-soa.md) | ISO 27001 management-system controls and the Statement of Applicability. |
 | [`14-manual-evidence.md`](docs/architecture/14-manual-evidence.md) | The manual-evidence contract: folders, checks, fan-out, non-goals. |
