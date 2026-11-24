@@ -32,9 +32,9 @@ func TestEntraLive(t *testing.T) {
 		// The MFA registration report is Entra-P1/P2-gated; reaching that error
 		// proves auth + AuditLog.Read.All worked (a bad token 401s earlier).
 		if strings.Contains(err.Error(), "P1/P2") {
-			t.Skipf("graph auth OK; MFA registration report is Entra-P1/P2-gated on this tenant (expected): %v", err)
+			t.Skipf("graph auth OK; MFA registration report is Entra-P1/P2-gated on this tenant (expected): %s", sourcetest.PublicError(err))
 		}
-		t.Fatalf("collect: %v", err)
+		t.Fatalf("collect: %s", sourcetest.PublicError(err))
 	}
 
 	validateLiveRecords(t, recs)
@@ -51,7 +51,7 @@ func TestEntraLiveRoster(t *testing.T) {
 	p := newLivePlugin(ctx, t)
 	recs, err := p.Collect(ctx, core.SlotRequest{AcceptedTypes: []string{EvidenceTypeRosterEntry}})
 	if err != nil {
-		t.Fatalf("collect roster: %v", err)
+		t.Fatalf("collect roster: %s", sourcetest.PublicError(err))
 	}
 	validateLiveRecords(t, recs)
 	t.Logf("collected %d roster_entry records", len(recs))
@@ -67,11 +67,11 @@ func newLivePlugin(ctx context.Context, t *testing.T) *Plugin {
 	env := sourcetest.RequireEnv(t, "AZURE_TENANT_ID", "AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET")
 	cred, err := azcommon.NewCredential(ctx, azcommon.ScopeGraph)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal(sourcetest.PublicError(err))
 	}
 	// Real auth assertion: the SP must be able to mint a Graph token.
 	if err := azcommon.VerifyCredential(ctx, cred, azcommon.ScopeGraph); err != nil {
-		t.Fatalf("graph credential: %v", err)
+		t.Fatalf("graph credential: %s", sourcetest.PublicError(err))
 	}
 	// Declaring AZURE_TENANT_ID here is not decoration: NewFromGraph now
 	// checks it against the tenant Graph reports, so the live run also
@@ -79,7 +79,7 @@ func newLivePlugin(ctx context.Context, t *testing.T) *Plugin {
 	// test environment claims.
 	p, err := NewFromGraph(ctx, cred, azcommon.Config{TenantID: env["AZURE_TENANT_ID"]})
 	if err != nil {
-		t.Fatalf("build entra plugin: %v", err)
+		t.Fatalf("build entra plugin: %s", sourcetest.PublicError(err))
 	}
 	return p
 }
@@ -88,6 +88,7 @@ func newLivePlugin(ctx context.Context, t *testing.T) *Plugin {
 func validateLiveRecords(t *testing.T, recs []core.EvidenceRecord) {
 	t.Helper()
 	types := sourcetest.BuiltinEvidenceTypes(t)
+	drift := map[string]int{}
 	for i := range recs {
 		r := &recs[i]
 		et, ok := types.Lookup(r.Type)
@@ -96,8 +97,13 @@ func validateLiveRecords(t *testing.T, recs []core.EvidenceRecord) {
 			continue
 		}
 		if err := evidencetypes.Validate(et.Schema, r.Payload); err != nil {
-			t.Errorf("record %s (%s): schema drift: %v", r.ID, r.Type, err)
+			// Record IDs and the validator's text can quote payload values
+			// (names, e-mails); the public log gets counts per type only.
+			drift[r.Type]++
 		}
+	}
+	if len(drift) > 0 {
+		t.Errorf("schema drift: records per type that fail their schema: %v", drift)
 	}
 }
 
@@ -114,9 +120,9 @@ func TestEntraLivePasswordPolicy(t *testing.T) {
 	recs, err := p.Collect(ctx, core.SlotRequest{AcceptedTypes: []string{EvidenceTypePasswordPolicy}})
 	if err != nil {
 		if strings.Contains(err.Error(), "Authorization_RequestDenied") {
-			t.Skipf("graph auth OK; Domain.Read.All is not consented on this app registration: %v", err)
+			t.Skipf("graph auth OK; Domain.Read.All is not consented on this app registration: %s", sourcetest.PublicError(err))
 		}
-		t.Fatalf("collect password policies: %v", err)
+		t.Fatalf("collect password policies: %s", sourcetest.PublicError(err))
 	}
 	validateLiveRecords(t, recs)
 	t.Logf("collected %d password_policy records", len(recs))

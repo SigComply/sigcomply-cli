@@ -1,6 +1,10 @@
 package sourcetest
 
-import "testing"
+import (
+	"errors"
+	"strings"
+	"testing"
+)
 
 func TestLookupEnv(t *testing.T) {
 	t.Setenv("SOURCETEST_LIVE_PRESENT", "value-1")
@@ -38,5 +42,19 @@ func TestRequireEnv_SkipsWhenAbsent(t *testing.T) {
 	})
 	if !ok {
 		t.Error("subtest failed; RequireEnv should have skipped on the absent var")
+	}
+}
+
+func TestPublicError_WithholdsTheMessage(t *testing.T) {
+	err := errors.New("GET https://graph.example.com/users: 403 user alice@example.com")
+	got := PublicError(err)
+	if strings.Contains(got, "alice") || strings.Contains(got, "graph.example.com") {
+		t.Errorf("PublicError = %q; it must not repeat the error text", got)
+	}
+	if !strings.Contains(got, "*errors.errorString") {
+		t.Errorf("PublicError = %q; want the error's type", got)
+	}
+	if PublicError(nil) != "<nil>" {
+		t.Errorf("PublicError(nil) = %q", PublicError(nil))
 	}
 }

@@ -26,15 +26,16 @@ func TestGitLabLive(t *testing.T) {
 	ctx := context.Background()
 	p, err := NewFromToken(ctx, env["GITLAB_TEST_GROUP"], env["GITLAB_TEST_TOKEN"], os.Getenv("GITLAB_TEST_BASE_URL"))
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal(sourcetest.PublicError(err))
 	}
 	recs, err := p.Collect(ctx, core.SlotRequest{AcceptedTypes: p.Emits()})
 	if err != nil {
-		t.Fatalf("collect: %v", err)
+		t.Fatalf("collect: %s", sourcetest.PublicError(err))
 	}
 
 	types := sourcetest.BuiltinEvidenceTypes(t)
 	counts := map[string]int{}
+	drift := map[string]int{}
 	for i := range recs {
 		r := &recs[i]
 		counts[r.Type]++
@@ -44,8 +45,13 @@ func TestGitLabLive(t *testing.T) {
 			continue
 		}
 		if err := evidencetypes.Validate(et.Schema, r.Payload); err != nil {
-			t.Errorf("record %s (%s): schema drift: %v", r.ID, r.Type, err)
+			// Record IDs and the validator's text can quote payload values
+			// (names, e-mails); the public log gets counts per type only.
+			drift[r.Type]++
 		}
+	}
+	if len(drift) > 0 {
+		t.Errorf("schema drift: records per type that fail their schema: %v", drift)
 	}
 	t.Logf("collected: %v", counts)
 

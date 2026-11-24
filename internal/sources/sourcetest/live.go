@@ -1,6 +1,7 @@
 package sourcetest
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -41,4 +42,16 @@ func RequireEnv(t *testing.T, keys ...string) map[string]string {
 		t.Skipf("live test: requires env %s — skipping", strings.Join(missing, ", "))
 	}
 	return vals
+}
+
+// PublicError describes err for a live test's failure message without its
+// text. Live tests run in public CI logs, and a collect or credential error
+// quotes request URLs, response bodies, tenant IDs or user names. The Go
+// type is enough to tell an auth failure from a decode failure; reproduce
+// with `make test-live` locally for the full message.
+func PublicError(err error) string {
+	if err == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("%T (message withheld from the public log; reproduce locally with make test-live)", err)
 }
