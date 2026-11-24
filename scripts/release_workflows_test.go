@@ -3,6 +3,7 @@ package scripts_test
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -335,6 +336,10 @@ func TestLiveE2E_CloudCredentialsStayInTheProtectedEnvironment(t *testing.T) {
 		}
 		if inEnv {
 			envJobs++
+			if !runsLiveTestRequired(&j) {
+				t.Errorf("%s: job %q has no step running scripts/run-live-tests.sh '^TestLiveE2E_...' with LIVE_E2E_REQUIRED=1 and SIGCOMPLY_E2E_BINARY; a skipped test would pass the gate",
+					liveWorkflow, id)
+			}
 		}
 	}
 	// aws, gcp, azure, saas.
@@ -349,6 +354,18 @@ func TestLiveE2E_CloudCredentialsStayInTheProtectedEnvironment(t *testing.T) {
 			}
 		}
 	}
+}
+
+// runsLiveTestRequired: the job runs a TestLiveE2E_ test with skips turned
+// into failures and against the installed binary, not one built from source.
+func runsLiveTestRequired(j *workflowJob) bool {
+	for _, st := range j.Steps {
+		if strings.Contains(st.Run, "scripts/run-live-tests.sh '^TestLiveE2E_") &&
+			st.Env["LIVE_E2E_REQUIRED"] == "1" && st.Env["SIGCOMPLY_E2E_BINARY"] != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // triggerNames returns the workflow's `on:` event names, sorted.
@@ -410,5 +427,48 @@ func TestReleaseWorkflows_PromoteCallersGrantOIDC(t *testing.T) {
 				t.Errorf("%s: job %q calls %s without id-token: write", name, id, promoteWorkflow)
 			}
 		}
+	}
+}
+
+// TestLiveE2E_IdentifiersAreSecrets: GitHub prints a step's `with:` and
+// `env:` values in the public log and masks only secrets, so every account
+// identifier the live tier reads (role ARN, project, subscription, bucket,
+// e-mail) must come from secrets. Only these non-identifying switches may
+// be variables.
+func TestLiveE2E_IdentifiersAreSecrets(t *testing.T) {
+	allowed := map[string]bool{"LIVE_E2E": true, "LIVE_E2E_AWS_REGION": true, "LIVE_E2E_AWS_INSPECTOR": true}
+	data, err := os.ReadFile(filepath.Join("..", ".github", "workflows", liveWorkflow))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range regexp.MustCompile(`vars\.([A-Z0-9_]+)`).FindAllStringSubmatch(string(data), -1) {
+		if !allowed[m[1]] {
+			t.Errorf("%s reads vars.%s; store it as a live-e2e environment secret, the log prints variables", liveWorkflow, m[1])
+		}
+	}
+}
+
+// TestLiveE2E_NightlyFollowsTheSwitch: LIVE_E2E is the one off switch for
+// the tier. A nightly run that ignored it would fail and comment on the
+// drift issue every night while the accounts are not set up or a vendor
+// is down.
+func TestLiveE2E_NightlyFollowsTheSwitch(t *testing.T) {
+	all := loadWorkflows(t)
+	nightly, ok := all["live-e2e-nightly.yml"]
+	if !ok {
+		t.Fatal("live-e2e-nightly.yml not found")
+	}
+	calls := 0
+	for id, j := range nightly.Jobs {
+		if j.Uses != "./.github/workflows/"+liveWorkflow {
+			continue
+		}
+		calls++
+		if j.If != "vars.LIVE_E2E == 'on'" {
+			t.Errorf("live-e2e-nightly.yml: job %q calls %s with `if` %q; want vars.LIVE_E2E == 'on'", id, liveWorkflow, j.If)
+		}
+	}
+	if calls != 1 {
+		t.Errorf("live-e2e-nightly.yml calls %s from %d jobs; want 1", liveWorkflow, calls)
 	}
 }

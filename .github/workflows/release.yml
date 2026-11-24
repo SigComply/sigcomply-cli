@@ -3,8 +3,8 @@
 # Auto-releases on merge are handled by auto-release.yml.
 #
 # Every release is published as a prerelease. A final version (v1.2.3) is
-# then promoted to latest by release-promote.yml, after the E2E release gate
-# when RELEASE_GATE is 'on'. A version with a suffix (v1.2.3-rc.1) stays a
+# then promoted to latest by release-promote.yml, after its gates that are
+# on (RELEASE_GATE, LIVE_E2E). A version with a suffix (v1.2.3-rc.1) stays a
 # prerelease and is never promoted.
 #
 # The test suite (test.yml) runs first and must pass before the build.

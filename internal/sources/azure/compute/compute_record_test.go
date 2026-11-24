@@ -13,9 +13,10 @@ import (
 )
 
 // compute_record_test.go records testdata/cassettes/vms.yaml against the real
-// Azure Compute + Network APIs (VMs + their NICs, one cassette). The VM is
-// seeded via an ARM template (scripts/setup-azure.sh full tier), since
-// `az vm create` is broken on some az-CLI/Python builds. See
+// Azure Compute + Network APIs (VMs + their NICs, one cassette). Seed a VM by
+// hand in the fixture subscription (docs/claude/live-e2e.md) with an ARM
+// template, since `az vm create` is broken on some az-CLI/Python builds, and
+// delete it after recording. See
 // azuretest.RecordLiveOptions:
 //
 //	AZURE_TEST_SUBSCRIPTION=<sub> go test -tags record -run TestRecordCompute ./internal/sources/azure/compute/ -v

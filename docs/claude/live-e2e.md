@@ -14,7 +14,7 @@ or the live gate in `release-promote.yml`, or when a live run fails.
 | Trigger | Workflow | Binary | On failure |
 |---|---|---|---|
 | Each release candidate, when the repository variable `LIVE_E2E` is `on` | `release-promote.yml` job `live-e2e`, which calls `live-e2e.yml` with the tag | the prerelease's published asset | the release stays a prerelease (same as the E2E gate) |
-| Nightly, 03:00 UTC | `live-e2e-nightly.yml`, which calls `live-e2e.yml` | the latest release | red run, and the `live-drift` issue is opened or commented |
+| Nightly, 03:00 UTC, when `LIVE_E2E` is `on` | `live-e2e-nightly.yml`, which calls `live-e2e.yml` | the latest release | red run, and the `live-drift` issue is opened or commented |
 | By hand | `live-e2e.yml` `workflow_dispatch`, optional `tag` | that tag, or the latest release | red run |
 
 `live-e2e.yml` resolves the tag, checks out that tag (so the harness matches the binary), installs
@@ -69,28 +69,30 @@ account, project and subscription IDs, e-mails).
 ## Variables and secrets
 
 All of these live in the `live-e2e` GitHub environment, except `LIVE_E2E`, which is a repository
-variable. Optional ones add env-gated sources.
+variable. Every account identifier is a secret, not a variable: GitHub prints a step's inputs in
+the public log and masks only secrets (`TestLiveE2E_IdentifiersAreSecrets` pins this). Optional
+ones add env-gated sources.
 
 | Name | Kind | Holds |
 |---|---|---|
-| `LIVE_E2E` | repository variable | `on` to gate every release on this tier |
-| `LIVE_E2E_AWS_ROLE_ARN` | variable | ARN of the read-only role the `aws` job assumes |
+| `LIVE_E2E` | repository variable | `on` to gate every release on this tier and run it nightly |
+| `LIVE_E2E_AWS_ROLE_ARN` | secret | ARN of the read-only role the `aws` job assumes |
 | `LIVE_E2E_AWS_REGION` | variable | Region of the fixture sources and the vault bucket |
-| `LIVE_E2E_AWS_VAULT_BUCKET` | variable | S3 bucket for the vault |
-| `LIVE_E2E_AWS_IDENTITY_STORE_ID` | variable, optional | Identity Center identity store ID; adds `aws.identity_center` |
+| `LIVE_E2E_AWS_VAULT_BUCKET` | secret | S3 bucket for the vault |
+| `LIVE_E2E_AWS_IDENTITY_STORE_ID` | secret, optional | Identity Center identity store ID; adds `aws.identity_center` |
 | `LIVE_E2E_AWS_INSPECTOR` | variable, optional | `on` once Inspector is activated; adds `aws.inspector` |
-| `LIVE_E2E_GCP_WIF_PROVIDER` | variable | Full resource name of the workload identity provider |
-| `LIVE_E2E_GCP_SERVICE_ACCOUNT` | variable | E-mail of the service account the job impersonates |
-| `LIVE_E2E_GCP_PROJECT_ID` | variable | Fixture project ID |
-| `LIVE_E2E_GCP_VAULT_BUCKET` | variable | GCS bucket for the vault |
-| `LIVE_E2E_GCP_ORGANIZATION_ID` | variable, optional | Organization ID; adds `gcp.scc` |
-| `LIVE_E2E_GCP_WORKSPACE_SERVICE_ACCOUNT` | variable, optional | With the next one, adds `gcp.directory` and `gcp.cloud_identity` |
-| `LIVE_E2E_GCP_WORKSPACE_ADMIN` | variable, optional | Workspace super admin the service account acts as (domain-wide delegation) |
-| `LIVE_E2E_AZURE_CLIENT_ID` | variable | App registration with the federated credential |
-| `LIVE_E2E_AZURE_TENANT_ID` | variable | Its tenant |
-| `LIVE_E2E_AZURE_SUBSCRIPTION_ID` | variable | Fixture subscription |
-| `LIVE_E2E_AZURE_STORAGE_ACCOUNT` | variable | Storage account name for the vault |
-| `LIVE_E2E_AZURE_VAULT_CONTAINER` | variable | Blob container for the vault |
+| `LIVE_E2E_GCP_WIF_PROVIDER` | secret | Full resource name of the workload identity provider |
+| `LIVE_E2E_GCP_SERVICE_ACCOUNT` | secret | E-mail of the service account the job impersonates |
+| `LIVE_E2E_GCP_PROJECT_ID` | secret | Fixture project ID |
+| `LIVE_E2E_GCP_VAULT_BUCKET` | secret | GCS bucket for the vault |
+| `LIVE_E2E_GCP_ORGANIZATION_ID` | secret, optional | Organization ID; adds `gcp.scc` |
+| `LIVE_E2E_GCP_WORKSPACE_SERVICE_ACCOUNT` | secret, optional | With the next one, adds `gcp.directory` and `gcp.cloud_identity` |
+| `LIVE_E2E_GCP_WORKSPACE_ADMIN` | secret, optional | Workspace super admin the service account acts as (domain-wide delegation) |
+| `LIVE_E2E_AZURE_CLIENT_ID` | secret | App registration with the federated credential |
+| `LIVE_E2E_AZURE_TENANT_ID` | secret | Its tenant |
+| `LIVE_E2E_AZURE_SUBSCRIPTION_ID` | secret | Fixture subscription |
+| `LIVE_E2E_AZURE_STORAGE_ACCOUNT` | secret | Storage account name for the vault |
+| `LIVE_E2E_AZURE_VAULT_CONTAINER` | secret | Blob container for the vault |
 | `GH_TEST_TOKEN`, `GH_TEST_ORG` | secrets | GitHub token and org (mapped to `GITHUB_TEST_*`; a secret name cannot start with `GITHUB_`) |
 | `GITLAB_TEST_TOKEN`, `GITLAB_TEST_GROUP`, `GITLAB_TEST_BASE_URL` (optional) | secrets | GitLab token, group, self-managed URL |
 | `OKTA_TEST_TOKEN`, `OKTA_TEST_ORG_URL` | secrets | Okta API token and org URL |
@@ -113,7 +115,10 @@ is disabled returns an error, which fails the run, so enable each API listed.
 | Azure | `azure.acr`, `azure.aks`, `azure.backup`, `azure.certs`, `azure.compute`, `azure.cosmos`, `azure.defender`, `azure.keyvault`, `azure.monitor`, `azure.network`, `azure.policy`, `azure.sql`, `azure.storage` | These resource providers registered (free): `Microsoft.ContainerRegistry`, `Microsoft.ContainerService`, `Microsoft.Insights`, `Microsoft.RecoveryServices`, `Microsoft.Web`, `Microsoft.CertificateRegistration`, `Microsoft.Compute`, `Microsoft.Network`, `Microsoft.DocumentDB`, `Microsoft.Security`, `Microsoft.ResourceGraph`, `Microsoft.KeyVault`, `Microsoft.OperationalInsights`, `Microsoft.Sql`, `Microsoft.DBforPostgreSQL`, `Microsoft.DBforMySQL`, `Microsoft.Storage`. Leave Defender plans on Free | none |
 | SaaS | `github`, `gitlab`, `okta`, `azure.entra` | The free accounts in [11-testing-strategy.md](../architecture/11-testing-strategy.md) §7 | none |
 
-Active Directory is out of scope: its live test needs a local Samba container.
+Active Directory is out of scope: its live test needs a local Samba container. The Active
+Directory and Cloud Identity per-source live tests still log raw errors, record IDs and (Cloud
+Identity, on purpose) raw bodies, and run only on a developer machine. Never add their variables
+to the `live-e2e` environment: the `saas` job runs every `Test*Live*` under `internal/`.
 
 Never create expensive resources (clusters, databases, VMs) in the fixture accounts to make a
 policy pass. Their non-empty mapping is covered by cassettes. A resource you do keep is named with
@@ -127,8 +132,7 @@ environment of this repository can present.
 
 1. GitHub: create the environment `live-e2e`. Under deployment branches and tags, allow the branch
    `main` and tags matching `v*` (the re-release path dispatches `release.yml` from a tag). Add the
-   variables and secrets above. Set the repository variable `LIVE_E2E` to `on` only after one
-   manual dispatch of `live-e2e.yml` passed.
+   variables and secrets above.
 2. AWS:
    1. Add the IAM OIDC provider `token.actions.githubusercontent.com`, audience
       `sts.amazonaws.com`.
@@ -157,7 +161,12 @@ environment of this repository can present.
       container only.
    3. Register the resource providers in the table. Create the storage account and container,
       with a lifecycle management rule that deletes blobs under `live-e2e/` after 14 days.
-5. Dispatch `live-e2e.yml` from `main` and read every job's result.
+5. Wait until a release that contains the tier is the latest release: with `LIVE_E2E` off,
+   releases are promoted without it. The workflow checks out the tag it tests, so an older tag
+   has no live tests to run.
+6. Dispatch `live-e2e.yml` from `main` (no tag: the latest release) and read every job's
+   result. When every job passes, set the repository variable `LIVE_E2E` to `on`. That turns
+   on the release gate and the nightly run together.
 
 ## When a run fails
 
@@ -170,15 +179,16 @@ reproduce locally with `LIVE_E2E_OUTPUT_DIR` set.
    a prerelease. Never promote by hand without a passing live run for that tag.
 2. Nightly run: work the `live-drift` issue. A vendor change gets the remediation in
    [11-testing-strategy.md](../architecture/11-testing-strategy.md) §7.
-3. To switch the tier off while a vendor is down, set `LIVE_E2E` to anything but `on`. Promote
-   then warns that the release was not live-tested.
+3. To switch the tier off while a vendor is down, set `LIVE_E2E` to anything but `on`. That
+   skips both the release gate and the nightly run; promote then warns that the release was not
+   live-tested.
 
-Local reproduction, with only the fixture account's credentials visible (AGENTS.md rule 13). Log
-in to the fixture account inside the throwaway home first (for example
-`CLOUDSDK_CONFIG="$S/gcloud" gcloud auth application-default login`), then:
+Local reproduction, with only the fixture account's credentials visible (AGENTS.md rule 13).
+Create the throwaway home, log in to the fixture account inside it, then run the test:
 
 ```sh
 S="$(mktemp -d)"
+CLOUDSDK_CONFIG="$S/gcloud" gcloud auth application-default login
 env -i HOME="$S" PATH="$PATH" \
   GOPATH="$(go env GOPATH)" GOCACHE="$(go env GOCACHE)" GOMODCACHE="$(go env GOMODCACHE)" \
   AWS_CONFIG_FILE=/dev/null AWS_SHARED_CREDENTIALS_FILE=/dev/null \

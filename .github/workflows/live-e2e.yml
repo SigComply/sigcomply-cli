@@ -13,7 +13,9 @@ name: Live E2E
 # `live-e2e` environment, which holds the variables and secrets and allows
 # only main and v* tags; the cloud roles trust only this repository's
 # `live-e2e` environment. Credentials come from OIDC (AWS, GCP, Azure) or
-# environment secrets (SaaS). Nothing the CLI prints reaches the log, and
+# environment secrets (SaaS). Account identifiers (role ARN, project,
+# subscription, bucket names, e-mails) are secrets too, not variables:
+# GitHub prints a step's `with:` and `env:` values and masks only secrets. Nothing the CLI prints reaches the log, and
 # nothing is uploaded: the CLI's output names cloud resources.
 # Setup and variables: docs/claude/live-e2e.md.
 
@@ -117,7 +119,7 @@ jobs:
       - name: Assume the AWS read-only role
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          role-to-assume: ${{ vars.LIVE_E2E_AWS_ROLE_ARN }}
+          role-to-assume: ${{ secrets.LIVE_E2E_AWS_ROLE_ARN }}
           aws-region: ${{ vars.LIVE_E2E_AWS_REGION }}
           role-session-name: sigcomply-live-e2e
           mask-aws-account-id: true
@@ -128,8 +130,8 @@ jobs:
           LIVE_E2E_REQUIRED: '1'
           SIGCOMPLY_E2E_BINARY: ${{ runner.temp }}/sigcomply-bin/sigcomply
           LIVE_E2E_AWS_REGION: ${{ vars.LIVE_E2E_AWS_REGION }}
-          LIVE_E2E_AWS_VAULT_BUCKET: ${{ vars.LIVE_E2E_AWS_VAULT_BUCKET }}
-          LIVE_E2E_AWS_IDENTITY_STORE_ID: ${{ vars.LIVE_E2E_AWS_IDENTITY_STORE_ID }}
+          LIVE_E2E_AWS_VAULT_BUCKET: ${{ secrets.LIVE_E2E_AWS_VAULT_BUCKET }}
+          LIVE_E2E_AWS_IDENTITY_STORE_ID: ${{ secrets.LIVE_E2E_AWS_IDENTITY_STORE_ID }}
           LIVE_E2E_AWS_INSPECTOR: ${{ vars.LIVE_E2E_AWS_INSPECTOR }}
         run: ./scripts/run-live-tests.sh '^TestLiveE2E_AWS$' ./cmd/sigcomply
 
@@ -176,19 +178,19 @@ jobs:
       - name: Authenticate to GCP
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
-          workload_identity_provider: ${{ vars.LIVE_E2E_GCP_WIF_PROVIDER }}
-          service_account: ${{ vars.LIVE_E2E_GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ secrets.LIVE_E2E_GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.LIVE_E2E_GCP_SERVICE_ACCOUNT }}
 
       - name: Run the live E2E test
         id: test
         env:
           LIVE_E2E_REQUIRED: '1'
           SIGCOMPLY_E2E_BINARY: ${{ runner.temp }}/sigcomply-bin/sigcomply
-          LIVE_E2E_GCP_PROJECT_ID: ${{ vars.LIVE_E2E_GCP_PROJECT_ID }}
-          LIVE_E2E_GCP_VAULT_BUCKET: ${{ vars.LIVE_E2E_GCP_VAULT_BUCKET }}
-          LIVE_E2E_GCP_ORGANIZATION_ID: ${{ vars.LIVE_E2E_GCP_ORGANIZATION_ID }}
-          LIVE_E2E_GCP_WORKSPACE_SERVICE_ACCOUNT: ${{ vars.LIVE_E2E_GCP_WORKSPACE_SERVICE_ACCOUNT }}
-          LIVE_E2E_GCP_WORKSPACE_ADMIN: ${{ vars.LIVE_E2E_GCP_WORKSPACE_ADMIN }}
+          LIVE_E2E_GCP_PROJECT_ID: ${{ secrets.LIVE_E2E_GCP_PROJECT_ID }}
+          LIVE_E2E_GCP_VAULT_BUCKET: ${{ secrets.LIVE_E2E_GCP_VAULT_BUCKET }}
+          LIVE_E2E_GCP_ORGANIZATION_ID: ${{ secrets.LIVE_E2E_GCP_ORGANIZATION_ID }}
+          LIVE_E2E_GCP_WORKSPACE_SERVICE_ACCOUNT: ${{ secrets.LIVE_E2E_GCP_WORKSPACE_SERVICE_ACCOUNT }}
+          LIVE_E2E_GCP_WORKSPACE_ADMIN: ${{ secrets.LIVE_E2E_GCP_WORKSPACE_ADMIN }}
         run: ./scripts/run-live-tests.sh '^TestLiveE2E_GCP$' ./cmd/sigcomply
 
   azure:
@@ -236,18 +238,18 @@ jobs:
       - name: Log in to Azure
         uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
         with:
-          client-id: ${{ vars.LIVE_E2E_AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.LIVE_E2E_AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.LIVE_E2E_AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ secrets.LIVE_E2E_AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.LIVE_E2E_AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.LIVE_E2E_AZURE_SUBSCRIPTION_ID }}
 
       - name: Run the live E2E test
         id: test
         env:
           LIVE_E2E_REQUIRED: '1'
           SIGCOMPLY_E2E_BINARY: ${{ runner.temp }}/sigcomply-bin/sigcomply
-          LIVE_E2E_AZURE_SUBSCRIPTION_ID: ${{ vars.LIVE_E2E_AZURE_SUBSCRIPTION_ID }}
-          LIVE_E2E_AZURE_STORAGE_ACCOUNT: ${{ vars.LIVE_E2E_AZURE_STORAGE_ACCOUNT }}
-          LIVE_E2E_AZURE_VAULT_CONTAINER: ${{ vars.LIVE_E2E_AZURE_VAULT_CONTAINER }}
+          LIVE_E2E_AZURE_SUBSCRIPTION_ID: ${{ secrets.LIVE_E2E_AZURE_SUBSCRIPTION_ID }}
+          LIVE_E2E_AZURE_STORAGE_ACCOUNT: ${{ secrets.LIVE_E2E_AZURE_STORAGE_ACCOUNT }}
+          LIVE_E2E_AZURE_VAULT_CONTAINER: ${{ secrets.LIVE_E2E_AZURE_VAULT_CONTAINER }}
         run: ./scripts/run-live-tests.sh '^TestLiveE2E_Azure$' ./cmd/sigcomply
 
   saas:

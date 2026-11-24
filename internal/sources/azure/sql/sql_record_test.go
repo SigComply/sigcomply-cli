@@ -15,7 +15,8 @@ import (
 // sql_record_test.go records testdata/cassettes/databases.yaml against the real
 // Azure SQL + PostgreSQL + MySQL APIs (five clients, one cassette). SQL DB server
 // creation is region-restricted on some subscriptions — westus3 worked when
-// eastus/eastus2/westus2 did not (see scripts/setup-azure.sh). See
+// eastus/eastus2/westus2 did not. Seed by hand in the fixture subscription
+// (docs/claude/live-e2e.md) and delete the servers after recording. See
 // azuretest.RecordLiveOptions:
 //
 //	AZURE_TEST_SUBSCRIPTION=<sub> go test -tags record -run TestRecordSQL ./internal/sources/azure/sql/ -v

@@ -2,8 +2,9 @@
 # runs the tests, applies the skip marker and holds the `release`
 # concurrency group for the whole call. Bump the version, build with
 # GoReleaser, attest, push the tag, publish a prerelease, install it with
-# provenance required (verify), then promote it to latest (release-promote.yml), after the E2E release gate when the
-# repository variable RELEASE_GATE is 'on'.
+# provenance required (verify), then promote it to latest
+# (release-promote.yml), after its gates that are on (repository variables
+# RELEASE_GATE and LIVE_E2E).
 #
 # Order matters: the tag is pushed only after the build and the attestation
 # succeed, so a failed build never leaves a tag without a release. The

@@ -94,8 +94,8 @@ tracker. Don't import those assumptions from the Rails dashboard repo.
   `SECURITY.md`, `CONTRIBUTING.md` and `docs/**/*.md` except `docs/claude/**` and
   `docs/architecture/**`; every customer doc when `.vale.ini`, `.vale/**` or the workflow itself
   changes) and fails on error-level alerts.
-- `live-e2e-nightly.yml` runs the live E2E tier on `releases/latest` every night and opens the
-  `live-drift` issue on a failure. The GitHub E2E repo's `release-gate.yml` tests each release
+- `live-e2e-nightly.yml` runs the live E2E tier on `releases/latest` every night when
+  `LIVE_E2E` is `on`, and opens the `live-drift` issue on a failure. The GitHub E2E repo's `release-gate.yml` tests each release
   candidate when its gate is on, and runs daily on `releases/latest`. The GitLab E2E repo
   resolves the latest release at run time.
 
@@ -288,7 +288,7 @@ make build
 
 | Change touches | Run | Check |
 |---|---|---|
-| a source, policy or the evaluator | `sigcomply check` against a fixture or scratch project (or an E2E repo) | stdout run summary, exit code (0 pass, 1 violations, 2 execution error, 3 config error), vault artifacts under `{framework}/{period_id}/run_*/` |
+| a source, policy or the evaluator | `sigcomply check` against a fixture or scratch project (or `make test-live`, [live-e2e.md](live-e2e.md)) | stdout run summary, exit code (0 pass, 1 violations, 2 execution error, 3 config error), vault artifacts under `{framework}/{period_id}/run_*/` |
 | the manual-evidence catalog or SPA contract | `sigcomply evidence catalog -o json` | JSON matches `sigcomply-evidence-spa/src/types/catalog.ts` |
 | manual evidence due-dates | `sigcomply evidence due` | lists the expected entries; exits 0 whatever it finds, 3 on a config error ([commands](../reference/commands.md#sigcomply-evidence-due)) |
 | the auditor read path | `sigcomply report --view <view>` | the view renders from the vault |

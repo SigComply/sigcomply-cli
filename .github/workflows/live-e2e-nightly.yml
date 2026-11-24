@@ -22,6 +22,9 @@ permissions: {}
 jobs:
   live:
     name: Live E2E
+    # The same switch as the release gate: off while the fixture accounts
+    # are not set up, or while a vendor is down.
+    if: vars.LIVE_E2E == 'on'
     uses: ./.github/workflows/live-e2e.yml
     permissions:
       contents: read

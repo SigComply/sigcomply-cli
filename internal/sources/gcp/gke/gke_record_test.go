@@ -17,7 +17,7 @@ import (
 // Kubernetes Engine API. Maintainer path (see gcptest.RecordLiveOptions):
 //
 //	gcloud auth application-default login
-//	# seed: a GKE cluster (setup-gcp full tier)
+//	# seed: a GKE cluster (by hand in the fixture project, docs/claude/live-e2e.md; delete it after)
 //	rm -f internal/sources/gcp/gke/testdata/cassettes/clusters.yaml
 //	GCP_TEST_PROJECT=<project> go test -tags record -run TestRecordGKE ./internal/sources/gcp/gke/ -v
 func TestRecordGKE(t *testing.T) {

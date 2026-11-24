@@ -17,7 +17,7 @@ import (
 // Cloud SQL Admin API. Maintainer path (see gcptest.RecordLiveOptions):
 //
 //	gcloud auth application-default login
-//	# seed: a Cloud SQL instance (setup-gcp full tier)
+//	# seed: a Cloud SQL instance (by hand in the fixture project, docs/claude/live-e2e.md; delete it after)
 //	rm -f internal/sources/gcp/sql/testdata/cassettes/instances.yaml
 //	GCP_TEST_PROJECT=<project> go test -tags record -run TestRecordSQL ./internal/sources/gcp/sql/ -v
 func TestRecordSQL(t *testing.T) {
