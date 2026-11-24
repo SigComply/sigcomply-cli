@@ -41,6 +41,7 @@ import (
 const (
 	liveRequiredEnv = "LIVE_E2E_REQUIRED"
 	liveBinaryEnv   = "SIGCOMPLY_E2E_BINARY"
+	liveOutputEnv   = "LIVE_E2E_OUTPUT_DIR"
 	liveCheckLimit  = 30 * time.Minute
 	liveKeyBackend  = "backend"
 )
@@ -118,6 +119,24 @@ func liveBinary(t *testing.T) string {
 	return sigcomplyBinary(t)
 }
 
+// liveOutputDir is where the configs and the CLI's output go: a temp
+// directory, or a folder under LIVE_E2E_OUTPUT_DIR that outlives the test
+// so a local run can read what the CLI printed. CI never keeps it
+// (LIVE_E2E_REQUIRED=1 ignores the variable): the output names resources.
+func liveOutputDir(t *testing.T) string {
+	t.Helper()
+	root := os.Getenv(liveOutputEnv)
+	if root == "" || os.Getenv(liveRequiredEnv) == "1" {
+		return t.TempDir()
+	}
+	dir := filepath.Join(root, strings.ReplaceAll(t.Name(), "/", "_")+"-"+time.Now().UTC().Format("20060102T150405Z"))
+	if err := os.MkdirAll(dir, 0o750); err != nil { //nolint:gosec // #nosec G703 -- a folder the developer names for a local run
+		t.Fatal(err)
+	}
+	t.Logf("live E2E: configs and CLI output kept in %s", liveOutputEnv)
+	return dir
+}
+
 // liveRun is one `sigcomply` invocation: its exit code and the files its
 // output went to.
 type liveRun struct {
@@ -174,7 +193,7 @@ func runLiveE2E(t *testing.T, p liveProvider) {
 		srcs = append(srcs, p.extras()...)
 	}
 
-	dir := t.TempDir()
+	dir := liveOutputDir(t)
 	// check refuses to plan the manual policies without a manual source.
 	// An empty local folder makes each of them fail on missing evidence
 	// (exit 1), which this tier accepts: manual evidence is covered by the

@@ -109,6 +109,19 @@ func TestLiveE2EHarness_ReportsDamage(t *testing.T) {
 	}
 }
 
+func TestLiveE2EHarness_OutputDir(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv(liveOutputEnv, root)
+	t.Setenv(liveRequiredEnv, "")
+	if dir := liveOutputDir(t); !strings.HasPrefix(dir, root+string(filepath.Separator)) {
+		t.Errorf("liveOutputDir = %s; want a folder under %s", dir, root)
+	}
+	t.Setenv(liveRequiredEnv, "1")
+	if dir := liveOutputDir(t); strings.HasPrefix(dir, root) {
+		t.Errorf("liveOutputDir = %s under LIVE_E2E_REQUIRED=1; want a temp directory, never the kept one", dir)
+	}
+}
+
 func TestLiveE2EHarness_CheckOutcomeProblems(t *testing.T) {
 	const clean = "SigComply check soc2/2026-Q4 — 3 policies\n  pass=1 fail=1 carried=0 skip=1 error=0 na=0 waived=0\n"
 	const errored = "  pass=1 fail=0 carried=0 skip=0 error=2 na=0 waived=0\n"
