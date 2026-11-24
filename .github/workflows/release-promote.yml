@@ -1,6 +1,6 @@
 # Promotes a published prerelease to the latest release, optionally after
-# the end-to-end release gate passes. Called by auto-release-pipeline.yml
-# and release.yml after they publish a tag as a prerelease; never runs alone.
+# two gates pass. Called by auto-release-pipeline.yml and release.yml after
+# they publish a tag as a prerelease; never runs alone.
 #
 # Customers and the E2E repos resolve releases/latest, so a release reaches
 # them only when this workflow promotes it.
@@ -11,7 +11,11 @@
 #     failure or a timeout fails the gate.
 #     A missing E2E_GATE_TOKEN fails the gate, and the release stays a
 #     prerelease.
-#   anything else: promote at once and warn that the release was not gated.
+#   vars.LIVE_E2E == 'on': run live-e2e.yml for this tag (the released
+#     binary against the live fixture accounts) in parallel, and promote
+#     only when it passes too.
+#   A gate whose variable is not 'on' is skipped, and promote warns that
+#   the release was not checked by it.
 #
 # The callers hold the `release` concurrency group for the whole chain, so
 # this workflow must not declare the same group (it would deadlock).
@@ -63,7 +67,7 @@ jobs:
           fi
 
       # One attempt: dispatch, find the run by its correlation ID, wait.
-      # A cancelled gate run (the E2E repo's AWS concurrency group, or a
+      # A cancelled gate run (the E2E repo's concurrency group, or a
       # person, cancelled it) says nothing about the release, so it is
       # dispatched once more with a new ID. A failed or timed-out run fails
       # the gate at once.
@@ -117,15 +121,27 @@ jobs:
             exit 1
           done
 
+  live-e2e:
+    name: Live E2E
+    if: vars.LIVE_E2E == 'on'
+    uses: ./.github/workflows/live-e2e.yml
+    with:
+      tag: ${{ inputs.tag }}
+    permissions:
+      contents: read
+      id-token: write # cloud OIDC in the live-e2e environment
+
   promote:
     name: Promote to Latest
-    needs: e2e-gate
-    # Runs when the gate passed, or when the gate is off (skipped). A
-    # failed or cancelled gate leaves the release a prerelease.
+    needs: [e2e-gate, live-e2e]
+    # Runs when each gate passed, or is off (skipped). A failed or
+    # cancelled gate leaves the release a prerelease.
     if: >-
       !cancelled() &&
       (needs.e2e-gate.result == 'success' ||
-       (vars.RELEASE_GATE != 'on' && needs.e2e-gate.result == 'skipped'))
+       (vars.RELEASE_GATE != 'on' && needs.e2e-gate.result == 'skipped')) &&
+      (needs.live-e2e.result == 'success' ||
+       (vars.LIVE_E2E != 'on' && needs.live-e2e.result == 'skipped'))
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -133,6 +149,7 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       TAG: ${{ inputs.tag }}
       GATE: ${{ vars.RELEASE_GATE }}
+      LIVE: ${{ vars.LIVE_E2E }}
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
@@ -144,7 +161,12 @@ jobs:
         run: |
           echo "::warning::$TAG was promoted without the E2E release gate (repository variable RELEASE_GATE is not 'on')."
 
+      - name: Warn when not live-tested
+        if: vars.LIVE_E2E != 'on'
+        run: |
+          echo "::warning::$TAG was promoted without the live E2E tier (repository variable LIVE_E2E is not 'on')."
+
       - name: Promote the prerelease
         run: |
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease=false --latest
-          echo "Promoted $TAG to latest (gate: ${GATE:-off})" >> "$GITHUB_STEP_SUMMARY"
+          echo "Promoted $TAG to latest (E2E gate: ${GATE:-off}, live E2E: ${LIVE:-off})" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,81 @@
+name: Live E2E Nightly
+
+# Drift alarm between releases: runs the live E2E tier (live-e2e.yml)
+# against the latest release every night. A vendor API, a fixture account
+# or a credential that changed shows up here before the next release
+# candidate hits it. On a failure it opens (or comments on) the `live-drift`
+# issue.
+#
+# This is a separate file because the issue needs `issues: write`. A job in
+# a called workflow cannot ask for a permission its caller did not grant,
+# and GitHub checks that before any job runs, so an issue job inside
+# live-e2e.yml would need `issues: write` granted down the whole release
+# chain.
+
+on:
+  schedule:
+    # Nightly at 03:00 UTC.
+    - cron: '0 3 * * *'
+
+permissions: {}
+
+jobs:
+  live:
+    name: Live E2E
+    uses: ./.github/workflows/live-e2e.yml
+    permissions:
+      contents: read
+      id-token: write # cloud OIDC in the called jobs
+
+  alert:
+    name: Open or update the live-drift issue
+    needs: live
+    if: ${{ always() && needs.live.result == 'failure' }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write # open/update the alert issue
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+
+      - name: Open or update live-drift issue
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          FAILING: ${{ needs.live.outputs.failing }}
+        with:
+          script: |
+            // Only test names and the run link go into the issue: the
+            // issue is public, and so is everything the tests print.
+            const names = (process.env.FAILING || '')
+              .split(/\s+/)
+              .filter((n) => /^[A-Za-z0-9_\/.-]+$/.test(n));
+            const failing = names.length > 0
+              ? [...new Set(names)].slice(0, 50).map((n) => `- \`${n}\``)
+              : ['- (no test name found; a job failed before or outside a test: open the run)'];
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const { owner, repo } = context.repo;
+            const label = 'live-drift';
+            const title = 'Live E2E drift detected';
+            const body = [
+              'The nightly live E2E run against the latest release failed. A',
+              'vendor API changed shape or behaviour, a mapper regressed, a',
+              'fixture account changed, or a credential broke. Runbook:',
+              '`docs/claude/live-e2e.md`.',
+              '',
+              'Failing:',
+              ...failing,
+              '',
+              `Run: ${runUrl}`,
+            ].join('\n');
+            const existing = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: label,
+            });
+            if (existing.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: existing.data[0].number, body,
+              });
+            } else {
+              await github.rest.issues.create({ owner, repo, title, labels: [label], body });
+            }

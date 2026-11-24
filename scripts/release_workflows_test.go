@@ -49,8 +49,28 @@ type workflowJob struct {
 	If          string            `yaml:"if"`
 	Needs       stringList        `yaml:"needs"`
 	Uses        string            `yaml:"uses"`
+	With        map[string]string `yaml:"with"`
+	Environment environment       `yaml:"environment"`
 	Permissions map[string]string `yaml:"permissions"`
 	Steps       []workflowStep    `yaml:"steps"`
+}
+
+// environment accepts `environment: name` and `environment: {name: ...}`.
+type environment string
+
+func (e *environment) UnmarshalYAML(n *yaml.Node) error {
+	if n.Kind == yaml.ScalarNode {
+		*e = environment(n.Value)
+		return nil
+	}
+	var m struct {
+		Name string `yaml:"name"`
+	}
+	if err := n.Decode(&m); err != nil {
+		return err
+	}
+	*e = environment(m.Name)
+	return nil
 }
 
 type workflowStep struct {
@@ -107,7 +127,7 @@ func loadWorkflows(t *testing.T) map[string]workflowFile {
 // publish script or `gh release`, uses a release action, or can write
 // repository contents (tags and releases).
 func (j *workflowJob) publishes() bool {
-	if j.Permissions["contents"] == "write" {
+	if j.Permissions["contents"] == permWrite {
 		return true
 	}
 	for _, s := range j.Steps {
@@ -163,7 +183,7 @@ func (j *workflowJob) privileged() bool {
 		return true
 	}
 	for _, scope := range []string{"contents", "id-token", "attestations"} {
-		if j.Permissions[scope] == "write" {
+		if j.Permissions[scope] == permWrite {
 			return true
 		}
 	}
@@ -280,4 +300,115 @@ func installsWithProvenance(j *workflowJob) bool {
 		}
 	}
 	return false
+}
+
+const (
+	permWrite       = "write"
+	liveWorkflow    = "live-e2e.yml"
+	liveEnvironment = "live-e2e"
+)
+
+// TestLiveE2E_CloudCredentialsStayInTheProtectedEnvironment pins the
+// live tier's trust boundary. The cloud roles trust only this repository's
+// live-e2e environment, which allows only main and v* tags; a job that
+// mints an OIDC token outside it, or a trigger that runs it on a pull
+// request, would hand a fork the fixture accounts.
+func TestLiveE2E_CloudCredentialsStayInTheProtectedEnvironment(t *testing.T) {
+	all := loadWorkflows(t)
+	live, ok := all[liveWorkflow]
+	if !ok {
+		t.Fatalf("%s not found", liveWorkflow)
+	}
+	if triggers := triggerNames(&live); strings.Join(triggers, ",") != "workflow_call,workflow_dispatch" {
+		t.Errorf("%s triggers = %v; want only workflow_call and workflow_dispatch", liveWorkflow, triggers)
+	}
+
+	envJobs := 0
+	for id, j := range live.Jobs {
+		oidc := j.Permissions["id-token"] == permWrite
+		inEnv := j.Environment == liveEnvironment
+		if oidc && !inEnv {
+			t.Errorf("%s: job %q can mint an OIDC token but does not run in the %s environment", liveWorkflow, id, liveEnvironment)
+		}
+		if inEnv && !guarded(j.If) {
+			t.Errorf("%s: job %q runs in the %s environment without the ref guard %s (got %q)", liveWorkflow, id, liveEnvironment, releaseRefGuard, j.If)
+		}
+		if inEnv {
+			envJobs++
+		}
+	}
+	// aws, gcp, azure, saas.
+	if envJobs < 4 {
+		t.Errorf("%s: %d jobs run in the %s environment; want the four provider jobs", liveWorkflow, envJobs, liveEnvironment)
+	}
+
+	for name, wf := range all {
+		for id, j := range wf.Jobs {
+			if j.Environment == liveEnvironment && name != liveWorkflow {
+				t.Errorf("%s: job %q uses the %s environment; only %s may", name, id, liveEnvironment, liveWorkflow)
+			}
+		}
+	}
+}
+
+// triggerNames returns the workflow's `on:` event names, sorted.
+func triggerNames(w *workflowFile) []string {
+	var names []string
+	if w.On.Kind == yaml.MappingNode {
+		for i := 0; i < len(w.On.Content); i += 2 {
+			names = append(names, w.On.Content[i].Value)
+		}
+	}
+	sort.Strings(names)
+	return names
+}
+
+// TestReleasePromote_PromoteWaitsForTheLiveTier pins that a release with
+// LIVE_E2E on is promoted only after the live tier passed for its tag, and
+// that the tier being off (skipped) is the only other way through.
+func TestReleasePromote_PromoteWaitsForTheLiveTier(t *testing.T) {
+	all := loadWorkflows(t)
+	rp := all[filepath.Base(promoteWorkflow)]
+	live, ok := rp.Jobs["live-e2e"]
+	if !ok {
+		t.Fatal("release-promote.yml has no live-e2e job")
+	}
+	if live.Uses != "./.github/workflows/"+liveWorkflow || live.If != "vars.LIVE_E2E == 'on'" || live.With["tag"] != "${{ inputs.tag }}" {
+		t.Errorf("live-e2e job = uses %q, if %q, tag %q; want %s on vars.LIVE_E2E == 'on' for inputs.tag",
+			live.Uses, live.If, live.With["tag"], liveWorkflow)
+	}
+	if live.Permissions["id-token"] != permWrite {
+		t.Error("live-e2e job does not grant id-token: write; the called jobs cannot get cloud credentials")
+	}
+
+	promote := rp.Jobs["promote"]
+	if !contains(promote.Needs, "live-e2e") || !contains(promote.Needs, "e2e-gate") {
+		t.Errorf("promote needs %v; want both e2e-gate and live-e2e", promote.Needs)
+	}
+	cond := strings.Join(strings.Fields(promote.If), " ")
+	for _, want := range []string{
+		"(needs.e2e-gate.result == 'success' || (vars.RELEASE_GATE != 'on' && needs.e2e-gate.result == 'skipped'))",
+		"(needs.live-e2e.result == 'success' || (vars.LIVE_E2E != 'on' && needs.live-e2e.result == 'skipped'))",
+	} {
+		if !strings.Contains(cond, want) {
+			t.Errorf("promote `if` = %q; want it to require %s", cond, want)
+		}
+	}
+	if strings.Contains(cond, "always()") {
+		t.Errorf("promote `if` = %q; always() would promote after a canceled gate", cond)
+	}
+}
+
+// TestReleaseWorkflows_PromoteCallersGrantOIDC: a called workflow's job
+// gets no permission its caller did not grant, so every job calling
+// release-promote.yml must grant id-token: write for the live tier.
+func TestReleaseWorkflows_PromoteCallersGrantOIDC(t *testing.T) {
+	all := loadWorkflows(t)
+	for name, wf := range all {
+		for id, j := range wf.Jobs {
+			if j.Uses == promoteWorkflow && j.Permissions["id-token"] != permWrite {
+				t.Errorf("%s: job %q calls %s without id-token: write", name, id, promoteWorkflow)
+			}
+		}
+	}
 }

@@ -327,6 +327,7 @@ jobs:
       E2E_GATE_TOKEN: ${{ secrets.E2E_GATE_TOKEN }}
     permissions:
       contents: write
+      id-token: write # the live E2E tier's cloud OIDC (release-promote.yml)
 
   summary:
     name: Release Summary

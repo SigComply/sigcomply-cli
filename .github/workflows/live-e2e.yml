@@ -1,0 +1,329 @@
+name: Live E2E
+
+# Live E2E tier: runs a released sigcomply binary against permanent fixture
+# accounts in AWS, GCP, Azure and the SaaS vendors, writes the vault to the
+# provider's real storage and reads it back (cmd/sigcomply/live_e2e_test.go).
+#
+#   workflow_call      release-promote.yml, once per release candidate when
+#                      vars.LIVE_E2E is 'on'; a failure keeps the release a
+#                      prerelease. Also live-e2e-nightly.yml (drift alarm).
+#   workflow_dispatch  by hand; without a tag it tests the latest release.
+#
+# It never runs on pull requests or pushes. Every job uses the protected
+# `live-e2e` environment, which holds the variables and secrets and allows
+# only main and v* tags; the cloud roles trust only this repository's
+# `live-e2e` environment. Credentials come from OIDC (AWS, GCP, Azure) or
+# environment secrets (SaaS). Nothing the CLI prints reaches the log, and
+# nothing is uploaded: the CLI's output names cloud resources.
+# Setup and variables: docs/claude/live-e2e.md.
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag to test, e.g. v1.2.3 (default the latest release)
+        type: string
+        required: false
+        default: ''
+    outputs:
+      failing:
+        description: Names of the failing tests, for the nightly drift issue
+        value: ${{ jobs.aws.outputs.failing }} ${{ jobs.gcp.outputs.failing }} ${{ jobs.azure.outputs.failing }} ${{ jobs.saas.outputs.failing }}
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to test, e.g. v1.2.3 (empty for the latest release)
+        type: string
+        required: false
+        default: ''
+
+permissions: {}
+
+jobs:
+  resolve:
+    name: Resolve release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+
+      # The tests check out and install the same tag, so the harness and
+      # the binary always come from one release.
+      - name: Resolve the tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          tag="$INPUT_TAG"
+          if [ -z "$tag" ]; then
+            tag=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)
+          fi
+          if ! printf '%s' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::'$tag' is not a release tag (vMAJOR.MINOR.PATCH)."
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Live E2E for $tag" >> "$GITHUB_STEP_SUMMARY"
+
+  aws:
+    name: Live E2E (AWS)
+    needs: resolve
+    # Belt and braces: the live-e2e environment already allows only main
+    # and v* tags.
+    if: "(github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))"
+    runs-on: ubuntu-latest
+    environment: live-e2e
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      id-token: write # AWS role via OIDC
+    outputs:
+      failing: ${{ steps.test.outputs.failing }}
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+
+      - name: Checkout the release
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Install the released binary
+        env:
+          SIGCOMPLY_VERSION: ${{ needs.resolve.outputs.tag }}
+          SIGCOMPLY_REQUIRE_PROVENANCE: '1'
+          SIGCOMPLY_INSTALL_DIR: ${{ runner.temp }}/sigcomply-bin
+          SIGCOMPLY_NO_SUDO: '1'
+        run: mkdir -p "$SIGCOMPLY_INSTALL_DIR" && ./scripts/install.sh
+
+      # Audience sts.amazonaws.com (the action's default), never the
+      # SigComply Cloud audience (AGENTS.md invariant 6).
+      - name: Assume the AWS read-only role
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.LIVE_E2E_AWS_ROLE_ARN }}
+          aws-region: ${{ vars.LIVE_E2E_AWS_REGION }}
+          role-session-name: sigcomply-live-e2e
+          mask-aws-account-id: true
+
+      - name: Run the live E2E test
+        id: test
+        env:
+          LIVE_E2E_REQUIRED: '1'
+          SIGCOMPLY_E2E_BINARY: ${{ runner.temp }}/sigcomply-bin/sigcomply
+          LIVE_E2E_AWS_REGION: ${{ vars.LIVE_E2E_AWS_REGION }}
+          LIVE_E2E_AWS_VAULT_BUCKET: ${{ vars.LIVE_E2E_AWS_VAULT_BUCKET }}
+          LIVE_E2E_AWS_IDENTITY_STORE_ID: ${{ vars.LIVE_E2E_AWS_IDENTITY_STORE_ID }}
+          LIVE_E2E_AWS_INSPECTOR: ${{ vars.LIVE_E2E_AWS_INSPECTOR }}
+        run: ./scripts/run-live-tests.sh '^TestLiveE2E_AWS$' ./cmd/sigcomply
+
+  gcp:
+    name: Live E2E (GCP)
+    needs: resolve
+    # Belt and braces: the live-e2e environment already allows only main
+    # and v* tags.
+    if: "(github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))"
+    runs-on: ubuntu-latest
+    environment: live-e2e
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      id-token: write # GCP workload identity federation
+    outputs:
+      failing: ${{ steps.test.outputs.failing }}
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+
+      - name: Checkout the release
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Install the released binary
+        env:
+          SIGCOMPLY_VERSION: ${{ needs.resolve.outputs.tag }}
+          SIGCOMPLY_REQUIRE_PROVENANCE: '1'
+          SIGCOMPLY_INSTALL_DIR: ${{ runner.temp }}/sigcomply-bin
+          SIGCOMPLY_NO_SUDO: '1'
+        run: mkdir -p "$SIGCOMPLY_INSTALL_DIR" && ./scripts/install.sh
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.LIVE_E2E_GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.LIVE_E2E_GCP_SERVICE_ACCOUNT }}
+
+      - name: Run the live E2E test
+        id: test
+        env:
+          LIVE_E2E_REQUIRED: '1'
+          SIGCOMPLY_E2E_BINARY: ${{ runner.temp }}/sigcomply-bin/sigcomply
+          LIVE_E2E_GCP_PROJECT_ID: ${{ vars.LIVE_E2E_GCP_PROJECT_ID }}
+          LIVE_E2E_GCP_VAULT_BUCKET: ${{ vars.LIVE_E2E_GCP_VAULT_BUCKET }}
+          LIVE_E2E_GCP_ORGANIZATION_ID: ${{ vars.LIVE_E2E_GCP_ORGANIZATION_ID }}
+          LIVE_E2E_GCP_WORKSPACE_SERVICE_ACCOUNT: ${{ vars.LIVE_E2E_GCP_WORKSPACE_SERVICE_ACCOUNT }}
+          LIVE_E2E_GCP_WORKSPACE_ADMIN: ${{ vars.LIVE_E2E_GCP_WORKSPACE_ADMIN }}
+        run: ./scripts/run-live-tests.sh '^TestLiveE2E_GCP$' ./cmd/sigcomply
+
+  azure:
+    name: Live E2E (Azure)
+    needs: resolve
+    # Belt and braces: the live-e2e environment already allows only main
+    # and v* tags.
+    if: "(github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))"
+    runs-on: ubuntu-latest
+    environment: live-e2e
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      id-token: write # Azure federated credential
+    outputs:
+      failing: ${{ steps.test.outputs.failing }}
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+
+      - name: Checkout the release
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Install the released binary
+        env:
+          SIGCOMPLY_VERSION: ${{ needs.resolve.outputs.tag }}
+          SIGCOMPLY_REQUIRE_PROVENANCE: '1'
+          SIGCOMPLY_INSTALL_DIR: ${{ runner.temp }}/sigcomply-bin
+          SIGCOMPLY_NO_SUDO: '1'
+        run: mkdir -p "$SIGCOMPLY_INSTALL_DIR" && ./scripts/install.sh
+
+      # OIDC, no client secret. The CLI's default credential chain picks up
+      # the Azure CLI session this leaves behind.
+      - name: Log in to Azure
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.LIVE_E2E_AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.LIVE_E2E_AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.LIVE_E2E_AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run the live E2E test
+        id: test
+        env:
+          LIVE_E2E_REQUIRED: '1'
+          SIGCOMPLY_E2E_BINARY: ${{ runner.temp }}/sigcomply-bin/sigcomply
+          LIVE_E2E_AZURE_SUBSCRIPTION_ID: ${{ vars.LIVE_E2E_AZURE_SUBSCRIPTION_ID }}
+          LIVE_E2E_AZURE_STORAGE_ACCOUNT: ${{ vars.LIVE_E2E_AZURE_STORAGE_ACCOUNT }}
+          LIVE_E2E_AZURE_VAULT_CONTAINER: ${{ vars.LIVE_E2E_AZURE_VAULT_CONTAINER }}
+        run: ./scripts/run-live-tests.sh '^TestLiveE2E_Azure$' ./cmd/sigcomply
+
+  saas:
+    name: Live E2E (SaaS)
+    needs: resolve
+    # Belt and braces: the live-e2e environment already allows only main
+    # and v* tags.
+    if: "(github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))"
+    runs-on: ubuntu-latest
+    environment: live-e2e
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    outputs:
+      failing: ${{ steps.test.outputs.failing }} ${{ steps.sources.outputs.failing }}
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+
+      - name: Checkout the release
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Install the released binary
+        env:
+          SIGCOMPLY_VERSION: ${{ needs.resolve.outputs.tag }}
+          SIGCOMPLY_REQUIRE_PROVENANCE: '1'
+          SIGCOMPLY_INSTALL_DIR: ${{ runner.temp }}/sigcomply-bin
+          SIGCOMPLY_NO_SUDO: '1'
+        run: mkdir -p "$SIGCOMPLY_INSTALL_DIR" && ./scripts/install.sh
+
+      # Secret names cannot start with GITHUB_, so the GitHub token and org
+      # are stored as GH_TEST_*. Entra uses an app registration's client
+      # secret: Microsoft Graph application permissions need one here.
+      - name: Run the live E2E test
+        id: test
+        env:
+          LIVE_E2E_REQUIRED: '1'
+          SIGCOMPLY_E2E_BINARY: ${{ runner.temp }}/sigcomply-bin/sigcomply
+          GITHUB_TEST_TOKEN: ${{ secrets.GH_TEST_TOKEN }}
+          GITHUB_TEST_ORG: ${{ secrets.GH_TEST_ORG }}
+          GITLAB_TEST_TOKEN: ${{ secrets.GITLAB_TEST_TOKEN }}
+          GITLAB_TEST_GROUP: ${{ secrets.GITLAB_TEST_GROUP }}
+          GITLAB_TEST_BASE_URL: ${{ secrets.GITLAB_TEST_BASE_URL }}
+          OKTA_TEST_TOKEN: ${{ secrets.OKTA_TEST_TOKEN }}
+          OKTA_TEST_ORG_URL: ${{ secrets.OKTA_TEST_ORG_URL }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        run: ./scripts/run-live-tests.sh '^TestLiveE2E_SaaS$' ./cmd/sigcomply
+
+      # The per-source live tests (Test*Live*) of the SaaS plugins. Sources
+      # whose variables are unset here (Active Directory, Cloud Identity)
+      # skip.
+      - name: Run the per-source live tests
+        id: sources
+        if: ${{ !cancelled() }}
+        env:
+          GITHUB_TEST_TOKEN: ${{ secrets.GH_TEST_TOKEN }}
+          GITHUB_TEST_ORG: ${{ secrets.GH_TEST_ORG }}
+          GITLAB_TEST_TOKEN: ${{ secrets.GITLAB_TEST_TOKEN }}
+          GITLAB_TEST_GROUP: ${{ secrets.GITLAB_TEST_GROUP }}
+          GITLAB_TEST_BASE_URL: ${{ secrets.GITLAB_TEST_BASE_URL }}
+          OKTA_TEST_TOKEN: ${{ secrets.OKTA_TEST_TOKEN }}
+          OKTA_TEST_ORG_URL: ${{ secrets.OKTA_TEST_ORG_URL }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        run: ./scripts/run-live-tests.sh 'Live' ./internal/...
