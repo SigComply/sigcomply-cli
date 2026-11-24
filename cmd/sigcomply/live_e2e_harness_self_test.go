@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -45,6 +46,7 @@ func TestLiveE2EHarness_PassesARealRun(t *testing.T) {
 	t.Setenv(harnessTokenEnv, "dummy-token")
 	t.Setenv(liveRequiredEnv, "")
 	t.Setenv(liveBinaryEnv, "")
+	t.Setenv(liveOutputEnv, "")
 	runLiveE2E(t, harnessProvider(t))
 }
 
@@ -174,5 +176,44 @@ func TestLiveE2EHarness_UnsetVariableSkips(t *testing.T) {
 	})
 	if !skipped {
 		t.Error("an unset variable without LIVE_E2E_REQUIRED did not skip")
+	}
+}
+
+const harnessHelperEnv = "LIVE_E2E_HARNESS_HELPER"
+
+// TestLiveE2EHarness_RequiredHelper is run only as a subprocess by
+// TestLiveE2EHarness_RequiredFailsInsteadOfSkipping: a t.Fatal cannot be
+// asserted in-process without failing the caller.
+func TestLiveE2EHarness_RequiredHelper(t *testing.T) {
+	switch os.Getenv(harnessHelperEnv) {
+	case "env":
+		liveRequireEnv(t, "LIVE_E2E_HARNESS_UNSET_VARIABLE")
+	case "binary":
+		liveBinary(t)
+	default:
+		t.Skip("subprocess helper")
+	}
+}
+
+// Under LIVE_E2E_REQUIRED=1 a missing variable, or a missing released
+// binary, must fail the test: go test exits 0 on skips, so a skip would
+// let a release be promoted unchecked.
+func TestLiveE2EHarness_RequiredFailsInsteadOfSkipping(t *testing.T) {
+	for _, tc := range []struct{ mode, want string }{
+		{"env", "LIVE_E2E_REQUIRED=1 but LIVE_E2E_HARNESS_UNSET_VARIABLE unset"},
+		{"binary", "LIVE_E2E_REQUIRED=1 but SIGCOMPLY_E2E_BINARY is unset"},
+	} {
+		t.Run(tc.mode, func(t *testing.T) {
+			cmd := exec.CommandContext(context.Background(), os.Args[0], "-test.run=^TestLiveE2EHarness_RequiredHelper$", "-test.count=1") //nolint:gosec // #nosec G204 -- this test binary
+			cmd.Env = append(os.Environ(), harnessHelperEnv+"="+tc.mode, liveRequiredEnv+"=1",
+				liveBinaryEnv+"=", "LIVE_E2E_HARNESS_UNSET_VARIABLE=")
+			out, err := cmd.CombinedOutput()
+			if err == nil {
+				t.Fatalf("helper passed under LIVE_E2E_REQUIRED=1; want a failure\n%s", out)
+			}
+			if !strings.Contains(string(out), tc.want) || strings.Contains(string(out), "SKIP") {
+				t.Errorf("helper output does not fail with %q:\n%s", tc.want, out)
+			}
+		})
 	}
 }
