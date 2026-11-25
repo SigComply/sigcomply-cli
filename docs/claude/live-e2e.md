@@ -14,8 +14,11 @@ or the live gate in `release-promote.yml`, or when a live run fails.
 | Trigger | Workflow | Binary | On failure |
 |---|---|---|---|
 | Each release candidate, when the repository variable `LIVE_E2E` is `on` | `release-promote.yml` job `live-e2e`, which calls `live-e2e.yml` with the tag | the prerelease's published asset | the release stays a prerelease (same as the E2E gate) |
-| Nightly, 03:00 UTC, when `LIVE_E2E` is `on` | `live-e2e-nightly.yml`, which calls `live-e2e.yml` | the latest release | red run, and the `live-drift` issue is opened or commented |
 | By hand | `live-e2e.yml` `workflow_dispatch`, optional `tag` | that tag, or the latest release | red run |
+| Nightly, 03:00 UTC, only when `LIVE_E2E` and `LIVE_E2E_NIGHTLY` are both `on` (off by default) | `live-e2e-nightly.yml`, which calls `live-e2e.yml` | the latest release | red run, and the `live-drift` issue is opened or commented |
+
+Each run costs money in the cloud accounts, so by default the tier runs only on release candidates
+and manual dispatch. Set `LIVE_E2E_NIGHTLY` to `on` to also run it every night as a drift alarm.
 
 `live-e2e.yml` resolves the tag, checks out that tag (so the harness matches the binary), installs
 the asset with `scripts/install.sh` and `SIGCOMPLY_REQUIRE_PROVENANCE=1`, and runs one job per
@@ -27,6 +30,11 @@ provider:
 | `gcp` | `TestLiveE2E_GCP` | OIDC, `google-github-actions/auth` (workload identity federation) | GCS |
 | `azure` | `TestLiveE2E_Azure` | OIDC, `azure/login` (federated credential, no secret) | Azure Blob |
 | `saas` | `TestLiveE2E_SaaS`, then every per-source `Test*Live*` under `internal/` | environment secrets | local folder |
+
+The `aws` and `gcp` jobs always run. The `azure` and `saas` jobs run unless the repository
+variable `LIVE_E2E_AZURE` or `LIVE_E2E_SAAS` is `off`. Use that while a provider's test accounts
+do not exist yet. A skipped job does not fail the tier, so the release is still promoted, and
+promote warns that it was not live-tested on that provider.
 
 Each test, for SOC 2 and then ISO 27001:
 
@@ -68,14 +76,17 @@ account, project and subscription IDs, e-mails).
 
 ## Variables and secrets
 
-All of these live in the `live-e2e` GitHub environment, except `LIVE_E2E`, which is a repository
-variable. Every account identifier is a secret, not a variable: GitHub prints a step's inputs in
+All of these live in the `live-e2e` GitHub environment, except the switches (`LIVE_E2E`,
+`LIVE_E2E_NIGHTLY`, `LIVE_E2E_AZURE`, `LIVE_E2E_SAAS`), which are repository variables. Every account identifier is a secret, not a variable: GitHub prints a step's inputs in
 the public log and masks only secrets (`TestLiveE2E_IdentifiersAreSecrets` pins this). Optional
 ones add env-gated sources.
 
 | Name | Kind | Holds |
 |---|---|---|
-| `LIVE_E2E` | repository variable | `on` to gate every release on this tier and run it nightly |
+| `LIVE_E2E` | repository variable | `on` to gate every release on this tier |
+| `LIVE_E2E_NIGHTLY` | repository variable, optional | `on` (with `LIVE_E2E` on) to also run the tier every night; unset is off |
+| `LIVE_E2E_AZURE` | repository variable, optional | `off` to skip the `azure` job; unset runs it |
+| `LIVE_E2E_SAAS` | repository variable, optional | `off` to skip the `saas` job; unset runs it |
 | `LIVE_E2E_AWS_ROLE_ARN` | secret | ARN of the read-only role the `aws` job assumes |
 | `LIVE_E2E_AWS_REGION` | variable | Region of the fixture sources and the vault bucket |
 | `LIVE_E2E_AWS_VAULT_BUCKET` | secret | S3 bucket for the vault |
@@ -166,7 +177,9 @@ environment of this repository can present.
    has no live tests to run.
 6. Dispatch `live-e2e.yml` from `main` (any other branch fails at once) with no tag, so it tests
    the latest release, and read every job's result. When every job passes, set the repository
-   variable `LIVE_E2E` to `on`. That turns on the release gate and the nightly run together.
+   variable `LIVE_E2E` to `on`. That turns on the release gate. If a provider's accounts are not
+   set up yet, set `LIVE_E2E_AZURE` or `LIVE_E2E_SAAS` to `off` first, and remove it once that
+   provider's job passes. To also run the tier nightly, set `LIVE_E2E_NIGHTLY` to `on`.
 
 ## When a run fails
 
@@ -177,11 +190,12 @@ reproduce locally with `LIVE_E2E_OUTPUT_DIR` set.
 1. Release run: if the cause was outside the release (vendor outage, expired credential), fix it
    and use "Re-run failed jobs" on the release run. If the release is wrong, fix forward; it stays
    a prerelease. Never promote by hand without a passing live run for that tag.
-2. Nightly run: work the `live-drift` issue. A vendor change gets the remediation in
+2. Nightly run (only when `LIVE_E2E_NIGHTLY` is `on`): work the `live-drift` issue. A vendor change gets the remediation in
    [11-testing-strategy.md](../architecture/11-testing-strategy.md) §7.
 3. To switch the tier off while a vendor is down, set `LIVE_E2E` to anything but `on`. That
    skips both the release gate and the nightly run; promote then warns that the release was not
-   live-tested.
+   live-tested. To switch off only Azure or SaaS, set `LIVE_E2E_AZURE` or `LIVE_E2E_SAAS` to
+   `off`; promote then warns that the release was not live-tested on that provider.
 
 Local reproduction, with only the fixture account's credentials visible (AGENTS.md rule 13).
 Create the throwaway home, log in to the fixture account inside it, then run the test. The Go

@@ -15,7 +15,9 @@
 #     binary against the live fixture accounts) in parallel, and promote
 #     only when it passes too.
 #   A gate whose variable is not 'on' is skipped, and promote warns that
-#   the release was not checked by it.
+#   the release was not checked by it. Within the live tier, the azure and
+#   saas jobs are skipped when LIVE_E2E_AZURE or LIVE_E2E_SAAS is 'off';
+#   the tier still passes, and promote warns per provider.
 #
 # The callers hold the `release` concurrency group for the whole chain, so
 # this workflow must not declare the same group (it would deadlock).
@@ -166,6 +168,21 @@ jobs:
         if: vars.LIVE_E2E != 'on'
         run: |
           echo "::warning::$TAG was promoted without the live E2E tier (repository variable LIVE_E2E is not 'on')."
+
+      # A provider switched off is skipped inside live-e2e.yml, and a
+      # skipped job does not fail it, so the tier still passes.
+      - name: Warn when a provider is not live-tested
+        if: vars.LIVE_E2E == 'on'
+        env:
+          LIVE_AZURE: ${{ vars.LIVE_E2E_AZURE }}
+          LIVE_SAAS: ${{ vars.LIVE_E2E_SAAS }}
+        run: |
+          if [ "$LIVE_AZURE" = off ]; then
+            echo "::warning::$TAG was promoted without the live E2E tier on Azure (repository variable LIVE_E2E_AZURE is 'off')."
+          fi
+          if [ "$LIVE_SAAS" = off ]; then
+            echo "::warning::$TAG was promoted without the live E2E tier on SaaS (repository variable LIVE_E2E_SAAS is 'off')."
+          fi
 
       - name: Promote the prerelease
         run: |

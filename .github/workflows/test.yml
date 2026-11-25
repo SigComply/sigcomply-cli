@@ -147,8 +147,8 @@ jobs:
           version: v2.15.0
           args: --timeout=5m
 
-      # The live tests (//go:build live) run only per release candidate and
-      # nightly; compiling them here keeps a refactor from breaking them
+      # The live tests (//go:build live) run only per release candidate, by
+      # hand, and nightly when switched on; compiling them here keeps a refactor from breaking them
       # unnoticed until a release.
       - name: Vet live-tagged tests
         run: go vet -tags live ./...

@@ -465,6 +465,7 @@ func TestLiveE2E_IdentifiersAreSecrets(t *testing.T) {
 	// gate's switch.
 	allowed := map[string]bool{
 		"LIVE_E2E": true, "LIVE_E2E_AWS_REGION": true, "LIVE_E2E_AWS_INSPECTOR": true, "RELEASE_GATE": true,
+		"LIVE_E2E_AZURE": true, "LIVE_E2E_SAAS": true, "LIVE_E2E_NIGHTLY": true,
 	}
 	for _, name := range []string{liveWorkflow, "live-e2e-nightly.yml", filepath.Base(promoteWorkflow)} {
 		data, err := os.ReadFile(filepath.Join("..", ".github", "workflows", name)) //nolint:gosec // #nosec G304 -- repository workflow files
@@ -479,10 +480,71 @@ func TestLiveE2E_IdentifiersAreSecrets(t *testing.T) {
 	}
 }
 
-// TestLiveE2E_NightlyFollowsTheSwitch: LIVE_E2E is the one off switch for
-// the tier. A nightly run that ignored it would fail and comment on the
-// drift issue every night while the accounts are not set up or a vendor
-// is down.
+// liveProviderSwitches maps each live-e2e.yml provider job that can be
+// switched off to its repository variable. aws and gcp have no switch:
+// their fixture accounts exist, and a live run that skips every cloud
+// would test nothing.
+var liveProviderSwitches = map[string]string{
+	"azure": "LIVE_E2E_AZURE",
+	"saas":  "LIVE_E2E_SAAS",
+}
+
+// TestLiveE2E_ProviderSwitches pins the per-provider off switches. A job
+// runs unless its variable is exactly 'off', so an unset variable keeps
+// the provider tested. aws and gcp always run.
+func TestLiveE2E_ProviderSwitches(t *testing.T) {
+	live := loadWorkflows(t)[liveWorkflow]
+	for id, v := range liveProviderSwitches {
+		j, ok := live.Jobs[id]
+		if !ok {
+			t.Errorf("%s has no %s job", liveWorkflow, id)
+			continue
+		}
+		want := releaseRefGuard + " && vars." + v + " != 'off'"
+		if strings.TrimSpace(j.If) != want {
+			t.Errorf("%s: job %q `if` = %q; want %q", liveWorkflow, id, j.If, want)
+		}
+	}
+	for _, id := range []string{"aws", "gcp"} {
+		j, ok := live.Jobs[id]
+		if !ok {
+			t.Errorf("%s has no %s job", liveWorkflow, id)
+			continue
+		}
+		if strings.TrimSpace(j.If) != releaseRefGuard {
+			t.Errorf("%s: job %q `if` = %q; want only the ref guard, %s has no off switch", liveWorkflow, id, j.If, id)
+		}
+	}
+}
+
+// TestReleasePromote_WarnsWhenAProviderIsOff: a provider switched off is
+// skipped inside the called workflow, which still succeeds, so promote
+// must say in the run which provider the release was not live-tested on.
+func TestReleasePromote_WarnsWhenAProviderIsOff(t *testing.T) {
+	promote := loadWorkflows(t)[filepath.Base(promoteWorkflow)].Jobs["promote"]
+	for _, v := range liveProviderSwitches {
+		found := false
+		for _, s := range promote.Steps {
+			if !strings.Contains(s.Run, "::warning::") {
+				continue
+			}
+			for name, val := range s.Env {
+				if val == "${{ vars."+v+" }}" && strings.Contains(s.Run, "\"$"+name+"\" = off") {
+					found = true
+				}
+			}
+		}
+		if !found {
+			t.Errorf("promote has no step that warns when %s is 'off'", v)
+		}
+	}
+}
+
+// TestLiveE2E_NightlyFollowsTheSwitch: the nightly run costs money on
+// every provider, so it runs only when both LIVE_E2E and LIVE_E2E_NIGHTLY
+// are 'on'; unset means off. It would otherwise also fail and comment on
+// the drift issue every night while the accounts are not set up or a
+// vendor is down.
 func TestLiveE2E_NightlyFollowsTheSwitch(t *testing.T) {
 	all := loadWorkflows(t)
 	nightly, ok := all["live-e2e-nightly.yml"]
@@ -495,8 +557,8 @@ func TestLiveE2E_NightlyFollowsTheSwitch(t *testing.T) {
 			continue
 		}
 		calls++
-		if j.If != "vars.LIVE_E2E == 'on'" {
-			t.Errorf("live-e2e-nightly.yml: job %q calls %s with `if` %q; want vars.LIVE_E2E == 'on'", id, liveWorkflow, j.If)
+		if j.If != "vars.LIVE_E2E == 'on' && vars.LIVE_E2E_NIGHTLY == 'on'" {
+			t.Errorf("live-e2e-nightly.yml: job %q calls %s with `if` %q; want vars.LIVE_E2E == 'on' && vars.LIVE_E2E_NIGHTLY == 'on'", id, liveWorkflow, j.If)
 		}
 	}
 	if calls != 1 {

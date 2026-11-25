@@ -6,7 +6,7 @@
 - Binary end-to-end tests (the built CLI run as a process): `cmd/sigcomply/e2e_*_test.go`, with
   per-policy outcome golden files in `cmd/sigcomply/testdata/e2e-outcomes/`.
 - Live end-to-end tests (the released binary against real AWS, GCP, Azure and SaaS accounts,
-  per release candidate and nightly): `cmd/sigcomply/live_e2e_test.go`, set up and triaged in
+  per release candidate, and nightly when switched on): `cmd/sigcomply/live_e2e_test.go`, set up and triaged in
   [`docs/claude/live-e2e.md`](docs/claude/live-e2e.md).
 - Goldens other repos copy byte for byte, and how to regenerate each (the folder's README, or the
   test):

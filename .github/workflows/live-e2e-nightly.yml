@@ -6,6 +6,10 @@ name: Live E2E Nightly
 # candidate hits it. On a failure it opens (or comments on) the `live-drift`
 # issue.
 #
+# Off by default: each run costs money on every provider, so it runs only
+# when the repository variables LIVE_E2E and LIVE_E2E_NIGHTLY are both
+# 'on'. Without it the tier runs only on release candidates and by hand.
+#
 # This is a separate file because the issue needs `issues: write`. A job in
 # a called workflow cannot ask for a permission its caller did not grant,
 # and GitHub checks that before any job runs, so an issue job inside
@@ -22,9 +26,10 @@ permissions: {}
 jobs:
   live:
     name: Live E2E
-    # The same switch as the release gate: off while the fixture accounts
-    # are not set up, or while a vendor is down.
-    if: vars.LIVE_E2E == 'on'
+    # LIVE_E2E is the release gate's switch (off while the fixture
+    # accounts are not set up, or while a vendor is down); LIVE_E2E_NIGHTLY
+    # opts in to the nightly cost. Unset means off.
+    if: vars.LIVE_E2E == 'on' && vars.LIVE_E2E_NIGHTLY == 'on'
     uses: ./.github/workflows/live-e2e.yml
     permissions:
       contents: read

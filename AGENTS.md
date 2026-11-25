@@ -106,8 +106,8 @@ Agent-internal (read when):
 - `docs/claude/recipes.md`: adding a source, policy, evidence type, framework or vault backend.
 - `docs/claude/auth.md`: OIDC and cloud submission auth.
 - `docs/architecture/11-testing-strategy.md`: choosing a test layer.
-- `docs/claude/live-e2e.md`: the live E2E tier (release gate and nightly drift run against real
-  accounts), its variables and fixture accounts, and triage.
+- `docs/claude/live-e2e.md`: the live E2E tier (release gate, and an opt-in nightly drift run,
+  against real accounts), its variables and fixture accounts, and triage.
 - `SECURITY.md`: signing, the vault, the threat model (owner).
 - `CONTRIBUTING.md`, `.github/pull_request_template.md`: human contribution rules.
 

@@ -6,8 +6,13 @@ name: Live E2E
 #
 #   workflow_call      release-promote.yml, once per release candidate when
 #                      vars.LIVE_E2E is 'on'; a failure keeps the release a
-#                      prerelease. Also live-e2e-nightly.yml (drift alarm).
+#                      prerelease. Also live-e2e-nightly.yml (drift alarm,
+#                      only when vars.LIVE_E2E_NIGHTLY is also 'on').
 #   workflow_dispatch  by hand; without a tag it tests the latest release.
+#
+# The aws and gcp jobs always run. The azure and saas jobs run unless the
+# repository variable LIVE_E2E_AZURE or LIVE_E2E_SAAS is 'off'; a skipped
+# job does not fail the run.
 #
 # It never runs on pull requests or pushes. Every job uses the protected
 # `live-e2e` environment, which holds the variables and secrets and allows
@@ -211,8 +216,10 @@ jobs:
     name: Live E2E (Azure)
     needs: resolve
     # Belt and braces: the live-e2e environment already allows only main
-    # and v* tags.
-    if: "(github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))"
+    # and v* tags. Repository variable LIVE_E2E_AZURE = 'off' skips this
+    # job (unset runs it) while the fixture subscription does not exist;
+    # promote then warns that the release was not live-tested on Azure.
+    if: "(github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && vars.LIVE_E2E_AZURE != 'off'"
     runs-on: ubuntu-latest
     environment: live-e2e
     timeout-minutes: 90
@@ -270,8 +277,10 @@ jobs:
     name: Live E2E (SaaS)
     needs: resolve
     # Belt and braces: the live-e2e environment already allows only main
-    # and v* tags.
-    if: "(github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))"
+    # and v* tags. Repository variable LIVE_E2E_SAAS = 'off' skips this job
+    # (unset runs it) while the SaaS test accounts do not exist; promote
+    # then warns that the release was not live-tested on SaaS.
+    if: "(github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && vars.LIVE_E2E_SAAS != 'off'"
     runs-on: ubuntu-latest
     environment: live-e2e
     timeout-minutes: 60

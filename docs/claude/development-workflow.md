@@ -80,7 +80,8 @@ tracker. Don't import those assumptions from the Rails dashboard repo.
        minutes for both attempts). A failed or timed-out run, a second cancel, or a missing
        `E2E_GATE_TOKEN` secret fails the `E2E Release Gate` job.
      - `LIVE_E2E`: runs `live-e2e.yml` for the tag, the released binary against the live fixture
-       accounts in the protected `live-e2e` environment. Setup, variables and triage:
+       accounts in the protected `live-e2e` environment. `LIVE_E2E_AZURE` or `LIVE_E2E_SAAS` set
+       to `off` skips that provider, and promote warns about it. Setup, variables and triage:
        [live-e2e.md](live-e2e.md).
 
   Releases run one at a time: the release job (not the tests) holds `concurrency: release`,
@@ -96,8 +97,8 @@ tracker. Don't import those assumptions from the Rails dashboard repo.
   `SECURITY.md`, `CONTRIBUTING.md` and `docs/**/*.md` except `docs/claude/**` and
   `docs/architecture/**`; every customer doc when `.vale.ini`, `.vale/**` or the workflow itself
   changes) and fails on error-level alerts.
-- `live-e2e-nightly.yml` runs the live E2E tier on `releases/latest` every night when
-  `LIVE_E2E` is `on`, and opens the `live-drift` issue on a failure. The GitHub E2E repo's `release-gate.yml` tests each release
+- `live-e2e-nightly.yml` runs the live E2E tier on `releases/latest` every night only when
+  `LIVE_E2E` and `LIVE_E2E_NIGHTLY` are both `on` (off by default), and opens the `live-drift` issue on a failure. The GitHub E2E repo's `release-gate.yml` tests each release
   candidate when its gate is on, and runs daily on `releases/latest`. The GitLab E2E repo
   resolves the latest release at run time.
 
@@ -178,7 +179,7 @@ gate yourself and read the output before you commit.
 - pre-push: `make lint`, `go test -short -race ./...`, `gitleaks detect`.
 - Only CI runs: the full suite without `-short`, the coverage floor, the cross-platform build
   matrix, the `security.yml` scanners, weekly `contract-drift.yml` and the live E2E tier
-  (`live-e2e.yml`, per release candidate and nightly).
+  (`live-e2e.yml`, per release candidate, and nightly when `LIVE_E2E_NIGHTLY` is `on`).
 
 `make ci` (`deps lint test build`) and `make pre-commit` are local bundles. Neither reproduces CI:
 both use `-short` tests and neither enforces coverage.
@@ -308,7 +309,8 @@ make build
 No browser is involved here; any machine-specific setup is in `AGENTS.local.md`.
 
 A source-plugin change is checked against real APIs only by the live E2E tier, which runs after
-the change is released: per release candidate when `LIVE_E2E` is on, and nightly. To check it
+the change is released: per release candidate when `LIVE_E2E` is on, and nightly when
+`LIVE_E2E_NIGHTLY` is also on. To check it
 before pushing, run `make test-live` with the fixture account's credentials inside the wrapper
 ([live-e2e.md](live-e2e.md)); that needs the human's credentials. CI-integration changes
 (install, OIDC submission, read-back) are checked by the L4b E2E repos, which run the released
