@@ -514,6 +514,11 @@ func newRealCerts(subscriptionID string, cred azcore.TokenCredential, opts *arm.
 	return &realCerts{certs: certsClient, orders: ordersClient}, nil
 }
 
+// ListCertificates lists the subscription's App Service certificates. The list
+// API (2025-05-01) omits expirationDate and other properties that a GET of the
+// same certificate returns, so any listed certificate without an expiry is
+// re-read by GET. Without this every App Service certificate would emit an
+// empty not_after and fail the tls_certificate schema.
 func (r *realCerts) ListCertificates(ctx context.Context) ([]*armappservice.AppCertificate, error) {
 	var out []*armappservice.AppCertificate
 	pager := r.certs.NewListPager(nil)
@@ -523,6 +528,20 @@ func (r *realCerts) ListCertificates(ctx context.Context) ([]*armappservice.AppC
 			return nil, err
 		}
 		out = append(out, page.Value...)
+	}
+	for i, c := range out {
+		if c == nil || (c.Properties != nil && c.Properties.ExpirationDate != nil) {
+			continue
+		}
+		rg, err := resourceGroupFromID(deref(c.ID))
+		if err != nil {
+			return nil, fmt.Errorf("certificate %q: %w", deref(c.Name), err)
+		}
+		got, err := r.certs.Get(ctx, rg, deref(c.Name), nil)
+		if err != nil {
+			return nil, fmt.Errorf("get certificate %q: %w", deref(c.Name), err)
+		}
+		out[i] = &got.AppCertificate
 	}
 	return out, nil
 }

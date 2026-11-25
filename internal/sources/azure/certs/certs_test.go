@@ -516,7 +516,8 @@ func realCertsPointedAt(t *testing.T, srv *httptest.Server) *realCerts {
 func TestRealCerts_ListCertificates_HappyPath(t *testing.T) {
 	body := mustMarshal(t, armappservice.AppCertificateCollection{Value: []*armappservice.AppCertificate{
 		{Name: to.Ptr("c1"), ID: certID("c1"), Properties: &armappservice.AppCertificateProperties{
-			SubjectName: to.Ptr("c1.example.com"),
+			SubjectName:    to.Ptr("c1.example.com"),
+			ExpirationDate: to.Ptr(time.Date(2027, 1, 2, 0, 0, 0, 0, time.UTC)),
 		}},
 	}})
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -583,5 +584,52 @@ func TestRealCerts_ListError(t *testing.T) {
 	}
 	if _, err := rc.ListCertificateOrders(context.Background()); err == nil {
 		t.Fatal("expected error on 403 from orders list, got nil")
+	}
+}
+
+// The list API omits expirationDate; the adapter must GET each such
+// certificate so not_after is populated (found by the customer-sim e2e).
+func TestRealCerts_ListCertificates_GetsWhenListOmitsExpiry(t *testing.T) {
+	listBody := mustMarshal(t, armappservice.AppCertificateCollection{Value: []*armappservice.AppCertificate{
+		{Name: to.Ptr("c1"), ID: certID("c1"), Properties: &armappservice.AppCertificateProperties{
+			SubjectName: to.Ptr("c1.example.com"),
+		}},
+		{Name: to.Ptr("c2"), ID: certID("c2"), Properties: &armappservice.AppCertificateProperties{
+			ExpirationDate: to.Ptr(time.Date(2027, 1, 2, 0, 0, 0, 0, time.UTC)),
+		}},
+	}})
+	getBody := mustMarshal(t, armappservice.AppCertificate{Name: to.Ptr("c1"), ID: certID("c1"),
+		Properties: &armappservice.AppCertificateProperties{
+			SubjectName:    to.Ptr("c1.example.com"),
+			ExpirationDate: to.Ptr(time.Date(2027, 3, 4, 0, 0, 0, 0, time.UTC)),
+		}})
+	var gets []string
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/providers/Microsoft.Web/certificates"):
+			_, _ = w.Write(listBody) //nolint:errcheck // test handler
+		case strings.Contains(r.URL.Path, "/certificates/"):
+			gets = append(gets, r.URL.Path)
+			_, _ = w.Write(getBody) //nolint:errcheck // test handler
+		default:
+			t.Errorf("unexpected path: %s", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	certs, err := realCertsPointedAt(t, srv).ListCertificates(context.Background())
+	if err != nil || len(certs) != 2 {
+		t.Fatalf("ListCertificates = %+v, err %v", certs, err)
+	}
+	if len(gets) != 1 || !strings.HasSuffix(gets[0], "/certificates/c1") {
+		t.Fatalf("expected one GET of c1, got %v", gets)
+	}
+	if got := certs[0].Properties.ExpirationDate; got == nil || got.Month() != 3 {
+		t.Errorf("c1 expiry not taken from GET: %v", got)
+	}
+	if got := certs[1].Properties.ExpirationDate; got == nil || got.Month() != 1 {
+		t.Errorf("c2 expiry should come from the list: %v", got)
 	}
 }
