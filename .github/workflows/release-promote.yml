@@ -177,10 +177,10 @@ jobs:
           LIVE_AZURE: ${{ vars.LIVE_E2E_AZURE }}
           LIVE_SAAS: ${{ vars.LIVE_E2E_SAAS }}
         run: |
-          if [ "$LIVE_AZURE" = off ]; then
+          if [ "${LIVE_AZURE,,}" = off ]; then  # Actions compares case-insensitively
             echo "::warning::$TAG was promoted without the live E2E tier on Azure (repository variable LIVE_E2E_AZURE is 'off')."
           fi
-          if [ "$LIVE_SAAS" = off ]; then
+          if [ "${LIVE_SAAS,,}" = off ]; then
             echo "::warning::$TAG was promoted without the live E2E tier on SaaS (repository variable LIVE_E2E_SAAS is 'off')."
           fi
 

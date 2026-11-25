@@ -529,7 +529,9 @@ func TestReleasePromote_WarnsWhenAProviderIsOff(t *testing.T) {
 				continue
 			}
 			for name, val := range s.Env {
-				if val == "${{ vars."+v+" }}" && strings.Contains(s.Run, "\"$"+name+"\" = off") {
+				// Lowercased: Actions compares `!= 'off'` case-insensitively,
+				// so OFF skips the job and must warn too.
+				if val == "${{ vars."+v+" }}" && strings.Contains(s.Run, "\"${"+name+",,}\" = off") {
 					found = true
 				}
 			}
