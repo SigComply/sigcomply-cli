@@ -197,8 +197,7 @@ between periods gets an exception under `policies.<id>.exceptions`; there is no 
   together; run `sigcomply evidence catalog -o json` to check.
 - Form link: `manualcatalog.FormURL` and the SPA's route in `src/App.tsx` change together.
 - The `↳ fill in the form:` line format and the `evidence due -o json` fields change with the
-  SPA's `scripts/collect-form-links.ts`, the GitHub E2E repo's `scripts/form_links.py` and both
-  E2E repos' `scripts/place_evidence.py`.
+  SPA's `scripts/collect-form-links.ts` and the E2E repos' harness scripts (maintainers only).
 - Catalog entry count: `TestDocFiguresMatchCode` names every doc that quotes it.
 - Tests: `internal/sources/manual/manual_test.go`, `instances_test.go`,
   `internal/evaluator/manual_instances_test.go`.

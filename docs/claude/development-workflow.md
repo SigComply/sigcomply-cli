@@ -79,7 +79,8 @@ tracker. Don't import those assumptions from the Rails dashboard repo.
        it to finish. A cancelled gate run is dispatched once more (the job is capped at 150
        minutes for both attempts). A failed or timed-out run, a second cancel, or a missing or
        expired `E2E_GATE_TOKEN` secret fails the `E2E Release Gate` job. That secret is a
-       fine-grained token with Actions read and write on the GitHub E2E repo only.
+       fine-grained token scoped to the GitHub E2E repo. A harness change must be on the E2E
+       repo's `main` before the CLI push that relies on it.
      - `LIVE_E2E`: runs `live-e2e.yml` for the tag, the released binary against the live fixture
        accounts in the protected `live-e2e` environment. `LIVE_E2E_AZURE` or `LIVE_E2E_SAAS` set
        to `off` skips that provider, and promote warns about it. Setup, variables and triage:

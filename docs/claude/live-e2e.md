@@ -4,7 +4,7 @@ The live E2E tier runs a released `sigcomply` binary against permanent fixture a
 GCP, Azure, GitHub, GitLab, Okta and Entra ID. It writes the vault to the provider's real storage
 (S3, GCS, Azure Blob; a local folder for SaaS), reads the run back and verifies it. It is the only
 place real-API correctness for the cloud sources is checked. The E2E repos run four read-only
-sources each and check only that no policy has the status `error`
+sources each and check only that no policy ends in `error` and the sources wrote evidence
 ([11-testing-strategy.md](../architecture/11-testing-strategy.md) §2, L4b).
 
 Read this before you change `cmd/sigcomply/live_e2e*_test.go`, `.github/workflows/live-e2e*.yml`
@@ -159,9 +159,8 @@ Give the tier its own role, pool, service account and bucket in them.
       `s3:GetObject` and `s3:ListBucket` on the vault bucket only.
    4. Create the vault bucket with public access blocked and a lifecycle rule that expires
       objects under `live-e2e/` after 14 days.
-   5. Add two budgets with e-mail alerts, unless the account has them: `sigcomply-test-monthly`
-      ($10 a month) and `sigcomply-ci-runaway` ($25 a month), whose action attaches the
-      deny-all policy `sigcomply-ci-deny-all` to every CI role, this one included.
+   5. Add a monthly cost budget with e-mail alerts. Also add a budget action that denies the CI
+      roles if spend runs away.
 3. GCP:
    1. Create a workload identity pool and an OIDC provider for
       `https://token.actions.githubusercontent.com`, mapping `google.subject` to `assertion.sub`,
@@ -174,7 +173,7 @@ Give the tier its own role, pool, service account and bucket in them.
    4. Enable the APIs in the table, plus `iam`, `iamcredentials` and `sts`, which workload
       identity federation needs. Create the vault bucket with uniform access and a lifecycle
       rule that deletes objects older than 14 days.
-   5. Add a $5 a month budget with e-mail alerts on the project, unless it has one.
+   5. Add a monthly cost budget with e-mail alerts on the project.
 4. Azure:
    1. Create an app registration with a federated credential: issuer
       `https://token.actions.githubusercontent.com`, subject as above, audience
@@ -207,10 +206,8 @@ reproduce locally with `LIVE_E2E_OUTPUT_DIR` set.
    skips both the release gate and the nightly run; promote then warns that the release was not
    live-tested. To switch off only Azure or SaaS, set `LIVE_E2E_AZURE` or `LIVE_E2E_SAAS` to
    `off`; promote then warns that the release was not live-tested on that provider.
-4. Every call of the `aws` job fails with AccessDenied: the AWS budget `sigcomply-ci-runaway` may
-   have attached the deny-all policy `sigcomply-ci-deny-all` to the CI roles. Find why the spend
-   rose, then detach the policy: reverse the action in the Budgets action history, or run
-   `aws iam detach-role-policy` on each role.
+4. Every call of the `aws` job fails with AccessDenied: the budget action may have denied the CI
+   roles. Find what spent the money, then reverse the action.
 
 Local reproduction, with only the fixture account's credentials visible (AGENTS.md rule 13).
 Create the throwaway home, log in to the fixture account inside it, then run the test. The Go
