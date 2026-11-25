@@ -37,6 +37,12 @@ func NewS3(t testing.TB, bucket string, pageSize int) *S3 {
 	return s
 }
 
+// URL is the fake's base URL (a loopback http:// address), for a process
+// that reaches it through config: `endpoint` with `force_path_style`.
+func (s *S3) URL() string {
+	return s.srv.URL
+}
+
 // Client returns a real *s3.Client wired to the fake with static dummy
 // credentials, so no ambient AWS configuration is read.
 func (s *S3) Client() *s3.Client {

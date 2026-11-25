@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -8,6 +10,12 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+
+	"github.com/sigcomply/sigcomply-cli/internal/storagetest"
 )
 
 // ciCommand matches a `sigcomply …` step in a generated workflow: a
@@ -171,6 +179,97 @@ func TestBinaryE2E_Check_ScheduledCarriesStateThroughVault(t *testing.T) {
 	if c := scheduled(); c.pass != seeded || c.carried != 0 {
 		t.Errorf("scheduled run after deleting state: %+v; want a first run again (%d passes)", c, seeded)
 	}
+}
+
+// TestBinaryE2E_Check_ScheduledCarriesStateThroughS3Vault is the
+// carry-forward test above with the vault and the manual evidence in S3
+// (a loopback fake reached through `endpoint` and `force_path_style`), as
+// a customer runs it. Every manual PDF is put into the bucket directly,
+// so the first run's passes prove the binary listed and read them over
+// the S3 API, and the second run's carried passes prove it read the state
+// it wrote there.
+func TestBinaryE2E_Check_ScheduledCarriesStateThroughS3Vault(t *testing.T) {
+	const bucket = "acme-evidence"
+	fake := storagetest.NewS3(t, bucket, 1000)
+	dir := t.TempDir()
+	cfg := "schema_version: project.v1\n" +
+		"framework: " + defaultFW + "\n" +
+		"period:\n  time_basis: commit\n" +
+		"vault:\n  backend: s3\n  bucket: " + bucket + "\n  region: us-east-1\n  prefix: vault/\n" +
+		"  endpoint: " + fake.URL() + "\n  force_path_style: true\n" +
+		"sources:\n  manual.pdf:\n    backend: s3\n    bucket: " + bucket + "\n    region: us-east-1\n    prefix: manual/\n" +
+		"    endpoint: " + fake.URL() + "\n    force_path_style: true\n"
+	if err := os.WriteFile(filepath.Join(dir, ".sigcomply.yaml"), []byte(cfg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	env := []string{"AWS_ACCESS_KEY_ID=test-access-key", "AWS_SECRET_ACCESS_KEY=test-secret", "AWS_EC2_METADATA_DISABLED=true"}
+
+	seeded := seedS3ManualEvidence(t, dir, env, fake, bucket)
+	scheduled := func() runCounts {
+		t.Helper()
+		res := runSigcomply(t, dir, env, checkCmd, "--scheduled", "--no-cloud")
+		res.wantCode(t, 0)
+		return parseRunCounts(t, res.stdout)
+	}
+	if c := scheduled(); c.pass != seeded || c.carried != 0 {
+		t.Fatalf("first scheduled run: %+v; want %d passes read from S3 and nothing carried", c, seeded)
+	}
+	shard := "vault/state/" + defaultFW + "/policies/"
+	if n := countObjects(t, fake, bucket, shard); n < seeded {
+		t.Fatalf("state shards under s3://%s/%s = %d; want at least one per evaluated policy (%d)", bucket, shard, n, seeded)
+	}
+	if c := scheduled(); c.carried != seeded || c.pass != 0 {
+		t.Errorf("second scheduled run: %+v; want all %d passes carried forward from the S3 state", c, seeded)
+	}
+}
+
+// seedS3ManualEvidence asks the binary which manual folders are empty and
+// puts a valid PDF, dated inside the period, into each one in the fake
+// bucket. It returns how many it put.
+func seedS3ManualEvidence(t *testing.T, dir string, env []string, fake *storagetest.S3, bucket string) int {
+	t.Helper()
+	res := runSigcomply(t, dir, env, "evidence", "due", "--all", "-o", "json")
+	res.wantCode(t, 0)
+	var due struct {
+		Missing []struct {
+			CatalogID string `json:"catalog_id"`
+			FolderURI string `json:"folder_uri"`
+		} `json:"missing"`
+	}
+	if err := json.Unmarshal([]byte(res.stdout), &due); err != nil {
+		t.Fatalf("evidence due JSON: %v\n%s", err, res.stdout)
+	}
+	if len(due.Missing) == 0 {
+		t.Fatal("evidence due reported no empty folders for an empty bucket")
+	}
+	pdf, err := os.ReadFile(filepath.Join("..", "..", "internal", "sources", "manual", "testdata", "store", "manual", "e2e_doc_single", "2026-Q1", "policy.pdf"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	uploaded := e2eCommitTime.Add(-time.Hour)
+	for _, m := range due.Missing {
+		key, ok := strings.CutPrefix(m.FolderURI, "s3://"+bucket+"/")
+		if !ok || !strings.HasPrefix(key, "manual/") {
+			t.Fatalf("%s: folder %q is not under s3://%s/manual/", m.CatalogID, m.FolderURI, bucket)
+		}
+		fake.Put(strings.TrimSuffix(key, "/")+"/evidence.pdf", pdf, uploaded)
+	}
+	return len(due.Missing)
+}
+
+// countObjects lists the fake bucket under prefix through the S3 API.
+func countObjects(t *testing.T, fake *storagetest.S3, bucket, prefix string) int {
+	t.Helper()
+	pages := s3.NewListObjectsV2Paginator(fake.Client(), &s3.ListObjectsV2Input{Bucket: aws.String(bucket), Prefix: aws.String(prefix)})
+	n := 0
+	for pages.HasMorePages() {
+		page, err := pages.NextPage(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		n += len(page.Contents)
+	}
+	return n
 }
 
 // manualCoverageLine returns the manual-controls headline of
