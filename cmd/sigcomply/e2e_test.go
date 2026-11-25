@@ -952,6 +952,33 @@ func TestBinaryE2E_InitCI(t *testing.T) {
 	res.wantCode(t, 3)
 }
 
+// TestBinaryE2E_Init_ThenCheck is a new user's first two commands. The
+// config init writes lists AWS sources, so on a machine with no AWS
+// credentials check stops before collecting with a config error (exit 3)
+// that names the source and says how to supply credentials, without the
+// usage block. IMDS is disabled so the result does not depend on the
+// host network (a CI runner may answer on the metadata address).
+func TestBinaryE2E_Init_ThenCheck(t *testing.T) {
+	dir := t.TempDir()
+	initRes := runSigcomply(t, dir, nil, "init", "--framework", defaultFW)
+	initRes.wantCode(t, 0)
+	if !strings.Contains(initRes.stdout, "wrote .sigcomply.yaml (framework="+defaultFW+")") {
+		t.Fatalf("init did not report the config it wrote:\n%s", initRes.stdout)
+	}
+
+	res := runSigcomply(t, dir, []string{"AWS_EC2_METADATA_DISABLED=true"}, checkCmd)
+	res.wantCode(t, 3)
+	res.wantNoUsage(t)
+	for _, want := range []string{`Error: source "aws.`, "no usable AWS credentials", "export AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY"} {
+		if !strings.Contains(res.stderr, want) {
+			t.Errorf("stderr missing %q:\n%s", want, res.stderr)
+		}
+	}
+	if strings.Contains(res.stdout, "Collecting evidence") {
+		t.Errorf("collection started before the credentials error:\n%s", res.stdout)
+	}
+}
+
 // singleRunDir returns the only run folder under {framework}/{e2ePeriod}.
 func singleRunDir(t *testing.T, vault, framework string) string {
 	t.Helper()
