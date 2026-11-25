@@ -38,8 +38,8 @@ func TestAzureDefenderConformance(t *testing.T) {
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeVulnFinding}},
 		EvidenceTypes: types, OptionalFields: []string{"vulnerability_finding.title", "vulnerability_finding.cve_id", "vulnerability_finding.score"},
 	})
-	if len(threat) != 2 || len(sec) != 1 || len(vuln) != 1 {
-		t.Fatalf("records: threat=%d sec=%d vuln=%d, want 2/1/1", len(threat), len(sec), len(vuln))
+	if len(threat) != 2 || len(sec) != 2 || len(vuln) != 1 {
+		t.Fatalf("records: threat=%d sec=%d vuln=%d, want 2/2/1", len(threat), len(sec), len(vuln))
 	}
 	var v vulnFindingPayload
 	if err := json.Unmarshal(vuln[0].Payload, &v); err != nil {

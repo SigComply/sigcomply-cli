@@ -1,7 +1,8 @@
 // Package defender implements the azure.defender source plugin: it reads
 // Microsoft Defender for Cloud (Azure Security Center) in a subscription and
 // emits three cross-vendor types — threat_detection_service (one per Defender
-// plan), security_service (one CSPM record for Defender for Cloud itself), and
+// plan), security_service (Defender for Cloud as the SIEM, and its
+// vulnerability assessment as the scanner), and
 // vulnerability_finding (one per vulnerability recommendation) — so threat-detection,
 // security-service-enablement, and unaddressed-finding policies evaluate against
 // Azure exactly as they do against AWS (GuardDuty / SecurityHub-Macie-Inspector
@@ -18,16 +19,22 @@
 //     expects every Defender plan on Standard, and customers scope out plans for
 //     resource types they do not use via a `.sigcomply.yaml` exception.
 //
-// security_service (from the same Pricings read):
+// security_service (from the same Pricings read), two records:
 //
-//   - One record representing Microsoft Defender for Cloud itself, mapped to
-//     service_type "cspm" (Cloud Security Posture Management — what Defender for
-//     Cloud is; it is not a SIEM or DLP). is_enabled is true when at least one
-//     Defender plan is on the Standard tier (i.e. the enhanced security service
-//     is actively protecting resources). The legacy auto-provisioning toggle is
-//     deprecated by Microsoft and is deliberately NOT used as the signal — a
-//     modern estate using agentless scanning + Defender plans would read a false
-//     auto-provisioning value while being fully protected.
+//   - Microsoft Defender for Cloud itself, service_type "siem": the centralized
+//     security-findings service, the analog of AWS Security Hub and GCP Security
+//     Command Center, which map there too (see gcp.scc). is_enabled is true when
+//     at least one paid Defender plan is on the Standard tier. FoundationalCspm
+//     and Discovery are free, read Standard on every subscription, and are not
+//     counted, or every subscription would pass. The legacy auto-provisioning
+//     toggle is deprecated by Microsoft and is deliberately NOT used as the
+//     signal.
+//   - Defender vulnerability assessment, service_type "vulnerability_scanner"
+//     (the analog of Amazon Inspector): enabled when a plan that scans for
+//     vulnerabilities is on Standard: VirtualMachines (Defender for Servers,
+//     with Defender Vulnerability Management), Containers (registry and
+//     runtime image scanning) or CloudPosture (Defender CSPM agentless
+//     scanning).
 //
 // vulnerability_finding (from individual recommendations):
 //
@@ -80,14 +87,26 @@ var vulnerabilityCategories = []string{
 	"CodeVulnerabilities", "IacVulnerabilities", "ApiVulnerabilities",
 }
 
+// freePlans are Defender plans that are free and on by default: they read
+// Standard on every subscription, so they are no evidence of protection.
+var freePlans = map[string]bool{"FoundationalCspm": true, "Discovery": true}
+
+// scanningPlans are the Defender plans whose Standard tier scans for
+// vulnerabilities.
+var scanningPlans = []string{"CloudPosture", "Containers", "VirtualMachines"}
+
 // vulnerabilityQuery reads every vulnerability recommendation in the queried
-// subscriptions, projected to the Assessment columns. resourceDetails spells
+// subscriptions, projected to the Assessment columns. A recommendation counts
+// when its category is a vulnerability category, or when it carries CVE
+// details: recommendationCategory reads "Unknown" on current subscriptions,
+// so the category alone can miss findings. resourceDetails spells
 // its keys differently by source (Azure: Id; connectors: ResourceId), hence the
 // coalesce.
 var vulnerabilityQuery = `securityresources
 | where type =~ 'microsoft.security/assessments'
 | extend category = tostring(properties.metadata.recommendationCategory)
 | where category in~ ('` + strings.Join(vulnerabilityCategories, "', '") + `')
+    or isnotempty(properties.additionalData.CvesDetails)
 | project id,
     resourceId = tostring(coalesce(properties.resourceDetails.Id, properties.resourceDetails.id, properties.resourceDetails.ResourceId)),
     resourceType = tostring(coalesce(properties.resourceDetails.ResourceType, properties.resourceDetails.resourceType)),
@@ -214,8 +233,9 @@ type securityServicePayload struct {
 	ServiceType string `json:"service_type"`
 	IsEnabled   bool   `json:"is_enabled"`
 	// Auditable extras (additionalProperties): how is_enabled was derived.
-	EnabledPlanCount int `json:"enabled_plan_count"`
-	TotalPlanCount   int `json:"total_plan_count"`
+	EnabledPlanCount *int     `json:"enabled_plan_count,omitempty"`
+	TotalPlanCount   *int     `json:"total_plan_count,omitempty"`
+	EnabledPlans     []string `json:"enabled_plans,omitempty"`
 }
 
 // vulnFindingPayload is the cross-vendor vulnerability_finding shape. The
@@ -269,11 +289,11 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 			records = append(records, recs...)
 		}
 		if wantSecurity {
-			rec, err := securityRecord(pricings, now, scope)
+			recs, err := securityRecords(pricings, now, scope)
 			if err != nil {
 				return nil, err
 			}
-			records = append(records, rec)
+			records = append(records, recs...)
 		}
 	}
 	if wantVuln {
@@ -313,30 +333,58 @@ func threatRecords(pricings []*armsecurity.Pricing, now time.Time, scope *core.R
 	return records, nil
 }
 
-// securityRecord emits the single Defender-for-Cloud security_service record
-// (service_type "cspm"); it is enabled when any Defender plan is on Standard.
-func securityRecord(pricings []*armsecurity.Pricing, now time.Time, scope *core.RecordScope) (core.EvidenceRecord, error) {
+// securityRecords emits the two security_service records, sorted by ID:
+// Defender for Cloud as the "siem" (enabled when any paid plan is on
+// Standard) and its vulnerability assessment as the "vulnerability_scanner"
+// (enabled when a scanning plan is on Standard).
+func securityRecords(pricings []*armsecurity.Pricing, now time.Time, scope *core.RecordScope) ([]core.EvidenceRecord, error) {
 	enabled := 0
 	total := 0
+	var scanning []string
 	for _, pr := range pricings {
-		if pr == nil {
+		if pr == nil || freePlans[deref(pr.Name)] {
 			continue
 		}
 		total++
-		if planEnabled(pr) {
-			enabled++
+		if !planEnabled(pr) {
+			continue
+		}
+		enabled++
+		for _, name := range scanningPlans {
+			if strings.EqualFold(deref(pr.Name), name) {
+				scanning = append(scanning, deref(pr.Name))
+			}
 		}
 	}
-	payload := securityServicePayload{
-		ID:               "azure-defender-for-cloud",
-		Name:             "Microsoft Defender for Cloud",
-		Provider:         providerAzure,
-		ServiceType:      "cspm",
-		IsEnabled:        enabled > 0,
-		EnabledPlanCount: enabled,
-		TotalPlanCount:   total,
+	sort.Strings(scanning)
+	payloads := []securityServicePayload{
+		{
+			ID:               "azure-defender-for-cloud",
+			Name:             "Microsoft Defender for Cloud",
+			Provider:         providerAzure,
+			ServiceType:      "siem",
+			IsEnabled:        enabled > 0,
+			EnabledPlanCount: &enabled,
+			TotalPlanCount:   &total,
+		},
+		{
+			ID:           "azure-defender-vulnerability-assessment",
+			Name:         "Microsoft Defender vulnerability assessment",
+			Provider:     providerAzure,
+			ServiceType:  "vulnerability_scanner",
+			IsEnabled:    len(scanning) > 0,
+			EnabledPlans: scanning,
+		},
 	}
-	return record(EvidenceTypeSecurityService, payload, payload.ID, now, scope)
+	records := make([]core.EvidenceRecord, 0, len(payloads))
+	for _, p := range payloads {
+		rec, err := record(EvidenceTypeSecurityService, p, p.ID, now, scope)
+		if err != nil {
+			return nil, err
+		}
+		records = append(records, rec)
+	}
+	return records, nil
 }
 
 // collectFindings lists the vulnerability recommendations and emits one

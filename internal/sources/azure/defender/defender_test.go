@@ -168,43 +168,85 @@ func TestCollect_ThreatService_MapsSortsFullPayload(t *testing.T) {
 	}
 }
 
-func TestCollect_SecurityService_FullPayload(t *testing.T) {
-	f := &fakeAPI{pricings: []*armsecurity.Pricing{
-		pricing("VirtualMachines", "Standard", ""),
-		pricing("StorageAccounts", "Free", ""),
-		nil, // nil entries are skipped in the count
-	}}
-	recs, err := newPlugin(f).Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeSecurityService}})
+const planVMs = "VirtualMachines"
+
+func securityPayloads(t *testing.T, pricings []*armsecurity.Pricing) map[string]securityServicePayload {
+	t.Helper()
+	recs, err := newPlugin(&fakeAPI{pricings: pricings}).Collect(context.Background(),
+		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeSecurityService}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
-	if len(recs) != 1 {
-		t.Fatalf("got %d records, want 1", len(recs))
+	if len(recs) != 2 {
+		t.Fatalf("got %d records, want 2 (siem + vulnerability_scanner)", len(recs))
 	}
-	if recs[0].Type != EvidenceTypeSecurityService {
-		t.Errorf("type = %q", recs[0].Type)
+	out := map[string]securityServicePayload{}
+	for i := range recs {
+		if recs[i].Type != EvidenceTypeSecurityService {
+			t.Errorf("type = %q", recs[i].Type)
+		}
+		var p securityServicePayload
+		mustUnmarshal(t, recs[i].Payload, &p)
+		out[p.ServiceType] = p
 	}
-	var p securityServicePayload
-	mustUnmarshal(t, recs[0].Payload, &p)
-	want := securityServicePayload{
+	return out
+}
+
+func TestCollect_SecurityService_FullPayload(t *testing.T) {
+	got := securityPayloads(t, []*armsecurity.Pricing{
+		pricing(planVMs, "Standard", "P1"),
+		pricing("StorageAccounts", "Free", ""),
+		pricing("FoundationalCspm", "Standard", ""), // free, always on: not counted
+		pricing("Discovery", "Standard", ""),
+		nil, // nil entries are skipped in the count
+	})
+	one, two := 1, 2
+	wantSIEM := securityServicePayload{
 		ID: "azure-defender-for-cloud", Name: "Microsoft Defender for Cloud", Provider: providerAzure,
-		ServiceType: "cspm", IsEnabled: true, EnabledPlanCount: 1, TotalPlanCount: 2,
+		ServiceType: "siem", IsEnabled: true, EnabledPlanCount: &one, TotalPlanCount: &two,
 	}
-	if !reflect.DeepEqual(p, want) {
-		t.Errorf("payload = %+v, want %+v", p, want)
+	if !reflect.DeepEqual(got["siem"], wantSIEM) {
+		t.Errorf("siem = %+v, want %+v", got["siem"], wantSIEM)
+	}
+	wantScan := securityServicePayload{
+		ID: "azure-defender-vulnerability-assessment", Name: "Microsoft Defender vulnerability assessment",
+		Provider: providerAzure, ServiceType: "vulnerability_scanner", IsEnabled: true,
+		EnabledPlans: []string{planVMs},
+	}
+	if !reflect.DeepEqual(got["vulnerability_scanner"], wantScan) {
+		t.Errorf("scanner = %+v, want %+v", got["vulnerability_scanner"], wantScan)
 	}
 }
 
-func TestCollect_SecurityService_DisabledWhenNoStandardPlan(t *testing.T) {
-	f := &fakeAPI{pricings: []*armsecurity.Pricing{pricing("VirtualMachines", "Free", "")}}
-	recs, err := newPlugin(f).Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeSecurityService}})
-	if err != nil {
-		t.Fatalf("Collect: %v", err)
+// The free plans read Standard on every subscription; on their own they
+// must not enable either record (seen on the customer-sim e2e subscription).
+func TestCollect_SecurityService_DisabledWhenOnlyFreePlans(t *testing.T) {
+	got := securityPayloads(t, []*armsecurity.Pricing{
+		pricing(planVMs, "Free", ""),
+		pricing("FoundationalCspm", "Standard", ""),
+		pricing("Discovery", "Standard", ""),
+	})
+	siem := got["siem"]
+	if siem.IsEnabled || siem.EnabledPlanCount == nil || *siem.EnabledPlanCount != 0 || *siem.TotalPlanCount != 1 {
+		t.Errorf("siem = %+v, want disabled with 0/1 plans", siem)
 	}
-	var p securityServicePayload
-	mustUnmarshal(t, recs[0].Payload, &p)
-	if p.IsEnabled || p.EnabledPlanCount != 0 || p.TotalPlanCount != 1 {
-		t.Errorf("payload = %+v, want disabled with 0/1 plans", p)
+	if got["vulnerability_scanner"].IsEnabled {
+		t.Errorf("scanner enabled with no scanning plan: %+v", got["vulnerability_scanner"])
+	}
+}
+
+// A paid plan that does not scan enables the SIEM but not the scanner.
+func TestCollect_SecurityService_ScannerNeedsScanningPlan(t *testing.T) {
+	got := securityPayloads(t, []*armsecurity.Pricing{
+		pricing("KeyVaults", "Standard", ""),
+		pricing("Containers", "Free", ""),
+	})
+	if !got["siem"].IsEnabled || got["vulnerability_scanner"].IsEnabled {
+		t.Errorf("got siem=%v scanner=%v, want true/false", got["siem"].IsEnabled, got["vulnerability_scanner"].IsEnabled)
+	}
+	got = securityPayloads(t, []*armsecurity.Pricing{pricing("Containers", "Standard", "")})
+	if !got["vulnerability_scanner"].IsEnabled {
+		t.Error("Containers on Standard should enable the scanner")
 	}
 }
 
@@ -280,12 +322,13 @@ func TestCollect_AllThreeTypes_SharedPricingsCalledOnce(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
-	// 1 threat + 1 security + 1 finding, grouped in Emits() order.
-	if len(recs) != 3 {
-		t.Fatalf("got %d records, want 3", len(recs))
+	// 1 threat + 2 security + 1 finding, grouped in Emits() order.
+	if len(recs) != 4 {
+		t.Fatalf("got %d records, want 4", len(recs))
 	}
-	if recs[0].Type != EvidenceTypeThreatService || recs[1].Type != EvidenceTypeSecurityService || recs[2].Type != EvidenceTypeVulnFinding {
-		t.Errorf("records not grouped in Emits() order: %q, %q, %q", recs[0].Type, recs[1].Type, recs[2].Type)
+	if recs[0].Type != EvidenceTypeThreatService || recs[1].Type != EvidenceTypeSecurityService ||
+		recs[2].Type != EvidenceTypeSecurityService || recs[3].Type != EvidenceTypeVulnFinding {
+		t.Errorf("records not grouped in Emits() order: %q, %q, %q, %q", recs[0].Type, recs[1].Type, recs[2].Type, recs[3].Type)
 	}
 	if f.pricingCalls != 1 {
 		t.Errorf("pricings called %d times, want 1 (shared by threat+security)", f.pricingCalls)
@@ -329,9 +372,9 @@ func TestCollect_NilEntriesSkipped(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
-	// 1 threat (nil skipped) + 1 security + 1 finding.
-	if len(recs) != 3 {
-		t.Fatalf("got %d records, want 3", len(recs))
+	// 1 threat (nil skipped) + 2 security + 1 finding.
+	if len(recs) != 4 {
+		t.Fatalf("got %d records, want 4", len(recs))
 	}
 }
 

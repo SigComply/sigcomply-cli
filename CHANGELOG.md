@@ -21,6 +21,24 @@ this file lists the changes a user notices.
 
 ### Fixed
 
+- `azure.certs` reads the expiry of App Service certificates. The certificates list API
+  (2025-05-01) leaves out `expirationDate`, so every App Service certificate had an empty
+  `not_after`, failed the `tls_certificate` schema, and both TLS policies were `error`. A listed
+  certificate without an expiry is now read again by GET, which returns it.
+- `aws.ecr` reads registry-level scanning. With Amazon Inspector (`ENHANCED`) scanning, ECR
+  ignores the repository `scanOnPush` flag and scans the repositories the registry rules match,
+  so `container_scan_on_push` failed on repositories Inspector scans. `scan_on_push_enabled` is
+  now true when a registry rule with `SCAN_ON_PUSH` or `CONTINUOUS_SCAN` matches the repository,
+  and, with basic scanning only, when the repository flag is set. The source needs
+  `ecr:GetRegistryScanningConfiguration`.
+- `azure.defender` emits two `security_service` records: Defender for Cloud as `siem` (it was
+  `cspm`, which no policy reads, so Azure could never pass the SIEM policy) and Defender
+  vulnerability assessment as `vulnerability_scanner`, enabled when Defender for Servers,
+  Containers or CSPM is on Standard. The free `FoundationalCspm` and `Discovery` plans read
+  Standard on every subscription and no longer count as enabling anything.
+- `azure.defender` also reads a recommendation as a vulnerability finding when it carries CVE
+  details. Defender reports `recommendationCategory` as `Unknown` on current subscriptions, so
+  the category filter alone could read no findings.
 - `aws.identity_center` reads an Identity Center account instance. AWS refuses
   `sso:ListPermissionSets` on an account instance (`ValidationException`: not supported for
   account instances), and the CLI failed the source on it, so every policy it was bound to was

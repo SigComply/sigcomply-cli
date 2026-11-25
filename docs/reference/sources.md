@@ -70,7 +70,7 @@ target role's trust policy must allow it, with the `external_id` condition if yo
 | `aws.config` | `config_change_tracking` | `config:DescribeConfigurationRecorders`, `config:DescribeConfigurationRecorderStatus` |
 | `aws.dynamodb` | `nosql_table` | `dynamodb:ListTables`, `dynamodb:DescribeTable`, `dynamodb:DescribeContinuousBackups` |
 | `aws.ec2` | `compute_instance` | `ec2:DescribeInstances`, `ec2:DescribeVolumes` |
-| `aws.ecr` | `container_registry` | `ecr:DescribeRepositories`, `ecr:GetRepositoryPolicy` |
+| `aws.ecr` | `container_registry` | `ecr:DescribeRepositories`, `ecr:GetRepositoryPolicy`, `ecr:GetRegistryScanningConfiguration` |
 | `aws.eks` | `kubernetes_cluster` | `eks:ListClusters`, `eks:DescribeCluster` |
 | `aws.guardduty` | `threat_detection_service` | `guardduty:ListDetectors`, `guardduty:GetDetector` |
 | `aws.iam` | `directory_user.v2` | `iam:ListUsers`, `iam:ListMFADevices`, `iam:ListAccessKeys`, `iam:ListAttachedUserPolicies`, `iam:ListUserPolicies`, `iam:ListGroupsForUser`, `iam:ListAttachedGroupPolicies`, `iam:GenerateCredentialReport`, `iam:GetCredentialReport`, `iam:GetLoginProfile` |
