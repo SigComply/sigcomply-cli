@@ -1,0 +1,2937 @@
+{
+  "schema": "sigcomply.cloud.v5",
+  "run_id": "20260215T120500Z-e2efull0",
+  "framework": "soc2",
+  "period_id": "2026-Q1",
+  "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+  "commit_time": "2026-02-15T12:00:00Z",
+  "branch": "main",
+  "repository": {
+    "provider": "github",
+    "name_slug": "acme/infra",
+    "url": "https://github.com/acme/infra"
+  },
+  "environment": {
+    "provider": "github_actions",
+    "workflow": "compliance",
+    "run_url": "https://github.com/acme/infra/actions/runs/42"
+  },
+  "cli_version": "1.0.0-e2e",
+  "started_at": "2026-02-15T12:05:00Z",
+  "completed_at": "2026-02-15T12:06:00Z",
+  "summary": {
+    "policies_total": 133,
+    "policies_passed": 49,
+    "policies_failed": 3,
+    "policies_skipped": 81,
+    "policies_error": 0,
+    "policies_na": 0,
+    "policies_waived": 0,
+    "policies_carried_forward": 0,
+    "compliance_score": 0.9423076923076923
+  },
+  "policies": [
+    {
+      "policy_id": "soc2.cc6.1.mfa_enforced_all_users",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "critical",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:aa7d6f8e740ee32b71df125d2b9c2d6c23e3c56a0972dd04b4880e50a49e4983",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.1.mfa_enforced_admins",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "critical",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:2c4164fa3ce8cd42dd3fc90a1c4ea6f48f6054da449d64195c4d3a93e96e7d65",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.1.root_mfa_enabled",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "critical",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:131cef2b4405d72464d6bdf847157bf241b254a82135260a5018f28c70fcd6c2",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.1.no_root_access_keys",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "critical",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:a83c43a26e02cca9c4cb3aa38b13bcccef5d64b4c7e836c5cfe843bcdc3dc840",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.1.no_direct_iam_policies",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:d2e24c9c1439936985eff67b75805f6300aae4232e45c1b49c43716c9c75de85",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.1.access_keys_rotated_90d",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:7ec5f2212875c9378adaa7b5beea84b0189698e216a7691e7f22fc05a0564fe0",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.1.no_unused_active_keys_90d",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:4d29bd5c50b6c835d9f30011315dc5d22bb4454e923e25761c2b23fb7b0e9f3e",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.1.no_never_used_active_keys",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:1a2530c651c98fa8d97de2df35f92d8d9bc0674ec177865a30de93e9229ac48a",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.1.password_min_length_14",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:2923d876bbcbddd91892dcda005b91518c67d45c28f4d3861a7b55830bf43a89",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.1.password_expiry_90d",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:3c9f7d20998ed8a00c99f39fb118204bfe3487a8a2697fd011d19106d8b432ec",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.1.password_reuse_prevention",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "low",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:0c2c35e99b00c16f9be6a1bbb9b2e25308dacbaae94b4b7840f2961bc5be4eec",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.1.password_reuse_depth_24",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "low",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:b8ab1ac2272ca5da66461343854922ef9a196e0a726986562be34884030c3b26",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.1.password_complexity",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:7d37222cd9a8bc457f0f05bbe1b6ef1e84ca0110c2fd3ca98fdcca3454f49240",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.2.accounts_linked_to_roster",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:b4ce0eb75d3dd5425ef78d3b5348899317516d6d9424277bc2120ce0d03904a7",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.2.no_active_accounts_for_inactive_personnel",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "critical",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:e8c36d815b3bfc00458480b6530f4c0f386a9f50c46689aa10bbbc6acf415305",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.6.no_unrestricted_ssh",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.6",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "network",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:a13170f173a6ddde344f3029cd44525f3b64902f58c6090420730321daa7ad60",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.6.no_unrestricted_rdp",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.6",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "network",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:7e755640dfc84a779f8fbd27e94a6676f7c9a9c67a5401d673c419acf6ee0505",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.6.no_unrestricted_mysql",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.6",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "network",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:ad5994fa9d87966166d34ab381db86d494e5ece6b35e1bef57ae574a3d840a0f",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.6.no_unrestricted_postgres",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.6",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "network",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:2f7bdfb197cf845b78ba312efca42e84a499309b623738beca424b506376b97d",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.6.no_unrestricted_all_traffic",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.6",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "network",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:af15fd1db4967f91aa29a24da0bc21069e6a8b2e971c86a68f958673c43372a1",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.6.vpc_flow_logs_enabled",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.6",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "network",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:82f9349b1693a9f2f717ed6a503ef5637dd323713e3689198861968ddbb6c94f",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.6.no_default_vpc_in_use",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.6",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "low",
+      "category": "network",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:62d50011a55b54fb37c579c50a6d0f2ea25cbf4f26fd214818f62335a63e491d",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.7.storage_encryption_at_rest",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.7",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:d75bfe10dae24ede38c20da57fc4f57441804f6bccbfcc569c9b6b5ac53c1736",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.7.storage_public_access_blocked",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.7",
+          "relationship": "equal"
+        },
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "C1.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:15d2620bd4bf99f8780b0346bb8f421e13b2bdd579fa63837cc86cf731bfbfc5",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.7.storage_versioning_enabled",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.7",
+          "relationship": "equal"
+        },
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "A1.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "low",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:a5dac49ad234ad2da3ad6254fe90aac69e30bf8765a932e1f936288c04c951c0",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.7.database_encryption_at_rest",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.7",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:4f911e78237245e9e6676405f9c50c5a53c01977a80e56a4072759f3b63d271e",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.7.database_no_public_access",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.7",
+          "relationship": "equal"
+        },
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "C1.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:7b112b1711e5b60af4bdc09e67c2bc37c2eccab06d467c69b063828344b0c4e8",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.7.database_ssl_required",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.7",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:782b37285e86d976a1dbfebde83938f10cfca5adfafa74fd268f9ea02215c8e1",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.7.kms_key_rotation_enabled",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.7",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:eb0c7ca67a2dfab61974e4bd7d187da881775e36fe6c1ed111c2365e494173f6",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.7.compute_root_volume_encrypted",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.7",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:cf1513c3c02615b78351cad16576b0968d3b347fbdebac4a484add5319db82ee",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.7.kubernetes_secrets_encrypted",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.7",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:093182bf1bdc1d509e5e716d9299849d554f956267d1fdfda1f9e97ad563b6ee",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.7.tls_certificates_not_expiring",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.7",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:b161d95b33fd293b581af0a33244d3a6a2249a96363f9938b5429d7a9d12ecdb",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.7.tls_auto_renew_enabled",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.7",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "low",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:31b37403ed090c518f69092afcf74bf79d9a1d8a27877a7b9349e9863a0f8634",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.7.secrets_rotation_enabled",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.7",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:90e03f2c9b9c22566eb5351a68532f9366235a6a823741791069e89f2fd2e045",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.7.secrets_kms_encrypted",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.7",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:cecb64e998d5bb01eccdf734de10a15eb707aa37b87f9f04f9f308eb92639b2a",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.8.threat_detection_enabled",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.8",
+          "relationship": "equal"
+        },
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:d8ec267c4f2b2ecee09d7304db5881b007a2670b7172497573eaa0a11b1f455b",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.8.no_critical_findings_active",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.8",
+          "relationship": "equal"
+        },
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.4",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "critical",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:2cb8ce704e0bd401d794c83af7355bc3ea3fb0439d627538434df50518b4ff6d",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.8.no_high_findings_unaddressed",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.8",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:e22833565470da93f18fd7ca4f84dffdac6d29c99c8f0757de0de5eee68d2bd5",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.8.container_scan_on_push",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.8",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:ffba90269c8dd1b4c05d99c0a452b7ebd5daa3c0a3da786220ad74ddf4cf1244",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.8.no_public_container_repos",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.8",
+          "relationship": "equal"
+        },
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "C1.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:82e805b64cf1fbd3c5c6e8d8e4c1b0c736c0b5758ba0715f66c8e37db500653c",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.8.macie_enabled",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.8",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:fb098e3e87a682e5f4b8df5278cdfc7410ea6e350e4056d06cc63281d7a4e1eb",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.1.secret_scanning_enabled",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:66aa9dec0f9de3800707a14a73d36ddebec5023144fbd34f9b847eada8bfc89c",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.1.push_protection_enabled",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:e701dfa8b9eec12543c71855eb333da6c2842fe45cf7c2f55033e6376b01a2d5",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.1.org_2fa_required",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:5293ea67d111e6e8960899f94c869409ab4a5df7f032c984c271cfc9cc7be01e",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.3.repo_default_permission_least_privilege",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.3",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:1de43617bad53244f75345c273c8896f3832f9f0f6aed91dd496a141fe6dc588",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc7.1.audit_logging_enabled",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "logging",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:eddcd08ee6c201ba047c66182e0f87dca8b315d5a38579ad9feac2e04408d4e3",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc7.1.audit_log_integrity_enabled",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "logging",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:6ce477c7ebbc8ed4d08a6e95785c4ca5681de895b2ac57fe8455b70f46b2dc13",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc7.1.audit_log_kms_encrypted",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "logging",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:cf2f1fc68ed60053e8b28a28329a8d027f6ee0f42bfca598457b691b9fb0d010",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc7.1.log_retention_min_90d",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "logging",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:88f49edd2e8a760424a61a667f0fe0971fea0f1926bc85ed60ed2507fe18a55c",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc7.1.config_recording_enabled",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:47889effb684f45aa2c5365767253761edb49e7d54bf3967f31f2279dbca40c6",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc7.1.config_all_resource_types",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:a626492ab3c09bd0ddedd05478fa8b532f23eeea5db57a94c3ccfa44382f6f6a",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc7.1.securityhub_enabled",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:dd7048475a674ad5fe4918141ba237edbb098133fc1ca89c562f99f86296ff5a",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc7.1.inspector_enabled",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:a2907fbcc44cd5b70460e4f197389f98cd2b6d96ed5f242491f12dce1f997394",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc7.2.alarm_unauthorized_api_calls",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:6fb668c06be312b07588d26d79fce0cf298e33650530b94fe193d7053b87b09a",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc7.2.alarm_root_account_usage",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:40c6d4d582fc3df3dc8727e6be35c45010094db041d4922da168292b23db090d",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc7.2.alarm_iam_policy_changes",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:1ef00868c1c5741f73faf3bc65d180514735d2d836dbd50ff24df2d0ee8b8df1",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc7.2.alarm_cloudtrail_config_changes",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:63532be55decc32e6a0a0aea087c5a1f6a7755c7afbdf77da734a864e8830ba3",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc7.2.alarm_console_login_no_mfa",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:423470a32bad7f90b44f73b5e3f74fee183c61d3ab63bec4df0262453c5902a8",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc7.2.alarm_security_group_changes",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:65d82b7ee3d34865666dae2ac83e9e3d7e641dc948378ad385ac0e561fded6ab",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc7.2.alarm_vpc_changes",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:646ef3f3f0aa56b492f9e61e353c55ca6eda13c7686f18f304e8f39c7883840f",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc7.2.alarm_kms_key_deletion",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:c2bc11f1c8d796492d0f99a5028a0c7b263065649719ab0fa165cddc9cdb3d55",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc7.3.compute_monitoring_enabled",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.3",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:2f9fc7f00448d65821291b640a3e275afd167a3ba8c0858e1ec436a965443f3e",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc7.5.database_multi_az",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.5",
+          "relationship": "equal"
+        },
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "A1.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "availability",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:c9864657eba6e4977060ce794d97ed3355d56bfd3506d177d7452432716a0243",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc7.5.database_deletion_protection",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.5",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "availability",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:1a9bbf3b2a062251087edf60cc6fb2eaae7ae36940f52fb22e68710bf8dbc44c",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc8.1.default_branch_protected",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC8.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "change-management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:d85150f2f9310bb1f13688e0df49e9303b4da3812b44dd48e0ce0db64c81a6f8",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc8.1.required_code_reviews",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC8.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "change-management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:58878e523d6d6f23e6061ab54e11724cbf6aaaa752ab556aaf16a99b8825872a",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc8.1.no_force_push_to_main",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC8.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "change-management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:bca6ac5023aad687165717ef694ff63b702ab7ebefc9cfb140e313423a12ece0",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc8.1.signed_commits_required",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC8.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "low",
+      "category": "change-management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:be9bba10e7a0ef0e5231bdec263560e2604886b028ecf992c0edadd94bf6517c",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc8.1.dependabot_alerts_enabled",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC8.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "change-management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:6fc857da3fb840c26f65efe896054ed1617308efe628dbe03cddb9289c5732d9",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc8.1.code_scanning_enabled",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC8.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "change-management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:477e9fa6176a39e7213023c942ef7281e6eb575a1a75fdf26223e550901c3a30",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc8.1.dismiss_stale_reviews",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC8.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "low",
+      "category": "change-management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:8e9aae58d0fc45afc0c446bdab4bff90751dd6497de693baf94e9fd31f84ab2f",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc8.1.require_code_owner_reviews",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC8.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "low",
+      "category": "change-management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:6a8c58833e40982eb9acb2ff77f7ee594dd7a13a3372410a1b1ebb126c89838b",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc8.1.changes_independently_approved",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC8.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "change-management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:8fdad17b2d0cdb4b024a1660f3530441536e84fee3d83aa9e8fdf2c59a982ca4",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc8.1.changes_passed_checks",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC8.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "change-management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:55a2e2055c9c3c1369ecccb9b1d003f0b44ed26c424e684103e88cb658eafdc4",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc8.1.approval_precedes_merge",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC8.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "change-management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:8dd09dff8b836a4da5cfedeca13e0100264bed5fd79e748ca501602f46e14bb5",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc8.1.production_deploys_from_approved_changes",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC8.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "change-management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:db64b7da00986cbb6e2fdd6116ef83cef73ecb93fd751d94ec28d57bf246ea90",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.a1.2.database_backup_enabled",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "A1.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "availability",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:850a32b296f798a7540c76f2956a525436c53aea58b5b6d11b9e49bdcc4d993b",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.a1.2.backup_plan_exists",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "A1.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "availability",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:9392ea33c44ae30496abf83f14cefad0ad773b22559f96edab9968c30c653096",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.a1.2.dynamodb_pitr_enabled",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "A1.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "availability",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:a36e9d34962690a609545a40f7a07b9cbfed01ab8b2f90e78ad3d8f0964c3af3",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.a1.2.dynamodb_deletion_protection",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "A1.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "low",
+      "category": "availability",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:82abce14c08e8002c0819117815aa7479fd9a5bc7a075f11cead010b922ff78a",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.c1.1.dynamodb_encryption_enabled",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "C1.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:5b2ae5ea96f5bb4455e5f2d09d097a09f695f1c8f878a6cb72a5cfac106c75ee",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc1.1.security_awareness_training",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC1.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "fail",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "message": "1 of 1 resources failed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:9086aab0721aeb99a50f47c3d0ca3a45aa2756383e0f1a569b228a60f815d2f7",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc1.1.code_of_conduct_acknowledgment",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC1.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "fail",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "message": "1 of 1 resources failed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:ea002952e197ea1e8f61da48a42676d0b01d8506bed50997d774aeac32c7c8ee",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc1.2.board_security_oversight",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC1.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:2d3bf25e387998ea743d7912806663ade94481510080ae28b2788f089fe58b1c",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc1.3.org_chart_security_roles",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC1.3",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:b41f704a7722468e3d3fbda23b7803c50a92bf70d41492c9856f310ac88e038e",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc1.4.background_check_policy",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC1.4",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:a1a5bf67287c2db7777a383e33fe12f8a50a469913f84ccea24a8603b102022e",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc1.5.accountability_for_controls",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC1.5",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:fe18b7c676cb1d9a5f4cebfa31831d620e767bafafddd73ab04f32f90aff23a0",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc2.1.information_security_policy",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC2.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:9080880cbcb6f9e0c499e12048fdd984bab2ec2b16256196977d49f6417c170d",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc2.2.internal_security_communication",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC2.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:ce525a55485a39dc825418ff3d639a3a8baa2ff8a19099f87204fda230e67029",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc2.3.external_security_communication",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC2.3",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:93173309e07fc4ff7ab7887ce81c04a8d0c68d361c4ff2dc324da6cadd6b9254",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc3.1.risk_assessment",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC3.1",
+          "relationship": "equal"
+        },
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC3.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:76150a960f0a399da56bc77a11a77a8417659fe676f5a5f9d8946f2dacaf097e",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc3.3.fraud_risk_assessment",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC3.3",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:1ae1bb185a303cc3f5cdd0d7fd0b08a010300147244bdb223e94f14ff9c3f244",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc3.3.fraud_risk_considered",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC3.3",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:5a3a404bb1c4bafd2e65b3ce3875e884afd978a860f6563bb1cadd30e563c2b6",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc3.4.change_risk_assessment",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC3.4",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:f3592aafda7d5e55dc4dc2b30cb30cc5d8386f6fcf7d2a680c8363f953b565be",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc4.1.control_monitoring",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC4.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "quarterly",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:3a8f72bf3130323e38403ca9af14e0e40262b1089f1d88d091641a8b135f6728",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc4.2.control_deficiency_communication",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC4.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "quarterly",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:c10d3efdfcfac8af73ff3d2dbc774b975238f57b77b01dd23588c64dccabab94",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc5.1.control_selection_rationale",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC5.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:f68ff2eae95520e11847ccb73384936301438c8a09ecc4210713223d30753807",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc5.2.technology_control_activities",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC5.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:538185ca7bc3e1d21b58397bcde7d79da6b30cf93a714adb82a145d3c7b96a9e",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc5.3.technology_controls_deployment",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC5.3",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:b4397bf336bf0dd7395ec10f215fb491ab3fb5283d925e4583c1d7ec757aa7a8",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc6.3.access_review_quarterly",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.3",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "quarterly",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:1a6cfb6fa5c0df0f60fdb4704cf0db8eb9e9b4f440012024d01f36615e00c2fe",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc6.4.subservice_org_reports",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.4",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:865f09e3e1485469892c31725844fe8a2ad957aeb538f0350fc04090ac8f2ba3",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc6.2.termination_access_removal_process",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:2950a1c76289e67986ee42659ead668c8a98641966bea0fc997d3d411ebf91cc",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc6.1.privileged_access_policy",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:8f60b996773f198e71b9e19a27254ecbe8bdcaef769ccb5871f9dc7b61c99cc9",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc6.2.user_provisioning_process",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:52dea68a0f892935f3c1962b342fc1412ee2d9fcf0d936a01dec5ee8bbd80aa3",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc6.5.asset_disposal_process",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.5",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:d033d0b804b938f45b0c83670332769bf6e1148c19366050a5b8a70d7b34b627",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc6.6.network_segmentation_policy",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.6",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:66f6139fc5c8f3c76c3c8336ce1f51124baf1fb85dd240e8f9f9ec79445b5a40",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc6.6.firewall_review_policy",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.6",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:cdd9ddf59f4eebcacd90eccacf589d496fe45953df5af3a1dda1343162c72c96",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc6.7.data_classification_policy",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.7",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:46cc0b0c6c7568b0d0c3cc20575cf03da0eb3e5e5b3ecc48348d81ff3ee56e96",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc7.1.log_review_process",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:a164690d7b8623cb497f1fc0f0ef3bd8f956dc479efc5930d9928be5716e4e72",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc7.3.incident_response_plan",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.3",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:9870255a0bd1f257f6c7d7b6543d28e0dd728c86b12dacc7ff6837704be16778",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc7.3.incident_response_tested",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.3",
+          "relationship": "equal"
+        }
+      ],
+      "status": "fail",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "message": "1 of 1 resources failed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:4e7d11a056f8ce9ccfea9822dfcd318084358b2fc24e2c1d42486b5bc2d35d28",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc7.3.security_monitoring_policy",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.3",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:e168ba4cb57842e24483fd0a45ce315f1150f9784d69638084522ed325164181",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc7.4.vulnerability_disclosure_policy",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.4",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:49ba13acd4214644ecfe659b1fd6883f71d49bddf8e313f42acc31727b8b94ff",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc8.1.change_management_policy",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC8.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:9f0e7f99c0deaef84407a9453d870ccff55be02f4a58fdc0228f653bcf590d3a",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc8.1.security_sdlc_process",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC8.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:dbd09ebfa941ac11888f3451bd20fb0fc9ad878d99e7406ad5812ea45f07963d",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc8.1.penetration_test_annual",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC8.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:fca8bec03efab0546806b48eaf23c0b2df3b62689a4f82a6a1ff2f39d37c821c",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc8.1.vulnerability_management_policy",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC8.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:37869e5bac5483a2393859345ed1d3a4182b2e47c1934ef2bd6710ee8048f733",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc8.1.code_review_policy",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC8.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:b2228394d358c67db53cfcd1a8642cb515f88fe826efa718975093a99e0c464c",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc9.2.vendor_risk_assessment",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC9.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:788eb290e0a9bad5f83272e49472fbba447c99502d5398e2308d2326fa14b000",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc9.2.due_diligence_process",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC9.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:35e2e1283f179d913e2214c7b18a95f07cc27f474f557fc734536a77f2a99506",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc9.2.vendor_contracts_reviewed",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC9.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:f525b707f30ca5c1759da349403839b21efbc0bf59078a9867c4b764d511d593",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc9.2.vendor_lifecycle_process",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC9.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:17816c02f9f1797b5bce67329cae17802aa93250311a925e3637378b9f00e780",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc9.2.vendor_assurance",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC9.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:d73a028f3ab3a0d09a60fb0c05456a9c02b9c097f76fa253821f204112b1e405",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.cc9.2.cuec_mapping",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC9.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:a0275cd760c2cc1911462c8f2b055c4f1594de6cd01ceb221c719a8b1e1dd780",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.a1.1.capacity_management_process",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "A1.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:460ca2b8a904b40bf4266de9077014f28bbecab07c0a2cf558611916f8522455",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.a1.2.business_continuity_plan",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "A1.2",
+          "relationship": "equal"
+        },
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC9.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:5b5b5e62364f12f7c9e726da37d2d4cf40a4751c8411f6b1a8d3e34bed4ae4fb",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.a1.3.recovery_procedures_tested",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "A1.3",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:ecf5ba279c913191c5eb591bf08221158ef3a9d389297d30efe667063a5d88e9",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.c1.2.data_retention_policy",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "C1.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:664dfc9e172250e3e66c1a48ebef8c760993e3ee27bca38ce0234cdd3b2a2abb",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.c1.1.nda_policy",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "C1.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:d7dd3fe71764c00ccbba61a6cbffa75e923b65302b3530db761fb8b7def407a0",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.p1.1.privacy_notice",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "P1.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:d82a83e5ebc2fb7df75ea9041e588413c702bd083057f81abd9c8751c203de1a",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.p3.1.data_collection_policy",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "P3.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:0f9d4f2e4e18fcd714ef5a7c8af8a1c5f3a1584a11427f07b91f457eec35cd17",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.p4.2.data_retention_disposal",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "P4.2",
+          "relationship": "equal"
+        },
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "P4.3",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:f99f86880302bd28a9e8b79a9c280ff4ff34cea6b7c696982a3b3748abd838ca",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "soc2.pi1.1.processing_integrity_policy",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "PI1.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:de9e76cb3ec0d12243a7adab71c48df95ac11fd30ac662a7e9510f6aab582950",
+      "evidence_mode": "manual"
+    }
+  ]
+}

@@ -1,0 +1,3237 @@
+{
+  "schema": "sigcomply.cloud.v5",
+  "run_id": "20260215T120500Z-e2efull0",
+  "framework": "iso27001",
+  "period_id": "2026-Q1",
+  "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+  "commit_time": "2026-02-15T12:00:00Z",
+  "branch": "main",
+  "repository": {
+    "provider": "github",
+    "name_slug": "acme/infra",
+    "url": "https://github.com/acme/infra"
+  },
+  "environment": {
+    "provider": "github_actions",
+    "workflow": "compliance",
+    "run_url": "https://github.com/acme/infra/actions/runs/42"
+  },
+  "cli_version": "1.0.0-e2e",
+  "started_at": "2026-02-15T12:05:00Z",
+  "completed_at": "2026-02-15T12:06:00Z",
+  "summary": {
+    "policies_total": 146,
+    "policies_passed": 88,
+    "policies_failed": 3,
+    "policies_skipped": 55,
+    "policies_error": 0,
+    "policies_na": 0,
+    "policies_waived": 0,
+    "policies_carried_forward": 0,
+    "compliance_score": 0.967032967032967
+  },
+  "policies": [
+    {
+      "policy_id": "iso27001.8.2.privileged_mfa_enforced",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "critical",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:1cd100f31a77e4aa4e35c2737efdaa65377e8db8f2f1a1eb1730ab0cafc5aed1",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.3.storage_no_public_access",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.3",
+          "relationship": "equal"
+        },
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.12",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:bd4e171452174265b1b0d863ed46c8612a574f0aa24488506c2fdb2f917f36d4",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.3.database_no_public_access",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.3",
+          "relationship": "equal"
+        },
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.12",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:a18d6c0b82d0db6115251b1611bb30717af2f5bac9cd46b8e3d4e8c8911199b9",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.3.no_broad_admin_iam_bindings",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.3",
+          "relationship": "equal"
+        },
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.3",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:aa64cc358b557beda4c9ba053c019b993fff06cf3f75768b344e80298de9c75f",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.4.branch_protection_enabled",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.4",
+          "relationship": "equal"
+        },
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.25",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "change-management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:2e821cfceb4df45f6f383b493c851c1d448a454661622f2c2fb34eba00339f73",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.4.required_code_reviews",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.4",
+          "relationship": "equal"
+        },
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.32",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "change-management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:a9fa5725cab14a2c07a05adccbb691db641b231582930dc80d236f22d03e9f5b",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.5.mfa_enforced_all_users",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.5",
+          "relationship": "equal"
+        },
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.17",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "critical",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:8c9531a24237058b2f79782e4fdd5df33da5e27283226585ddd00207709ad700",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.5.password_minimum_length",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.5",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:c6c32bcc30556e81baf1a21775ef4230520700799ebebbbcdd59b60da7ae350a",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.5.password_complexity",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.5",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:f421888076dc540ae07ebaa5caef6110863c875f1d5a1ac0c0acf0fabc6cf38f",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.5.org_2fa_required",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.5",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:a8a9781dc99e9520a40d6b9e802c31ef410cf847185c095c792711f2760b857c",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.24.storage_encryption_at_rest",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.24",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:565b0dbdc9df536d5430c1c22659558377a3df4bc6d0b9ed9590fe89654cba3b",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.24.database_encryption_at_rest",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.24",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:0d3d12ee3be763e04d7bef06790d8788d70c70c298ed748796461e1888f1f378",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.24.compute_disk_encrypted",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.24",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:79ef1329c23c682cc196c8c90476fb407fd0a11e9722642255b4ae99ec72610c",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.24.kms_key_rotation",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.24",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:5e13aee518529486ed1b4b682610bb7a0986e70cefbdbf30bd3c19155528b432",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.24.secrets_rotation_enabled",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.24",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:08aa04775f9db29eacd7f81dcc24a3b61f0684d9cfc2687a16dc47857dedcf96",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.21.tls_certificates_valid",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.21",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:ec269d00401cb01d6c22b2e2c6987602826fee39b36607540084628a00d71027",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.21.tls_auto_renew_enabled",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.21",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "low",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:1fdd8fbbec3a0660821fb0c9bc286cda1efa38a15d44df2269ea1e88403a53d1",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.15.audit_logging_enabled",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.15",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "logging",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:235316ba298f25e959071a3b51f8d3eae0fcf3b3767de4f4c4d58b685a57cea6",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.15.audit_log_integrity",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.15",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "logging",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:9bf51c6116e75f73b46bd82091812bd746b2ce86bc7d7e6146f21e4e724a0565",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.15.audit_log_encrypted",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.15",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "logging",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:683cdba13dd832acb7b07c9aabaa1f8edd131618d37c89d26ddd1324c8838ba7",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.15.log_retention_min_365d",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.15",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "logging",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:44adaa1043916f50433cf8ee93bd64237f39435ab97d8996a9b4dfb9d130836b",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.9.config_recording_enabled",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.9",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:4eba4d807ddfdbf5dc12a3741b2574d901c531e538c7abdd2efcfbaf9f54148e",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.9.config_all_resources",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.9",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:840d960128191f7098241462d5c1e37a7f7ca63b5933b796cf0822d290986639",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.16.threat_detection_active",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.16",
+          "relationship": "equal"
+        },
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.7",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:b66378944c77f3f86ec821af5525def21498f763b396a4f98d27e60348eacfb4",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.16.compute_monitoring_enabled",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.16",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:380856b8d69756e28ca99752950ee9c20156982e54d7765ff102ee5297f00a41",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.16.security_aggregation_enabled",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.16",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:facb3eee720a43a5546aa8111a5ebfe3afaee029b9de9c2ee7ecb888f97a2a51",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.22.no_public_compute_instances",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.22",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "network",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:b03ca136057a6be8084a33375b7a099d1549918f83687becf38d74e120576981",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.22.private_kubernetes_endpoint",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.22",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "network",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:afe98ba1d8231381a9dc403d57ec2bd3a2d9023893630f8e2ccc9202e1382df0",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.20.no_unrestricted_ssh",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.20",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "network",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:d681c3263ef597ad055462c59bbc789d45a6f7e603218ef04d0f604feb616395",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.20.no_unrestricted_rdp",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.20",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "network",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:af00b16f2ae41744f1822fe786401047787125db0268772ae8629818672a17b6",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.20.no_unrestricted_database_ports",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.20",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "network",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:df556c8112884274d2d95d5f67375f4b1e5d5956642120d12ba766aadf031940",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.20.vpc_flow_logs_enabled",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.20",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "network",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:7837cac8cbfb0340086db624685a5d22a0d99ae9014177ee2f3603062b523aa9",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.12.no_public_container_repos",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.12",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:802a452a003ce670b6a806312cb11888850a38e252f1b8bf96578dbf58ceb426",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.29.secret_push_protection_enabled",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.29",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "change-management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:f63c5faee349ec813baccd094f2844177a6a78313ad6d28f776f30a3f279ef95",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.29.org_security_testing_default",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.29",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "change-management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:445258cb3dc8782fb6604e3e34ffd365c9711c57eec7a3910636765bdeac02f8",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.8.container_scan_on_push",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.8",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:0753d4e74765c189ea577e28207c476ec17806b1de738d494a5a3951f0a12194",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.8.no_critical_vulnerabilities",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.8",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "critical",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:bcfea4c3647a966aaa820e89547920830cf0a393cbc29188777b04b3a604c26e",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.13.database_backup_enabled",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.13",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "availability",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:c8c8a99ba3437aa7af29ecc81f958daf881e9cc70dff7fa75abb555b83525190",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.14.database_multi_az",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.14",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "availability",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:25e1d562793910df4cb8b66c64b8cd52d72f1ad4e6bb9333872cd1a7e133bb46",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.13.storage_versioning_enabled",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.13",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "low",
+      "category": "availability",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:0cccbf04038d33d2598b4284a042d170ebe4dc8112701dea69056e229c2141e1",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.13.nosql_table_pitr_enabled",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.13",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "availability",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:b28924667c54e85d9d1ef2119fb2f2ad9b16eac847473bcd5c5bd1b52fa20691",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.25.no_force_push_to_main",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.25",
+          "relationship": "equal"
+        },
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.32",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "change-management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:190091d27821e0122b9ebd2338c3ec1ec5d2f09f9860d3f2e5d8f01d7eb9c88a",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.25.secret_scanning_enabled",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.25",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:e811f173fcdd45ed30faff8f4fa68f91bfaa41cc6389d750b00d6fadcbc71de1",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.28.code_scanning_enabled",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.28",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "change-management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:07095e3e389fa848352037208cf764bae91a30f44c095a4df9ce3ae91d9d5d4b",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.28.dependabot_alerts_enabled",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.28",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "change-management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:1ae6169ecc74e1ed8cf680ce02ae033a6c4bff25d2d326614fb8ad61381d7bd9",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.32.changes_independently_approved",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.32",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "change-management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:02f2b42d021b41d948bec19f6a29bcad9b7a988fb1b6d3e1aba2399e0a7eb7de",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.32.changes_passed_checks",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.32",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "change-management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:71b7b6e4a25b7e233f45900364137b612ad96a9de1e8725ab41561f34f1c5cb9",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.32.approval_precedes_merge",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.32",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "change-management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:cad0c1304e37584a5fd566cb7c5e6ed193016a5c491cbca683b041ded77900b5",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.8.32.production_deploys_from_approved_changes",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.32",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "change-management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:b7b5397e047a182154e853dea0401ce86daceaaf4d476cb6b7c685c58fde49c4",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.5.33.database_deletion_protection",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.33",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:47eee755d9cbdd9e3abaf395c2ed91404cd73114dcef8146adbb767fb9bd2c0d",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.5.33.nosql_deletion_protection",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.33",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:f0e6b09ad80ed66b2fcc779585d34912b62a990300a44aaeea36672a5412f66d",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.5.16.inactive_user_accounts",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.16",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:ba735a520f2d425bcadc30596b6d0022e398468a12700dfca1a03956a1c2866d",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.5.15.repo_default_permission_least_privilege",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.15",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:56100241c19faeaf3fb5232629952cd55bc69208de3a93459a3a05e309196592",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.5.16.accounts_linked_to_roster",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.16",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:ae4f576f4ad48195f27c779fc5a6c8ba9ffe37be8a9f85762edc046fe9cce804",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.5.18.no_active_accounts_for_inactive_personnel",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.18",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "critical",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:f6e1e8b0b0880b0e05b28c3e0335e8606bd54dbab428c8d1f47eab42e4a857cf",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "iso27001.5.1.information_security_policies",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:6a231ab88361898aab8b901d875239eb031d266bcd010ae22d28ec388a3398e2",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.2.roles_and_responsibilities",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:7f27417ec8404738de5d001c2e860610e8e200adf6c7bc6e6b338550bbb59a10",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.4.management_direction",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.4",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:3ce2b873644850e8fa4b1064b25678e5ae81b6f632903ae41c587fee70d9af30",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.5.contact_with_authorities",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.5",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:86801a4da5cffe9ca417dee2ac8cb00b011b7933ba83159fe0d7bdb47e5d2873",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.6.special_interest_groups",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.6",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:3d96ead80df976d9dff13f209d84ac7f87ee2140fc86a800e06687cefcea3bd1",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.7.threat_intelligence",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.7",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:9a751c0aa138bc88b7c12b9992a7930dc6af5776c61cbda14e9d74c9a729f867",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.8.information_security_in_projects",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.8",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:6fed05f5cb14374e86a6a8a97b61c798e435a36052d0c61b4f9a12e5a3b03b24",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.9.asset_inventory",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.9",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:1d8505e7e1b13dfd38ce416d21db0bac421a49c63e0c481309424903dbd7ad1f",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.10.acceptable_use_policy",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.10",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:1c3746f17f7ca4c057c667e9fe2feb3790b17bd5ae140a7afa037cf8b805d9f8",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.11.return_of_assets",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.11",
+          "relationship": "equal"
+        }
+      ],
+      "status": "fail",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "message": "1 of 1 resources failed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:44e55692dfab74c8e7eb5972c69c48c2e1111ad09cacd5e8e1909b143d8d7caf",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.12.data_classification_policy",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.12",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:b6cd46d4a25920c4d90b443d2cef846dc28fd8ed94627f9912cb464ab51bd306",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.13.information_labeling_policy",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.13",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:d54ccbea090f7f5f1bcdf3871c4f233c9c6a4f24e9f35beb2924700835db9d63",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.14.information_transfer_policy",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.14",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:d45e4a8ee6021e580cf64921dc0bdcc54208c7a03bc81f2ce5ae233890cc603f",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.15.access_control_policy",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.15",
+          "relationship": "equal"
+        }
+      ],
+      "status": "fail",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "message": "1 of 1 resources failed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:e4c3008b37d8daf8871445ce863f611de561029854937fade5ae2d6ef3d5facd",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.18.access_rights_review",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.18",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "quarterly",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:33dfd24b0ef7778860eeaaadac98fafcc6a965ec4791f0a5daaae983fb7696fd",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.19.supplier_security_policy",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.19",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:f0b3cbce0b8530595be0091665c1ce795c71fa7c10abe9e9dc255f3b1826b6b3",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.19.supplier_assurance",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.19",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:2ac3990edd94047865742cee7162e55bf06f28c5582f23d0f5b5f79cf26f34a1",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.20.supplier_security_agreements",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.20",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:1ab02ff717a10f116259666d60ec2227d943f23d1d637258b9a7a18f09bb8699",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.19.supplier_lifecycle_process",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.19",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:7be62caa0ad4ac14abaea060fa762a17f791eee46b2b135d7b175915467f0983",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.21.ict_supply_chain_security",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.21",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:f5dd65e1f06ef2b26d7c8b7d2a16abf3d1337625d92367e21cb76af41170ea0c",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.22.supplier_service_monitoring",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.22",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:f7b38a018d5173440bdf154a6d20b80d7e3c0fccab579b553dbc41970e6bdd84",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.23.cloud_services_security",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.23",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:3c6f5e7071ff9b36fa920b54e37b7dde70f3b34e74e566fa639486d56ed72ebb",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.24.incident_management_plan",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.24",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:866429956a171f59a08b0d462e2765e89d53fd9e570c96637e144f5655aa671a",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.25.security_event_assessment",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.25",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:59fb0cc5b11e2624f85a9f6a4238a2c3ad923ff9a6320f18bb8c9b9a6c80cdc1",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.26.incident_response_tested",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.26",
+          "relationship": "equal"
+        }
+      ],
+      "status": "fail",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 1,
+      "message": "1 of 1 resources failed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:8aea97b46b27a09f371037dfff03cceedd7fbe0f967345962b9130b6d898e0f3",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.27.lessons_learned_from_incidents",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.27",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:cf7ab4d28796bdadbc202b9f7dd7c1561b5c9f112dffc4fe157a5d487cff1610",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.28.evidence_collection_procedure",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.28",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:0ad0fe7f3cee516cc3c7f89bf659aeed1654721d8b6465cdc80e219f6233fce2",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.29.information_security_in_bcp",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.29",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:71a9efa161c7e8d6a50fe22492d1e7c64993c91e4fd285b33f098f823aa97e98",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.30.ict_continuity_tested",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.30",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:751933d533d9f79804053de31486a9dd7c5a1773acbcbe19d896f4baaa212de2",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.31.legal_requirements_inventory",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.31",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:cc3db25b1c33eab3bf110516688f666754dd4d9c4b52bd7fa639f639e9c1712e",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.32.intellectual_property_rights",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.32",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:99bcc38b7c2357bf2f33a2e4c4844960af9151a1f2dd409683890b7b5dea7ace",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.34.privacy_and_pii_protection",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.34",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:915c3bf5e56f674decfb9bb999f1c1a0b6916029e6c30b9eefcd99a6b7da0bab",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.35.independent_security_review",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.35",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:256391d07481562e74a6071fcc193d9e542c7bba10e08aeefd3d85920440b30b",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.36.compliance_with_policies",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.36",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:70bb6f10c9a47f0c168025cd476cdef947572e5608fb6fc14e7af4c779f8cf34",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.5.37.documented_operating_procedures",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.5.37",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:352d0f2dfec4e4e43d97f6a3d46cc040f3966662461cefd95f5394a48c4301b2",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.6.1.personnel_screening",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.6.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:e5d8b95d69d289ad2ad4f3cdf6300997dd3914ab8143d86b9659c3065c2321fd",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.6.2.terms_of_employment",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.6.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:6b941ccbf3fc28a4c1d849336f82e5d37b4e10727d360eae669adb19feb2f064",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.6.3.security_awareness_training",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.6.3",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:b42f44e7d8b3bdb37fce2210421b5bf305e31b3d252e6d462e87487d16a7c262",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.6.4.disciplinary_process",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.6.4",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:748c46544b2df79a23c4e3f7a2d9762890666fb35859f21aa4e3c00eca310db1",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.6.5.responsibilities_on_termination",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.6.5",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:97466f031222796b4441329c2330fe6557c9bc0d3fcbb7d082596c8acec2137b",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.6.6.nda_confidentiality_agreement",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.6.6",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:08e6821228e097453e4b01dad3cb7f0962467e672bb0fcd7725a20cc94a35b61",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.6.7.remote_working_policy",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.6.7",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:12807e51d041d18a744d364f7df81a8b26122c21deab5cf29cf9324a24ed0ebe",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.6.8.security_event_reporting",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.6.8",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:50a6aaa4f9a0a6608c643104ec8b546ac35181c659e047766f8aa5c3d48dcb41",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.7.1.physical_security_perimeters",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.7.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:73a5eed785442570860e4ade53016e50ce38dd6cbd5a7a49254690ce9c58ea97",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.7.2.physical_entry_controls",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.7.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:cd4033e19e290ab0a9bb7295d789febc985db3a00064f22aafb39079917d104e",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.7.3.securing_offices_and_facilities",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.7.3",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:ef95ceddb6173f4d33ade3a50fcc6f5f781c86b3b80b24766122ace1b119fea5",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.7.4.physical_security_monitoring",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.7.4",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:f80b155f3887b61f388960c58fcecaf4b1f99ee02cec4db971bfdf39964df016",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.7.5.physical_and_environmental_threats",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.7.5",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:65dc3fba22c794b10cd83fe63ba178a5b7d88ef5371052b40b7faae165bf86e2",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.7.6.working_in_secure_areas",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.7.6",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:8f3e4a0a56cd7eab98955dc2bcc8c488b1f6e382517e33cacab441c11e6c47f0",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.7.7.clear_desk_clear_screen_policy",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.7.7",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:3f7aa2a9de1d6cb177f1dc379a1a3eb16e548d6237c14035bf8bb779dec6e2de",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.7.8.equipment_siting_protection",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.7.8",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:1247ab5cfc7561b9c17ef84145d6bbcb7bf4e4a70ce4de3c23c242a873387f2c",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.7.9.assets_off_premises",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.7.9",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:aeb1a7cc837dd5e82b78cde12d0ca5c5385502802653628eb60ae4c115efe90c",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.7.10.storage_media_policy",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.7.10",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:eedc602bd393d8a561046ee262525dba66e5ffb56b479c4ae9e84370e17fd8f7",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.7.11.supporting_utilities",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.7.11",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:ad1d197ae6d25e92d833de4ee1ea22b8546db2d2e467da82540d1772bcb1b087",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.7.12.cabling_security",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.7.12",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:86fd455e22c0644d5cf3c46aa5319a60f284835cc16dd419a43139281f4b95a1",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.7.13.equipment_maintenance",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.7.13",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:1cdbf74c93a5e17487e53818fb29bd9efd5e364c692f77169254b9a57d48089c",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.7.14.secure_disposal_policy",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.7.14",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:c65444e4ab18b7ad59098ce6c8b084f65597c6eee737fd9a4719b0c23fe2f4c8",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.8.1.endpoint_device_policy",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:9e0e1ac12c52232c72c9c9acf08fb991f72bd79ee5f1372cb51b647b62e9794a",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.8.6.capacity_management_process",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.6",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:dba2e8c68b29e11455c72def61c0dcd2adaa7b06007f7128ce1ed73246ebf170",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.8.8.vulnerability_management_process",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.8",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:a1d85a750a0bff67107562999ea08a0188d9cbba948593e0061526f11c3855e0",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.8.10.information_deletion_policy",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.10",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:3c97445d48d1fb6e67e3586d1a100654ff6bc1c345375a8c6fd33e28b41e3b44",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.8.11.data_masking_policy",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.11",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:3d77609e4c26b5bc398e55aeaee9f3f743ca5de81b467a4ba06fea52708fb7aa",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.8.15.log_review_process",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.15",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:1e6770a339ee951a9a07b34b6cd5dd4c6677c1ca27e453dbd66eb3f1ff6d2f71",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.8.17.clock_synchronization",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.17",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:b2a79a6da3f1f67626bbd95c42538a15ede7ed29caa9c4d9212c57f08a897d13",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.8.18.privileged_utility_programs",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.18",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:03fde4e8c5ca52a8f8ade9c83072c1aaf5306d2b124c7a7f49a9f078b6f4dc1e",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.8.19.software_installation_policy",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.19",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:4731f26654fa0602c7a223625821db616336511fa94035523c7cd5d0c97f53fe",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.8.23.web_filtering_policy",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.23",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:e3b506a0e0dc085efefefb3ad8dfdfd83561c4ae212503204e5337239e17b343",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.8.24.cryptography_policy",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.24",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:9b06aa0d2ad0b3dc2274c23a13a56c0b3b06572e69f4d6a14305c11cb894daca",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.8.26.application_security_requirements",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.26",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:cae461aa952613c2af025d37194d65615481d1d1954a17fa42a00ff8c5118788",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.8.27.secure_architecture_principles",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.27",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:7072767155f78df4947eee69c3a519a1d6d73178fb2c20f8bb20be6e754b144a",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.8.30.outsourced_development_policy",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.30",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:37f3e91da64f3058c5ae40ea2fae827d303484e25927213a6aa870636fbec5d5",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.8.31.environment_separation",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.31",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:fd11a4f1e64aeaea03ca236a1520dc8b0314756e3bd6791feab9d476b9a1f80a",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.8.33.test_information_policy",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.33",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:16222df9eedf11af15c88c81023c607a0f4517c87d23410a74160252449851bb",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.8.34.audit_testing_protection_policy",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.34",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:cbeffa6abcc431d2f238defd19273429306dbf959e51fd75e9cb907d7a5e9efb",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.8.32.change_management_policy",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.32",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:9a1ca6033792070f5245ea7fdfba1138d792da1534a2fc54d5abe17c5d0de7ad",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.clause.4.1.isms_context",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "C.4.1-4.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:2d7ed0a0eb57f5fc19fa66c1d5e61dcbe9603e203855a741bae8a95bddb8d88c",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.clause.4.3.isms_scope",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "C.4.3",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:b6df8db7231a57df73b3c090a33c78210294fcd2fc664cd166b8caf47aa2eb5a",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.clause.5.2.isms_policy",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "C.5.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:c65fd52f559e2850eb7adb6d6f7027c1d42039c2e29f039b7729bd0f50a6cf48",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.clause.5.3.isms_roles",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "C.5.3",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:5814c2d99cd99085f692e1770fdf6edbe62aa0421c6bd0cf0592431339adaceb",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.clause.6.1.2.risk_assessment_process",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "C.6.1.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:fe5c84b9b94028c59ba74c1bef50f00c5a5586c51d843348f787304c9da7a86f",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.clause.6.1.3.risk_treatment_process",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "C.6.1.3",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:0c6b8dbc428a10c7cb9ddb4506587b5371eeb3169deebbd674d4317bf95adbda",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.clause.6.2.isms_objectives",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "C.6.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:643982bfab1c8ce31153a5a19972643e53a6a3a3e62ca8c0bb03c5499ea0046e",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.clause.7.2.competence_records",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "C.7.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:3b3292fec90ebcc7cfb8d0a4f403852098727c96fc7359bd46b039499a8b906c",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.clause.7.5.documented_information",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "C.7.5",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:2d5ef9216e60afa5700e0303475b22495d4da3bf77350ce0057faa4218a7dccd",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.clause.8.1.operational_planning",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "C.8.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:9668d8049c4c3289e7bd69c051c0616d6392afaa5668086490fc8d105cc978a3",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.clause.8.2.risk_assessment_results",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "C.8.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:43e546600c5fcad6bca4278e0d9fe3b10488ff8a65f630762ed3d2a025315d63",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.clause.8.3.risk_treatment_results",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "C.8.3",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:154ab55ec8e083406a62b0bd7adb8450bfa8a87be0035a8dacc707f4dcf1103e",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.clause.9.1.isms_monitoring",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "C.9.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:c32edcfcbaabc9ed50fe671e7a290af6af708cf69324f61273b2b55a3cc0f368",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.clause.9.2.internal_audit",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "C.9.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:81162ef5284c96fe32abbfc80794af1201d1f4834189499e98f1557e62e2e3b6",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.clause.9.3.management_review",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "C.9.3",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:75c70a2ef3e8a58b46648ac5b70a91005e0f0fd13994b9fcbf489ae99d378fdd",
+      "evidence_mode": "manual"
+    },
+    {
+      "policy_id": "iso27001.clause.10.2.corrective_action",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "C.10.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "pass",
+      "severity": "medium",
+      "category": "governance",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "message": "All 1 resources passed.",
+      "configured_cadence": "annual",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "next_due_at": "2026-02-16T12:05:00Z",
+      "policy_content_hash": "sha256:c3e9605816bd6d39d7b040c19c6e2a45c3a2469b9795345cc0103e32264730a4",
+      "evidence_mode": "manual"
+    }
+  ]
+}

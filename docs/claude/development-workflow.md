@@ -239,7 +239,12 @@ Which tests to add:
   `go test ./internal/aggregator/ -run TestCloud_GoldenWireContract -update`, then copy the
   file to the dashboard repo (path in the test's `railsFixtureRelPath`) in the same task. The
   cross-repo byte comparison runs only when the Rails repo is checked out next to this one, so CI
-  skips it.
+  skips it. `TestBinaryE2E_CloudFullPayloadGoldens` does the same for the payload of a full SOC 2
+  and a full ISO 27001 run (`cmd/sigcomply/testdata/cloud-full/`, copied to the dashboard's
+  `spec/fixtures/files/contract/cloud_full_<framework>.json`). Any change to a policy's message,
+  controls, cadence or content changes these files: regenerate with
+  `go test ./cmd/sigcomply/ -run TestBinaryE2E_CloudFullPayloadGoldens -update`, read the diff,
+  and copy both files.
 - Envelope, canonical JSON, manual record, period, folder or catalog change: regenerate the SPA
   goldens with `-update` (`go test ./internal/sign/ -run TestSPAGoldenEnvelopes -update`,
   `./internal/planner/ -run TestSPAGoldenPeriods`, `./internal/manualcatalog/ -run

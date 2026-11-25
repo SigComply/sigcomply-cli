@@ -209,6 +209,13 @@ func newE2EProjectFor(t *testing.T, framework, extraSources string) e2eProject {
 // files it wrote.
 func seedAllManualEvidence(t *testing.T, p e2eProject) []string {
 	t.Helper()
+	return seedManualEvidenceExcept(t, p)
+}
+
+// seedManualEvidenceExcept is seedAllManualEvidence that leaves the
+// folders of the skipped catalog entries empty, so their policies fail.
+func seedManualEvidenceExcept(t *testing.T, p e2eProject, skip ...string) []string {
+	t.Helper()
 	res := runSigcomply(t, p.dir, nil, "evidence", "due", "--all", "-o", "json")
 	res.wantCode(t, 0)
 	var due struct {
@@ -233,7 +240,15 @@ func seedAllManualEvidence(t *testing.T, p e2eProject) []string {
 	}
 	uploaded := e2eCommitTime.Add(-time.Hour)
 	files := make([]string, 0, len(due.Missing))
+	skipped := map[string]bool{}
+	for _, id := range skip {
+		skipped[id] = false
+	}
 	for _, m := range due.Missing {
+		if _, ok := skipped[m.CatalogID]; ok {
+			skipped[m.CatalogID] = true
+			continue
+		}
 		folder := strings.TrimPrefix(m.FolderURI, "file://")
 		if !strings.HasPrefix(folder, p.manual) {
 			t.Fatalf("%s: folder %q is outside the manual store %q", m.CatalogID, folder, p.manual)
@@ -249,6 +264,11 @@ func seedAllManualEvidence(t *testing.T, p e2eProject) []string {
 			t.Fatal(err)
 		}
 		files = append(files, file)
+	}
+	for id, seen := range skipped {
+		if !seen {
+			t.Fatalf("catalog entry %q to leave empty is not among the empty folders", id)
+		}
 	}
 	return files
 }

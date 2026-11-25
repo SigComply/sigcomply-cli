@@ -250,7 +250,11 @@ reach for the `rule:` escape hatch only for logic the DSL can't express.
    (values on and one past any threshold; the test enforces both, and
    each record must name a source that emits its type), then run
    `go test ./internal/frameworks/ -run TestPolicyOutcomesGolden -update`
-   and check the new entries say what the control means.
+   and check the new entries say what the control means. A SOC 2 or ISO
+   27001 policy also changes the full-run payload goldens: run
+   `go test ./cmd/sigcomply/ -run TestBinaryE2E_CloudFullPayloadGoldens -update`
+   and copy both files to the dashboard repo
+   (`spec/fixtures/files/contract/cloud_full_<framework>.json`).
 
 ### Two-slot roster policy (identities checked against the roster)
 
@@ -341,7 +345,9 @@ see step 4 below.
    asserts the export satisfies the SPA contract. If you change the export
    shape, update `sigcomply-evidence-spa/src/types/catalog.ts` too. The
    policy-outcome golden needs an entry for the new policy: run
-   `go test ./internal/frameworks/ -run TestPolicyOutcomesGolden -update`.
+   `go test ./internal/frameworks/ -run TestPolicyOutcomesGolden -update`,
+   then regenerate and copy the full-run payload goldens (step 6 of
+   "Adding a New Automated Policy").
 
 4. **Fan-out entries (one entry, N folders) — optional.** Set `fanOut` on
    the spec to make the entry collect one folder per member of a set the
