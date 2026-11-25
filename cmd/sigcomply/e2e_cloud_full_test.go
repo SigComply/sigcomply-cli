@@ -53,6 +53,13 @@ func cloudFullRailsFixture(framework string) string {
 	return filepath.Join("..", "..", "..", "sigcomply", "spec", "fixtures", "files", "contract", "cloud_full_"+framework+".json")
 }
 
+// railsRepoCheckedOut reports whether the dashboard repo sits next to this
+// one, as in the local multi-repo workspace.
+func railsRepoCheckedOut() bool {
+	_, err := os.Stat(filepath.Join("..", "..", "..", "sigcomply", "spec", "fixtures", "files", "contract"))
+	return err == nil
+}
+
 func cloudFullGoldenPath(framework string) string {
 	return filepath.Join("testdata", "cloud-full", framework+".json")
 }
@@ -97,9 +104,14 @@ func TestBinaryE2E_CloudFullPayloadGoldens(t *testing.T) {
 
 			// Cross-repo drift guard, as in TestCloud_GoldenWireContract:
 			// skipped when the dashboard repo is not checked out next to
-			// this one (CI).
-			if rails, err := os.ReadFile(cloudFullRailsFixture(fw)); err == nil && !bytes.Equal(rails, want) {
+			// this one (CI). With the repo present, a missing copy fails
+			// too, so a forgotten copy step can't pass.
+			rails, err := os.ReadFile(cloudFullRailsFixture(fw))
+			switch {
+			case err == nil && !bytes.Equal(rails, want):
 				t.Errorf("dashboard fixture %s has drifted from %s; copy the CLI golden over it", cloudFullRailsFixture(fw), path)
+			case err != nil && railsRepoCheckedOut():
+				t.Errorf("dashboard repo is checked out but %s is unreadable (%v); copy the CLI golden to it", cloudFullRailsFixture(fw), err)
 			}
 		})
 	}
