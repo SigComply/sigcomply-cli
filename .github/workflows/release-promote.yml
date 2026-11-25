@@ -87,10 +87,11 @@ jobs:
             run_id=""
             for _ in $(seq 1 40); do
               # jq (on every runner) rather than gh --jq, which has no --arg.
+              # || true: a transient gh error retries on the next poll.
               run_id=$(gh run list --repo "$E2E_REPO" --workflow "$GATE_WORKFLOW" \
                 --event workflow_dispatch --limit 30 --json databaseId,displayTitle \
                 | jq -r --arg id "$id" \
-                  '[.[] | select(.displayTitle | endswith(" " + $id))][0].databaseId // empty')
+                  '[.[] | select(.displayTitle | endswith(" " + $id))][0].databaseId // empty' || true)
               [ -n "$run_id" ] && break
               sleep 15
             done

@@ -14,7 +14,8 @@
 # tag that points at any commit other than the dispatched one fails. A
 # dispatch from any ref other than main or a v* tag skips the release.
 # The verify job installs the published prerelease with provenance
-# required, and promote waits for it.
+# required, and promote waits for it. A verify-windows job installs it on
+# Windows too; it gates nothing.
 #
 # Build provenance: the same GitHub attestation as auto-release-pipeline.yml,
 # published as the release asset sigcomply_<version>_provenance.sigstore.json
