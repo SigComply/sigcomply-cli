@@ -66,7 +66,9 @@ tracker. Don't import those assumptions from the Rails dashboard repo.
      fails the run), and an existing release only gets the assets it lacks.
   3. Installs the prerelease on Linux and macOS with `install.sh` and
      `SIGCOMPLY_REQUIRE_PROVENANCE=1` (the `verify` job), so a release whose checksum or build
-     provenance does not verify is never promoted.
+     provenance does not verify is never promoted. The `verify-windows` job does the same on
+     Windows in Git Bash. No job needs it: a Windows failure turns the run red but does not stop
+     promotion, so read its result before you call a release done.
   4. Promotes the prerelease to latest (`release-promote.yml`) after two gates, which run in
      parallel. Each runs only when its repository variable is `on`; a gate that is off is
      skipped, and promotion prints a warning that the release was not checked by it. A failed
@@ -117,10 +119,12 @@ commit's full message, so never quote it in a body by accident. A release that w
 path-ignored can be cut by hand with `workflow_dispatch` on `auto-release.yml`. `release.yml` is a
 separate manual release that takes an explicit version. Its `verify` job runs `install.sh` with
 `SIGCOMPLY_REQUIRE_PROVENANCE=1`, and promotion waits for it, so a release whose provenance does
-not verify turns the run red and stays a prerelease. Both release workflows release only from
+not verify turns the run red and stays a prerelease. Its `verify-windows` job, as in the
+pipeline, gates nothing. Both release workflows release only from
 `refs/heads/main` or a `refs/tags/v*` ref: a dispatch from any other branch skips every job that
 builds, signs, tags, publishes or promotes. `scripts/release_workflows_test.go` fails when a
-privileged release job loses that guard or a promote job stops needing the verified install.
+privileged release job loses that guard, a promote job stops needing the verified install, or a
+job starts needing `verify-windows`.
 `release.yml` calls `test.yml` first and builds only
 when the suite passes on the dispatched commit; unlike `auto-release.yml` it holds the `release`
 group for the whole run, tests included. A version with a suffix (`v1.2.3-rc.1`)

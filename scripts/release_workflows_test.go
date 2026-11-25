@@ -48,6 +48,7 @@ func (w *workflowFile) reusableOnly() bool {
 
 type workflowJob struct {
 	If          string            `yaml:"if"`
+	RunsOn      string            `yaml:"runs-on"`
 	Needs       stringList        `yaml:"needs"`
 	Uses        string            `yaml:"uses"`
 	With        map[string]string `yaml:"with"`
@@ -75,9 +76,10 @@ func (e *environment) UnmarshalYAML(n *yaml.Node) error {
 }
 
 type workflowStep struct {
-	Run  string            `yaml:"run"`
-	Uses string            `yaml:"uses"`
-	Env  map[string]string `yaml:"env"`
+	Run   string            `yaml:"run"`
+	Shell string            `yaml:"shell"`
+	Uses  string            `yaml:"uses"`
+	Env   map[string]string `yaml:"env"`
 }
 
 // releaseActions are third-party actions that create or publish a
@@ -201,7 +203,8 @@ func releaseWorkflows(t *testing.T, all map[string]workflowFile) []string {
 		if wf.reusableOnly() && name != filepath.Base(pipelineWorkflow) {
 			continue
 		}
-		for _, j := range wf.Jobs {
+		for id := range wf.Jobs {
+			j := wf.Jobs[id]
 			if j.Uses == promoteWorkflow || j.Uses == pipelineWorkflow || j.publishes() {
 				names = append(names, name)
 				break
@@ -524,5 +527,56 @@ func TestReleasePromote_GateDispatchNamesTheRef(t *testing.T) {
 	}
 	if dispatches == 0 {
 		t.Fatal("release-promote.yml dispatches no workflow; did the gate job move?")
+	}
+}
+
+// windowsVerifyJob is the install check on a Windows runner each release
+// workflow runs next to the Linux and macOS one.
+const windowsVerifyJob = "verify-windows"
+
+// TestReleaseWorkflows_WindowsInstallIsASignalNotAGate: both release
+// workflows install the release on windows-latest through install.sh in
+// Git Bash, with provenance required, as docs/guides/install.md tells
+// Windows users to. No job needs it, so a Windows-only failure turns the
+// run red without holding back the promotion that Linux and macOS
+// verified.
+func TestReleaseWorkflows_WindowsInstallIsASignalNotAGate(t *testing.T) {
+	all := loadWorkflows(t)
+	for _, name := range []string{"release.yml", "auto-release-pipeline.yml"} {
+		wf := all[name]
+		j, ok := wf.Jobs[windowsVerifyJob]
+		if !ok {
+			t.Errorf("%s has no %s job", name, windowsVerifyJob)
+			continue
+		}
+		if j.RunsOn != "windows-latest" {
+			t.Errorf("%s: %s runs on %q; want windows-latest", name, windowsVerifyJob, j.RunsOn)
+		}
+		if !installsWithProvenance(&j) {
+			t.Errorf("%s: %s does not run scripts/install.sh with SIGCOMPLY_REQUIRE_PROVENANCE=1", name, windowsVerifyJob)
+		}
+		verifiesVersion := false
+		for _, s := range j.Steps {
+			if s.Run == "" {
+				continue
+			}
+			if s.Shell != "bash" {
+				t.Errorf("%s: %s has a run step with shell %q; want bash (Git Bash, the documented Windows install)", name, windowsVerifyJob, s.Shell)
+			}
+			if strings.Contains(s.Run, "sigcomply version") {
+				verifiesVersion = true
+			}
+		}
+		if !verifiesVersion {
+			t.Errorf("%s: %s never runs `sigcomply version`", name, windowsVerifyJob)
+		}
+		if verify, ok := wf.Jobs["verify"]; ok && j.If != verify.If {
+			t.Errorf("%s: %s `if` = %q; want the verify job's %q", name, windowsVerifyJob, j.If, verify.If)
+		}
+		for id := range wf.Jobs {
+			if contains(wf.Jobs[id].Needs, windowsVerifyJob) {
+				t.Errorf("%s: job %q needs %s; the Windows check must not gate anything", name, id, windowsVerifyJob)
+			}
+		}
 	}
 }

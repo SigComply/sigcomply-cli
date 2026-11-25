@@ -286,3 +286,51 @@ jobs:
       - name: Verify check command
         run: |
           sigcomply check --help
+
+  # The same install on Windows, in Git Bash as docs/guides/install.md
+  # describes. A signal, not a gate: no job needs it, so a Windows-only
+  # failure turns the run red without holding back the promotion that
+  # Linux and macOS verified. No Harden Runner: it monitors Linux runners
+  # only. install.sh writes to a directory under the runner's temp folder
+  # (no sudo on Windows), which is added to PATH for the next steps.
+  verify-windows:
+    name: Verify Installation (windows-latest)
+    needs: publish
+    if: "(github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))"
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install via script
+        shell: bash
+        env:
+          SIGCOMPLY_VERSION: ${{ inputs.version }}
+          SIGCOMPLY_REQUIRE_PROVENANCE: '1'
+          SIGCOMPLY_NO_SUDO: '1'
+        run: |
+          install_dir="$(cygpath -u "$RUNNER_TEMP")/sigcomply-bin"
+          mkdir -p "$install_dir"
+          SIGCOMPLY_INSTALL_DIR="$install_dir" ./scripts/install.sh
+          cygpath -w "$install_dir" >> "$GITHUB_PATH"
+
+      - name: Verify version
+        shell: bash
+        env:
+          TAG: ${{ inputs.version }}
+        run: |
+          VERSION_OUTPUT=$(sigcomply version)
+          echo "$VERSION_OUTPUT"
+          if ! echo "$VERSION_OUTPUT" | grep -qF "${TAG#v}"; then
+            echo "::error::installed sigcomply reports '$VERSION_OUTPUT', expected ${TAG#v}"
+            exit 1
+          fi
+
+      - name: Verify check command
+        shell: bash
+        run: |
+          sigcomply check --help
