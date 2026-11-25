@@ -19,8 +19,17 @@ type fakeAPI struct {
 	err      error
 	policies map[string]string
 	polErr   map[string]error
+	scan     *ecrtypes.RegistryScanningConfiguration
+	scanErr  error
 
 	count int
+}
+
+func (f *fakeAPI) GetRegistryScanningConfiguration(_ context.Context, _ *awsecr.GetRegistryScanningConfigurationInput, _ ...func(*awsecr.Options)) (*awsecr.GetRegistryScanningConfigurationOutput, error) {
+	if f.scanErr != nil {
+		return nil, f.scanErr
+	}
+	return &awsecr.GetRegistryScanningConfigurationOutput{ScanningConfiguration: f.scan}, nil
 }
 
 // GetRepositoryPolicy answers RepositoryPolicyNotFoundException for a
@@ -321,5 +330,64 @@ func TestCollect_RepositoryPolicyErrorPropagates(t *testing.T) {
 	}
 	if _, err := New(Options{API: fake}).Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}}); err == nil {
 		t.Fatal("Collect = nil error; want the denied GetRepositoryPolicy returned")
+	}
+}
+
+func rule(freq ecrtypes.ScanFrequency, filters ...string) ecrtypes.RegistryScanningRule {
+	r := ecrtypes.RegistryScanningRule{ScanFrequency: freq}
+	for _, f := range filters {
+		r.RepositoryFilters = append(r.RepositoryFilters, ecrtypes.ScanningRepositoryFilter{
+			Filter: ptr(f), FilterType: ecrtypes.ScanningRepositoryFilterTypeWildcard,
+		})
+	}
+	return r
+}
+
+// Inspector (ENHANCED) scanning is configured at the registry; the repository
+// flag reads false and is ignored. Found by the customer-sim e2e.
+const repoApp = "app"
+
+func TestCollect_ScanOnPushFromRegistryRules(t *testing.T) {
+	cases := []struct {
+		name   string
+		scan   *ecrtypes.RegistryScanningConfiguration
+		repoOn bool
+		repo   string
+		want   bool
+	}{
+		{"no registry config, repo flag on", nil, true, repoApp, true},
+		{"basic, no rules, repo flag off", &ecrtypes.RegistryScanningConfiguration{ScanType: ecrtypes.ScanTypeBasic}, false, repoApp, false},
+		{"basic rule matches", &ecrtypes.RegistryScanningConfiguration{ScanType: ecrtypes.ScanTypeBasic,
+			Rules: []ecrtypes.RegistryScanningRule{rule(ecrtypes.ScanFrequencyScanOnPush, "prod-*")}}, false, "prod-api", true},
+		{"enhanced continuous wildcard", &ecrtypes.RegistryScanningConfiguration{ScanType: ecrtypes.ScanTypeEnhanced,
+			Rules: []ecrtypes.RegistryScanningRule{rule(ecrtypes.ScanFrequencyContinuousScan, "*")}}, false, "team/app", true},
+		{"enhanced manual only", &ecrtypes.RegistryScanningConfiguration{ScanType: ecrtypes.ScanTypeEnhanced,
+			Rules: []ecrtypes.RegistryScanningRule{rule(ecrtypes.ScanFrequencyManual, "*")}}, true, repoApp, false},
+		{"enhanced, filter misses, repo flag ignored", &ecrtypes.RegistryScanningConfiguration{ScanType: ecrtypes.ScanTypeEnhanced,
+			Rules: []ecrtypes.RegistryScanningRule{rule(ecrtypes.ScanFrequencyScanOnPush, "prod-*")}}, true, "dev-app", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := New(Options{API: &fakeAPI{repos: []ecrtypes.Repository{repo(tc.repo, tc.repoOn, "MUTABLE")}, scan: tc.scan}})
+			recs, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+			if err != nil || len(recs) != 1 {
+				t.Fatalf("Collect = %v, %v", recs, err)
+			}
+			var got registryPayload
+			if err := json.Unmarshal(recs[0].Payload, &got); err != nil {
+				t.Fatal(err)
+			}
+			if got.ScanOnPushEnabled != tc.want {
+				t.Errorf("scan_on_push_enabled = %v, want %v", got.ScanOnPushEnabled, tc.want)
+			}
+		})
+	}
+}
+
+func TestCollect_RegistryScanningErrorPropagates(t *testing.T) {
+	p := New(Options{API: &fakeAPI{repos: []ecrtypes.Repository{repo("a", true, "MUTABLE")}, scanErr: errors.New("AccessDenied")}})
+	if _, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}}); err == nil ||
+		!strings.Contains(err.Error(), "registry scanning") {
+		t.Fatalf("want registry scanning error, got %v", err)
 	}
 }

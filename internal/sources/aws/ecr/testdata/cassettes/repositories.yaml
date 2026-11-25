@@ -75,3 +75,32 @@ interactions:
         status: 400 Bad Request
         code: 400
         duration: 100ms
+    - id: 2
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 2
+        host: ""
+        body: '{}'
+        headers:
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-amz-json-1.1
+            X-Amz-Target:
+                - AmazonEC2ContainerRegistry_V20150921.GetRegistryScanningConfiguration
+        url: https://api.ecr.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: -1
+        body: '{"registryId":"000000000000","scanningConfiguration":{"rules":[],"scanType":"BASIC"}}'
+        headers:
+            Content-Type:
+                - application/x-amz-json-1.1
+        status: 200 OK
+        code: 200
+        duration: 100ms

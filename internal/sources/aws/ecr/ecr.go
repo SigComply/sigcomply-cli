@@ -9,7 +9,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"sort"
+	"strings"
 	"time"
 
 	awsecr "github.com/aws/aws-sdk-go-v2/service/ecr"
@@ -36,6 +38,7 @@ const providerName = "aws"
 type API interface {
 	DescribeRepositories(ctx context.Context, params *awsecr.DescribeRepositoriesInput, optFns ...func(*awsecr.Options)) (*awsecr.DescribeRepositoriesOutput, error)
 	GetRepositoryPolicy(ctx context.Context, params *awsecr.GetRepositoryPolicyInput, optFns ...func(*awsecr.Options)) (*awsecr.GetRepositoryPolicyOutput, error)
+	GetRegistryScanningConfiguration(ctx context.Context, params *awsecr.GetRegistryScanningConfigurationInput, optFns ...func(*awsecr.Options)) (*awsecr.GetRegistryScanningConfigurationOutput, error)
 }
 
 // Plugin is the in-process aws.ecr source.
@@ -119,6 +122,10 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	if err != nil {
 		return nil, fmt.Errorf("aws.ecr: describe repositories: %w", err)
 	}
+	scanning, err := p.registryScanning(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("aws.ecr: registry scanning configuration: %w", err)
+	}
 	now := p.now()
 	records := make([]core.EvidenceRecord, 0, len(repos))
 	for i := range repos {
@@ -135,7 +142,7 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 			ID:                       id,
 			Name:                     id,
 			Provider:                 providerName,
-			ScanOnPushEnabled:        scanOnPushEnabled(repo),
+			ScanOnPushEnabled:        scanning.scansOnPush(repo),
 			ImageImmutabilityEnabled: string(repo.ImageTagMutability) == immutableTagSetting,
 			// DescribeRepositories lists private repositories (ECR Public is
 			// a separate API), but a repository policy can still let anyone
@@ -272,10 +279,63 @@ func principalIsAnyone(raw json.RawMessage) bool {
 	return false
 }
 
-// scanOnPushEnabled reports whether the repository scans images on push.
-// ImageScanningConfiguration is a pointer; when absent ECR defaults to off.
-func scanOnPushEnabled(repo *ecrtypes.Repository) bool {
+// registryScanning is the registry-level scanning configuration. Registry
+// rules decide scanning for the repositories they match; with ENHANCED
+// (Amazon Inspector) scanning they are the only thing that does, and the
+// repository-level scanOnPush flag is ignored by ECR.
+type registryScanning struct {
+	enhanced bool
+	rules    []ecrtypes.RegistryScanningRule
+}
+
+func (p *Plugin) registryScanning(ctx context.Context) (registryScanning, error) {
+	out, err := p.api.GetRegistryScanningConfiguration(ctx, &awsecr.GetRegistryScanningConfigurationInput{})
+	if err != nil {
+		return registryScanning{}, err
+	}
+	if out == nil || out.ScanningConfiguration == nil {
+		return registryScanning{}, nil
+	}
+	cfg := out.ScanningConfiguration
+	return registryScanning{
+		enhanced: cfg.ScanType == ecrtypes.ScanTypeEnhanced,
+		rules:    cfg.Rules,
+	}, nil
+}
+
+// scansOnPush reports whether images pushed to repo are scanned: a matching
+// registry rule with SCAN_ON_PUSH or CONTINUOUS_SCAN frequency, or (basic
+// scanning only) the repository's own scanOnPush flag. A nil
+// ImageScanningConfiguration means off.
+func (r registryScanning) scansOnPush(repo *ecrtypes.Repository) bool {
+	name := safeRepositoryName(repo)
+	for i := range r.rules {
+		rule := &r.rules[i]
+		if rule.ScanFrequency != ecrtypes.ScanFrequencyScanOnPush &&
+			rule.ScanFrequency != ecrtypes.ScanFrequencyContinuousScan {
+			continue
+		}
+		for _, f := range rule.RepositoryFilters {
+			if f.Filter != nil && wildcardMatch(*f.Filter, name) {
+				return true
+			}
+		}
+	}
+	if r.enhanced {
+		return false
+	}
 	return repo.ImageScanningConfiguration != nil && repo.ImageScanningConfiguration.ScanOnPush
+}
+
+// wildcardMatch applies an ECR WILDCARD repository filter, where "*"
+// matches any run of characters (including "/").
+func wildcardMatch(pattern, name string) bool {
+	parts := strings.Split(pattern, "*")
+	for i := range parts {
+		parts[i] = regexp.QuoteMeta(parts[i])
+	}
+	re, err := regexp.Compile("^" + strings.Join(parts, ".*") + "$")
+	return err == nil && re.MatchString(name)
 }
 
 func safeRepositoryName(repo *ecrtypes.Repository) string {
