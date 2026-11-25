@@ -74,11 +74,12 @@ tracker. Don't import those assumptions from the Rails dashboard repo.
      skipped, and promotion prints a warning that the release was not checked by it. A failed
      gate turns the release run (Auto Release or Release) red and the release stays a
      prerelease.
-     - `RELEASE_GATE`: dispatches `release-gate.yml` in the GitHub E2E repo for that exact tag
-       and waits for it: up to 10 minutes for the gate run to appear, then up to 60 minutes for
+     - `RELEASE_GATE`: dispatches `release-gate.yml` on the GitHub E2E repo's `main` for that
+       exact tag and waits for it: up to 10 minutes for the gate run to appear, then up to 60 minutes for
        it to finish. A cancelled gate run is dispatched once more (the job is capped at 150
-       minutes for both attempts). A failed or timed-out run, a second cancel, or a missing
-       `E2E_GATE_TOKEN` secret fails the `E2E Release Gate` job.
+       minutes for both attempts). A failed or timed-out run, a second cancel, or a missing or
+       expired `E2E_GATE_TOKEN` secret fails the `E2E Release Gate` job. That secret is a
+       fine-grained token with Actions read and write on the GitHub E2E repo only.
      - `LIVE_E2E`: runs `live-e2e.yml` for the tag, the released binary against the live fixture
        accounts in the protected `live-e2e` environment. `LIVE_E2E_AZURE` or `LIVE_E2E_SAAS` set
        to `off` skips that provider, and promote warns about it. Setup, variables and triage:
@@ -99,8 +100,9 @@ tracker. Don't import those assumptions from the Rails dashboard repo.
   changes) and fails on error-level alerts.
 - `live-e2e-nightly.yml` runs the live E2E tier on `releases/latest` every night only when
   `LIVE_E2E` and `LIVE_E2E_NIGHTLY` are both `on` (off by default), and opens the `live-drift` issue on a failure. The GitHub E2E repo's `release-gate.yml` tests each release
-  candidate when its gate is on, and runs daily on `releases/latest`. The GitLab E2E repo
-  resolves the latest release at run time.
+  candidate when its gate is on, runs daily on `releases/latest`, and runs on `latest` after
+  each SigComply Cloud production deploy. The GitLab E2E repo runs daily and resolves the latest
+  release at run time.
 
 Doc paths that are not path-ignored, so a push that changes only them still cuts a (patch)
 release:
@@ -319,7 +321,8 @@ binary:
 and
 [sigcomply-cli-testing-project-gitlab](https://gitlab.com/sigcomply/sigcomply-cli-testing-project-gitlab)
 (cloned at `../sigcomply-cli-testing-project-*`). They see a change only after it is released:
-the GitHub one through the release gate on the prerelease, then daily on `latest`.
+the GitHub one through the release gate on the prerelease, then daily on `latest`; the GitLab
+one on its daily run.
 
 ## Docs routing
 

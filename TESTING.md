@@ -17,6 +17,7 @@
   | `internal/planner/testdata/spa-golden/periods.json` | Evidence SPA `src/lib/__fixtures__/golden/periods.json` |
   | `internal/manualcatalog/testdata/<framework>_golden.json` | Evidence SPA `src/lib/__fixtures__/golden/` |
   | `internal/aggregator/testdata/cloud_golden.json` | the dashboard repo (path in `railsFixtureRelPath`, `internal/aggregator/golden_contract_test.go`) |
+  | `cmd/sigcomply/testdata/cloud-full/<framework>.json` (payload of a full SOC 2 and ISO 27001 run; `TestBinaryE2E_CloudFullPayloadGoldens -update`) | the dashboard repo (path in `cmd/sigcomply/e2e_cloud_full_test.go`) |
 
   After regenerating the SPA goldens, run `npm run check:goldens -- --copy` in the SPA checkout
   to copy all three; `npm run check:goldens` alone reports drift.

@@ -3,8 +3,9 @@
 The live E2E tier runs a released `sigcomply` binary against permanent fixture accounts in AWS,
 GCP, Azure, GitHub, GitLab, Okta and Entra ID. It writes the vault to the provider's real storage
 (S3, GCS, Azure Blob; a local folder for SaaS), reads the run back and verifies it. It is the only
-place real-API correctness for the cloud sources is checked. The E2E repos are thin integration
-checks with a local vault ([11-testing-strategy.md](../architecture/11-testing-strategy.md) §3).
+place real-API correctness for the cloud sources is checked. The E2E repos run four read-only
+sources each and check only that no policy has the status `error`
+([11-testing-strategy.md](../architecture/11-testing-strategy.md) §2, L4b).
 
 Read this before you change `cmd/sigcomply/live_e2e*_test.go`, `.github/workflows/live-e2e*.yml`
 or the live gate in `release-promote.yml`, or when a live run fails.
@@ -17,8 +18,8 @@ or the live gate in `release-promote.yml`, or when a live run fails.
 | By hand | `live-e2e.yml` `workflow_dispatch`, optional `tag` | that tag, or the latest release | red run |
 | Nightly, 03:00 UTC, only when `LIVE_E2E` and `LIVE_E2E_NIGHTLY` are both `on` (off by default) | `live-e2e-nightly.yml`, which calls `live-e2e.yml` | the latest release | red run, and the `live-drift` issue is opened or commented |
 
-Each run costs money in the cloud accounts, so by default the tier runs only on release candidates
-and manual dispatch. Set `LIVE_E2E_NIGHTLY` to `on` to also run it every night as a drift alarm.
+Each run costs cents (vault writes and a few billed list calls), so by default the tier runs only
+on release candidates and manual dispatch. Set `LIVE_E2E_NIGHTLY` to `on` to also run it every night as a drift alarm.
 
 `live-e2e.yml` resolves the tag, checks out that tag (so the harness matches the binary), installs
 the asset with `scripts/install.sh` and `SIGCOMPLY_REQUIRE_PROVENANCE=1`, and runs one job per
@@ -141,12 +142,16 @@ Do this once per account. Pin every trust to the subject
 `repo:SigComply/sigcomply-cli:environment:live-e2e`, which only a job in the `live-e2e`
 environment of this repository can present.
 
+The AWS account and GCP project can be the ones the E2E repos use (GitHub: AWS; GitLab: GCP).
+Give the tier its own role, pool, service account and bucket in them.
+
 1. GitHub: create the environment `live-e2e`. Under deployment branches and tags, allow the branch
    `main` and tags matching `v*` (the re-release path dispatches `release.yml` from a tag). Add the
    variables and secrets above.
 2. AWS:
    1. Add the IAM OIDC provider `token.actions.githubusercontent.com`, audience
-      `sts.amazonaws.com`.
+      `sts.amazonaws.com`, unless the account has it already. Then reuse it: an account holds
+      one provider per URL.
    2. Create a role that trusts it with `StringEquals` on `token.actions.githubusercontent.com:aud`
       = `sts.amazonaws.com` and `token.actions.githubusercontent.com:sub` = the subject above.
       Never the SigComply Cloud audience (AGENTS.md invariant 6).
@@ -154,16 +159,22 @@ environment of this repository can present.
       `s3:GetObject` and `s3:ListBucket` on the vault bucket only.
    4. Create the vault bucket with public access blocked and a lifecycle rule that expires
       objects under `live-e2e/` after 14 days.
+   5. Add two budgets with e-mail alerts, unless the account has them: `sigcomply-test-monthly`
+      ($10 a month) and `sigcomply-ci-runaway` ($25 a month), whose action attaches the
+      deny-all policy `sigcomply-ci-deny-all` to every CI role, this one included.
 3. GCP:
    1. Create a workload identity pool and an OIDC provider for
       `https://token.actions.githubusercontent.com`, mapping `google.subject` to `assertion.sub`,
       with the attribute condition `assertion.sub == 'repo:SigComply/sigcomply-cli:environment:live-e2e'`.
    2. Create a service account. Grant the pool's principal for that subject
       `roles/iam.workloadIdentityUser` on it.
-   3. Grant the service account `roles/viewer` and `roles/iam.securityReviewer` on the project,
-      and `roles/storage.objectUser` on the vault bucket only.
-   4. Enable the APIs in the table. Create the vault bucket with uniform access and a lifecycle
+   3. Grant the service account `roles/viewer`, `roles/iam.securityReviewer` and
+      `roles/cloudasset.viewer` (for `gcp.asset`) on the project, and `roles/storage.objectUser`
+      on the vault bucket only.
+   4. Enable the APIs in the table, plus `iam`, `iamcredentials` and `sts`, which workload
+      identity federation needs. Create the vault bucket with uniform access and a lifecycle
       rule that deletes objects older than 14 days.
+   5. Add a $5 a month budget with e-mail alerts on the project, unless it has one.
 4. Azure:
    1. Create an app registration with a federated credential: issuer
       `https://token.actions.githubusercontent.com`, subject as above, audience
@@ -196,6 +207,10 @@ reproduce locally with `LIVE_E2E_OUTPUT_DIR` set.
    skips both the release gate and the nightly run; promote then warns that the release was not
    live-tested. To switch off only Azure or SaaS, set `LIVE_E2E_AZURE` or `LIVE_E2E_SAAS` to
    `off`; promote then warns that the release was not live-tested on that provider.
+4. Every call of the `aws` job fails with AccessDenied: the AWS budget `sigcomply-ci-runaway` may
+   have attached the deny-all policy `sigcomply-ci-deny-all` to the CI roles. Find why the spend
+   rose, then detach the policy: reverse the action in the Budgets action history, or run
+   `aws iam detach-role-policy` on each role.
 
 Local reproduction, with only the fixture account's credentials visible (AGENTS.md rule 13).
 Create the throwaway home, log in to the fixture account inside it, then run the test. The Go
