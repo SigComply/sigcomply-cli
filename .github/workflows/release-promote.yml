@@ -67,15 +67,16 @@ jobs:
           fi
 
       # One attempt: dispatch, find the run by its correlation ID, wait.
-      # A cancelled gate run (the E2E repo's concurrency group, or a
-      # person, cancelled it) says nothing about the release, so it is
-      # dispatched once more with a new ID. A failed or timed-out run fails
-      # the gate at once.
+      # A cancelled gate run (a person or GitHub cancelled it) says
+      # nothing about the release, so it is dispatched once more with a
+      # new ID. A failed or timed-out run fails the gate at once.
+      # --ref main: without it gh asks the API for the E2E repo's default
+      # branch, which the token (Actions read/write only) cannot read.
       - name: Run the release gate
         run: |
           for attempt in 1 2; do
             id="${CORRELATION_ID}-a${attempt}"
-            gh workflow run "$GATE_WORKFLOW" --repo "$E2E_REPO" \
+            gh workflow run "$GATE_WORKFLOW" --repo "$E2E_REPO" --ref main \
               -f cli_version="$TAG" -f correlation_id="$id"
 
             # The gate's run-name ends with " <correlation ID>"; a dispatch

@@ -500,3 +500,29 @@ func TestLiveE2E_NightlyFollowsTheSwitch(t *testing.T) {
 		t.Errorf("live-e2e-nightly.yml calls %s from %d jobs; want 1", liveWorkflow, calls)
 	}
 }
+
+// TestReleasePromote_GateDispatchNamesTheRef: `gh workflow run` without
+// --ref asks the API for the target repo's default branch, which the
+// fine-grained E2E_GATE_TOKEN (Actions read/write only) may not read, so
+// the v1.1.4 gate failed before it dispatched anything. Every dispatch
+// names the branch.
+func TestReleasePromote_GateDispatchNamesTheRef(t *testing.T) {
+	all := loadWorkflows(t)
+	dispatches := 0
+	for id, j := range all[filepath.Base(promoteWorkflow)].Jobs {
+		for _, s := range j.Steps {
+			for _, cmd := range strings.Split(strings.ReplaceAll(s.Run, "\\\n", " "), "\n") {
+				if !strings.Contains(cmd, "gh workflow run") {
+					continue
+				}
+				dispatches++
+				if !strings.Contains(cmd, "--ref main") {
+					t.Errorf("job %q dispatches without --ref main: %s", id, strings.TrimSpace(cmd))
+				}
+			}
+		}
+	}
+	if dispatches == 0 {
+		t.Fatal("release-promote.yml dispatches no workflow; did the gate job move?")
+	}
+}
