@@ -45,8 +45,8 @@ people checked.
 Output from step 4 of the [Quickstart](docs/quickstart.md), with only manual evidence configured:
 
 ```text
-SigComply check soc2/2026-Q4 — 133 policies
-  pass=1 fail=51 carried=0 skip=81 error=0 na=0 waived=0
+SigComply check soc2/2026-Q4 — 145 policies
+  pass=1 fail=51 carried=0 skip=93 error=0 na=0 waived=0
   of 1 passing: 0 verified by inspection, 1 by document presence
   a document-presence pass means the file was there, not that its contents were checked
   `sigcomply report --view coverage` shows which controls rest on which

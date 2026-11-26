@@ -190,6 +190,29 @@
       "reason": "manual evidence: no record collected (source not configured or collection failed)"
     }
   },
+  "soc2.c1.1.repositories_private": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme/legacy"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "vacuous_slots": [
+        "evidence"
+      ]
+    }
+  },
   "soc2.c1.2.data_retention_policy": {
     "compliant": {
       "status": "pass",
@@ -957,6 +980,29 @@
       "reason": "policy references field \"payload.secret_scanning_enabled\" which is not present on record \"group/service\" (type \"git_repository\") — reference a field the evidence type guarantees, or guard it with is_set"
     }
   },
+  "soc2.cc6.1.secret_scanning_on_by_default": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme-labs"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "vacuous_slots": [
+        "evidence"
+      ]
+    }
+  },
   "soc2.cc6.2.accounts_linked_to_roster": {
     "compliant": {
       "status": "pass",
@@ -980,6 +1026,26 @@
       "violated": [
         "aws.iam/ci-user"
       ]
+    }
+  },
+  "soc2.cc6.2.inactive_user_accounts": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 5,
+      "resources_failed": 1,
+      "violated": [
+        "frank"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
     }
   },
   "soc2.cc6.2.no_active_accounts_for_inactive_personnel": {
@@ -1069,6 +1135,70 @@
       "resources_evaluated": 0,
       "resources_failed": 0,
       "reason": "manual evidence: no record collected (source not configured or collection failed)"
+    }
+  },
+  "soc2.cc6.3.members_cannot_create_public_repos": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme-labs"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "vacuous_slots": [
+        "evidence"
+      ]
+    }
+  },
+  "soc2.cc6.3.no_broad_admin_iam_bindings": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 5,
+      "resources_failed": 1,
+      "violated": [
+        "roles/owner|user:mallory@example.com"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "required slot has no records"
+    }
+  },
+  "soc2.cc6.3.no_external_admins": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 9,
+      "resources_failed": 1,
+      "violated": [
+        "dave"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 3,
+      "resources_failed": 0
     }
   },
   "soc2.cc6.3.repo_default_permission_least_privilege": {
@@ -1196,6 +1326,27 @@
       "reason": "required slot has no records"
     }
   },
+  "soc2.cc6.6.no_public_compute_instances": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 2,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 3,
+      "resources_failed": 1,
+      "violated": [
+        "i-bastion"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "required slot has no records"
+    }
+  },
   "soc2.cc6.6.no_unrestricted_all_traffic": {
     "compliant": {
       "status": "pass",
@@ -1310,6 +1461,29 @@
       "resources_evaluated": 0,
       "resources_failed": 0,
       "reason": "required slot has no records"
+    }
+  },
+  "soc2.cc6.6.private_kubernetes_endpoint": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "eks-dev"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "vacuous_slots": [
+        "evidence"
+      ]
     }
   },
   "soc2.cc6.6.vpc_flow_logs_enabled": {
@@ -1867,6 +2041,29 @@
       "reason": "no config_change_tracking records: configuration recording not enabled or not found"
     }
   },
+  "soc2.cc7.1.dependency_alerts_on_by_default": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "acme-labs"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "vacuous_slots": [
+        "evidence"
+      ]
+    }
+  },
   "soc2.cc7.1.inspector_enabled": {
     "compliant": {
       "status": "pass",
@@ -1887,6 +2084,29 @@
       "resources_failed": 1,
       "violated": [
         ""
+      ]
+    }
+  },
+  "soc2.cc7.1.kubernetes_node_auto_upgrade": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "eks-dev"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0,
+      "vacuous_slots": [
+        "evidence"
       ]
     }
   },
@@ -2145,6 +2365,26 @@
         ""
       ],
       "reason": "no security_alert records: security alerting (log metric filters with alarms) not enabled or not found"
+    }
+  },
+  "soc2.cc7.2.kubernetes_control_plane_logging": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "eks-dev"
+      ]
+    },
+    "sparse": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
     }
   },
   "soc2.cc7.3.compute_monitoring_enabled": {
@@ -2418,6 +2658,27 @@
       "resources_evaluated": 1,
       "resources_failed": 0,
       "reason": "policy references field \"payload.code_scanning_enabled\" which is not present on record \"group/service\" (type \"git_repository\") — reference a field the evidence type guarantees, or guard it with is_set"
+    }
+  },
+  "soc2.cc8.1.container_image_tags_immutable": {
+    "compliant": {
+      "status": "pass",
+      "resources_evaluated": 1,
+      "resources_failed": 0
+    },
+    "noncompliant": {
+      "status": "fail",
+      "resources_evaluated": 2,
+      "resources_failed": 1,
+      "violated": [
+        "ecr-public-tools"
+      ]
+    },
+    "sparse": {
+      "status": "skip",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "reason": "required slot has no records"
     }
   },
   "soc2.cc8.1.default_branch_protected": {

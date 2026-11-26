@@ -48,7 +48,7 @@
       "type": "directory_user",
       "id": "alice",
       "source_id": "github",
-      "payload": {"id": "alice", "username": "alice", "email": "alice@example.com", "mfa_enabled": true, "is_admin": true, "is_active": true}
+      "payload": {"id": "alice", "username": "alice", "email": "alice@example.com", "mfa_enabled": true, "is_admin": true, "is_active": true, "is_external": false}
     },
     {
       "scenarios": ["noncompliant"],
@@ -56,7 +56,7 @@
       "id": "dave",
       "source_id": "github",
       "why": "admin without MFA, not on the roster",
-      "payload": {"id": "dave", "username": "dave", "email": "dave@example.com", "mfa_enabled": false, "is_admin": true, "is_active": true}
+      "payload": {"id": "dave", "username": "dave", "email": "dave@example.com", "mfa_enabled": false, "is_admin": true, "is_active": true, "is_external": true}
     },
     {
       "scenarios": ["noncompliant"],
@@ -541,14 +541,14 @@
       "type": "kubernetes_cluster",
       "id": "eks-prod",
       "source_id": "aws.eks",
-      "payload": {"id": "eks-prod", "name": "prod", "secrets_encryption_enabled": true, "logging_enabled": true, "is_private_endpoint": true}
+      "payload": {"id": "eks-prod", "name": "prod", "secrets_encryption_enabled": true, "logging_enabled": true, "is_private_endpoint": true, "node_auto_upgrade_enabled": true}
     },
     {
       "scenarios": ["noncompliant"],
       "type": "kubernetes_cluster",
       "id": "eks-dev",
       "source_id": "aws.eks",
-      "payload": {"id": "eks-dev", "name": "dev", "secrets_encryption_enabled": false, "logging_enabled": false, "is_private_endpoint": false}
+      "payload": {"id": "eks-dev", "name": "dev", "secrets_encryption_enabled": false, "logging_enabled": false, "is_private_endpoint": false, "node_auto_upgrade_enabled": false}
     },
     {
       "scenarios": ["sparse"],
@@ -643,14 +643,14 @@
       "type": "container_registry",
       "id": "ecr-api",
       "source_id": "aws.ecr",
-      "payload": {"id": "ecr-api", "name": "api", "scan_on_push_enabled": true, "is_public": false, "encryption_enabled": true}
+      "payload": {"id": "ecr-api", "name": "api", "scan_on_push_enabled": true, "is_public": false, "encryption_enabled": true, "image_immutability_enabled": true}
     },
     {
       "scenarios": ["noncompliant"],
       "type": "container_registry",
       "id": "ecr-public-tools",
       "source_id": "aws.ecr",
-      "payload": {"id": "ecr-public-tools", "name": "tools", "scan_on_push_enabled": false, "is_public": true, "encryption_enabled": true}
+      "payload": {"id": "ecr-public-tools", "name": "tools", "scan_on_push_enabled": false, "is_public": true, "encryption_enabled": true, "image_immutability_enabled": false}
     },
     {
       "scenarios": ["compliant"],
@@ -871,14 +871,14 @@
       "id": "acme/api",
       "source_id": "github",
       "why": "one required reviewer: on the threshold",
-      "payload": {"default_branch": "main", "default_branch_protected": true, "required_reviewers_count": 1, "requires_signed_commits": true, "allows_force_push": false, "secret_scanning_enabled": true, "push_protection_enabled": true, "dependabot_alerts_enabled": true, "code_scanning_enabled": true, "dismiss_stale_reviews": true, "require_code_owner_reviews": true, "name": "acme/api"}
+      "payload": {"default_branch": "main", "default_branch_protected": true, "required_reviewers_count": 1, "requires_signed_commits": true, "allows_force_push": false, "secret_scanning_enabled": true, "push_protection_enabled": true, "dependabot_alerts_enabled": true, "code_scanning_enabled": true, "dismiss_stale_reviews": true, "require_code_owner_reviews": true, "name": "acme/api", "is_private": true}
     },
     {
       "scenarios": ["noncompliant"],
       "type": "git_repository",
       "id": "acme/legacy",
       "source_id": "github",
-      "payload": {"name": "acme/legacy", "default_branch": "master", "default_branch_protected": false, "required_reviewers_count": 0, "requires_signed_commits": false, "allows_force_push": true, "secret_scanning_enabled": false, "push_protection_enabled": false, "dependabot_alerts_enabled": false, "code_scanning_enabled": false, "dismiss_stale_reviews": false, "require_code_owner_reviews": false}
+      "payload": {"name": "acme/legacy", "default_branch": "master", "default_branch_protected": false, "required_reviewers_count": 0, "requires_signed_commits": false, "allows_force_push": true, "secret_scanning_enabled": false, "push_protection_enabled": false, "dependabot_alerts_enabled": false, "code_scanning_enabled": false, "dismiss_stale_reviews": false, "require_code_owner_reviews": false, "is_private": false}
     },
     {
       "scenarios": ["sparse"],
@@ -893,14 +893,14 @@
       "type": "source_control_org_policy",
       "id": "acme",
       "source_id": "github",
-      "payload": {"id": "acme", "provider": "github", "two_factor_required": true, "default_member_repository_permission": "read", "advanced_security_enabled_new_repos": true}
+      "payload": {"id": "acme", "provider": "github", "two_factor_required": true, "default_member_repository_permission": "read", "advanced_security_enabled_new_repos": true, "members_can_create_public_repos": false, "secret_scanning_enabled_new_repos": true, "dependabot_alerts_enabled_new_repos": true}
     },
     {
       "scenarios": ["noncompliant"],
       "type": "source_control_org_policy",
       "id": "acme-labs",
       "source_id": "github",
-      "payload": {"id": "acme-labs", "provider": "github", "two_factor_required": false, "default_member_repository_permission": "write", "advanced_security_enabled_new_repos": false}
+      "payload": {"id": "acme-labs", "provider": "github", "two_factor_required": false, "default_member_repository_permission": "write", "advanced_security_enabled_new_repos": false, "members_can_create_public_repos": true, "secret_scanning_enabled_new_repos": false, "dependabot_alerts_enabled_new_repos": false}
     },
     {
       "scenarios": ["sparse"],

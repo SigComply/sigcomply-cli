@@ -76,8 +76,8 @@ echo $?
 summary line that names the framework and the run period:
 
 ```
-SigComply check soc2/2026-Q4 — 133 policies
-  pass=0 fail=52 carried=0 skip=81 error=0 na=0 waived=0
+SigComply check soc2/2026-Q4 — 145 policies
+  pass=0 fail=52 carried=0 skip=93 error=0 na=0 waived=0
 ```
 
 The period after the `/` (`2026-Q4` here) comes from the current UTC date. Note yours: you need
@@ -141,7 +141,7 @@ sigcomply check
 The summary now shows one pass, and the policy's line reads:
 
 ```
-  pass=1 fail=51 carried=0 skip=81 error=0 na=0 waived=0
+  pass=1 fail=51 carried=0 skip=93 error=0 na=0 waived=0
   of 1 passing: 0 verified by inspection, 1 by document presence
   a document-presence pass means the file was there, not that its contents were checked
   `sigcomply report --view coverage` shows which controls rest on which

@@ -13,6 +13,25 @@ this file lists the changes a user notices.
 
 ### Added
 
+- 12 SOC 2 policies that read fields the sources already collect, matching tests the SOC 2
+  automation platforms and CIS benchmarks run:
+  - `soc2.cc6.6.no_public_compute_instances`: running instances have no public IP (AWS, GCP,
+    Azure).
+  - `soc2.cc6.6.private_kubernetes_endpoint` and `soc2.cc7.2.kubernetes_control_plane_logging`
+    (EKS, GKE, AKS), and `soc2.cc7.1.kubernetes_node_auto_upgrade`.
+  - `soc2.cc6.2.inactive_user_accounts`: no active IAM user unused for more than 90 days.
+  - `soc2.cc6.3.no_broad_admin_iam_bindings`: no user holds an unconditional account- or
+    project-wide admin role (GCP IAM, Identity Center).
+  - `soc2.cc6.3.no_external_admins`: no outside collaborator or guest is an administrator.
+  - `soc2.c1.1.repositories_private`: source repositories are not public (GitHub, GitLab).
+  - `soc2.cc6.3.members_cannot_create_public_repos`, `soc2.cc6.1.secret_scanning_on_by_default`
+    and `soc2.cc7.1.dependency_alerts_on_by_default`: GitHub organization defaults.
+  - `soc2.cc8.1.container_image_tags_immutable`: registries do not allow a tag to be overwritten
+    (ECR, Artifact Registry).
+
+  SOC 2 now has 145 policies: 93 automated and 52 manual. A project that binds these sources
+  sees the new policies in its next run, and they can fail; record an exception for an
+  intentionally public repository or instance.
 - `check` and `evidence due` print a link to the Evidence SPA form for a missing `declaration` or
   `checklist` entry. `check` adds a `↳ fill in the form: <url>` line under a failing manual
   policy, and `evidence due` adds a `form: <url>` line under the row, `form_url` in JSON output,

@@ -7,7 +7,7 @@ contents.
 
 | ID | Standard | Controls | Policies |
 |---|---|---|---|
-| `soc2` | SOC 2, 2017 Trust Services Criteria (2022 points of focus). The default. | 43 modeled criteria, 43 with a check — 14 automated, 29 manual-only | 133 policies: 81 automated + 52 manual catalog entries |
+| `soc2` | SOC 2, 2017 Trust Services Criteria (2022 points of focus). The default. | 43 modeled criteria, 43 with a check — 14 automated, 29 manual-only | 145 policies: 93 automated + 52 manual catalog entries |
 | `iso27001` | ISO/IEC 27001:2022 | 109 controls: 93 Annex A + 16 management-system. 93 / 93 Annex A controls have a check — 26 automated, 67 manual-only. The 16 management-system requirements (clauses 4-10), all manual, are counted apart from Annex A and are covered only once you upload the documents. | 146 policies: 55 automated + 91 manual catalog entries |
 
 No other framework is registered. Any other value of `framework:` is a configuration error

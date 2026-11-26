@@ -259,14 +259,14 @@ func cc6EncryptionPolicies() []core.Policy {
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc6.7.compute_root_volume_encrypted", control: ctrlCC67, severity: core.SeverityHigh, category: catDataProtection, cadence: cadenceDaily,
-			accepts: []string{"compute_instance"},
+			accepts: []string{etComputeInstance},
 			desc:    "All compute instances have encrypted root volumes.",
 			rem:     "Re-create instances with encrypted root volumes.",
 			clause:  all(leaf("payload.root_volume_encrypted", "eq", true), "instance {{.payload.name}} has an unencrypted root volume"),
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc6.7.kubernetes_secrets_encrypted", control: ctrlCC67, severity: core.SeverityHigh, category: catDataProtection, cadence: cadenceDaily,
-			accepts: []string{"kubernetes_cluster"},
+			accepts: []string{etKubernetesCluster},
 			desc:    "All Kubernetes clusters encrypt secrets at rest.",
 			rem:     "Enable envelope encryption for Kubernetes secrets.",
 			clause:  all(leaf("payload.secrets_encryption_enabled", "eq", true), "cluster {{.payload.name}} does not encrypt secrets at rest"),
@@ -568,14 +568,14 @@ func cc6OrgGovernancePolicies() []core.Policy {
 	return []core.Policy{
 		autoPolicy{
 			id: "soc2.cc6.1.org_2fa_required", control: ctrlCC61, severity: core.SeverityHigh, category: catAccess, cadence: cadenceDaily,
-			accepts: []string{"source_control_org_policy"},
+			accepts: []string{etSourceControlOrgPolicy},
 			desc:    "The source-control organization enforces two-factor authentication for all members.",
 			rem:     "Enable the org-wide two-factor authentication requirement.",
 			clause:  all(leaf("payload.two_factor_required", "eq", true), "organization {{.payload.id}} does not require two-factor authentication"),
 		}.policy(),
 		autoPolicy{
-			id: "soc2.cc6.3.repo_default_permission_least_privilege", control: "CC6.3", severity: core.SeverityMedium, category: catAccess, cadence: cadenceDaily,
-			accepts: []string{"source_control_org_policy"},
+			id: "soc2.cc6.3.repo_default_permission_least_privilege", control: ctrlCC63, severity: core.SeverityMedium, category: catAccess, cadence: cadenceDaily,
+			accepts: []string{etSourceControlOrgPolicy},
 			desc:    "The source-control organization grants members a least-privilege default repository permission (none or read).",
 			rem:     "Set the default member repository permission to `none` or `read`; grant write/admin per team.",
 			clause:  all(leaf("payload.default_member_repository_permission", "not_in", []any{"write", "admin"}), "organization {{.payload.id}} grants an overly broad default repository permission"),

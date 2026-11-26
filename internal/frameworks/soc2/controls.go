@@ -8,6 +8,7 @@ import "github.com/sigcomply/sigcomply-cli/internal/core"
 const (
 	ctrlCC61 = "CC6.1"
 	ctrlCC62 = "CC6.2"
+	ctrlCC63 = "CC6.3"
 	ctrlCC66 = "CC6.6"
 	ctrlCC67 = "CC6.7"
 	ctrlCC68 = "CC6.8"

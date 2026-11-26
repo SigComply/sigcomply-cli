@@ -50,6 +50,7 @@ const (
 // accepts stays spelled out at its one call site.
 const (
 	etAuditLogTrail           = "audit_log_trail"
+	etComputeInstance         = "compute_instance"
 	etContainerRegistry       = "container_registry"
 	etDirectoryUser           = "directory_user"
 	etDirectoryUserV2         = "directory_user.v2"
@@ -57,6 +58,7 @@ const (
 	etGitRepository           = "git_repository"
 	etIAMAccessKey            = "iam_access_key"
 	etIAMBinding              = "iam_binding"
+	etKubernetesCluster       = "kubernetes_cluster"
 	etManagedDatabaseInstance = "managed_database_instance"
 	etNoSQLTable              = "nosql_table"
 	etObjectStorageBucket     = "object_storage_bucket"
@@ -64,6 +66,7 @@ const (
 	etPasswordPolicyV2        = "password_policy.v2"
 	etPullRequest             = "pull_request"
 	etSecurityService         = "security_service"
+	etSourceControlOrgPolicy  = "source_control_org_policy"
 	etVulnerabilityFinding    = "vulnerability_finding"
 )
 

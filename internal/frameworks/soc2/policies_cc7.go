@@ -91,7 +91,7 @@ func cc7OperationsPolicies() []core.Policy {
 	return []core.Policy{
 		autoPolicy{
 			id: "soc2.cc7.3.compute_monitoring_enabled", control: ctrlCC73, severity: core.SeverityMedium, category: catMonitoring, cadence: cadenceDaily,
-			accepts: []string{"compute_instance"},
+			accepts: []string{etComputeInstance},
 			desc:    "All compute instances have detailed monitoring enabled.",
 			rem:     "Enable detailed monitoring on each compute instance.",
 			// Guarded with is_set: a source that cannot determine a
