@@ -44,6 +44,11 @@
     "resources_evaluated": 1,
     "resources_failed": 0
   },
+  "soc2.c1.1.repositories_private": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
   "soc2.c1.2.data_retention_policy": {
     "status": "pass",
     "resources_evaluated": 1,
@@ -224,7 +229,17 @@
     "resources_evaluated": 0,
     "resources_failed": 0
   },
+  "soc2.cc6.1.secret_scanning_on_by_default": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
   "soc2.cc6.2.accounts_linked_to_roster": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.2.inactive_user_accounts": {
     "status": "skip",
     "resources_evaluated": 0,
     "resources_failed": 0
@@ -247,6 +262,21 @@
   "soc2.cc6.3.access_review_quarterly": {
     "status": "pass",
     "resources_evaluated": 1,
+    "resources_failed": 0
+  },
+  "soc2.cc6.3.members_cannot_create_public_repos": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.3.no_broad_admin_iam_bindings": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.3.no_external_admins": {
+    "status": "skip",
+    "resources_evaluated": 0,
     "resources_failed": 0
   },
   "soc2.cc6.3.repo_default_permission_least_privilege": {
@@ -279,6 +309,11 @@
     "resources_evaluated": 0,
     "resources_failed": 0
   },
+  "soc2.cc6.6.no_public_compute_instances": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
   "soc2.cc6.6.no_unrestricted_all_traffic": {
     "status": "skip",
     "resources_evaluated": 0,
@@ -300,6 +335,11 @@
     "resources_failed": 0
   },
   "soc2.cc6.6.no_unrestricted_ssh": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc6.6.private_kubernetes_endpoint": {
     "status": "skip",
     "resources_evaluated": 0,
     "resources_failed": 0
@@ -434,7 +474,17 @@
     "resources_evaluated": 0,
     "resources_failed": 0
   },
+  "soc2.cc7.1.dependency_alerts_on_by_default": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
   "soc2.cc7.1.inspector_enabled": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc7.1.kubernetes_node_auto_upgrade": {
     "status": "skip",
     "resources_evaluated": 0,
     "resources_failed": 0
@@ -490,6 +540,11 @@
     "resources_failed": 0
   },
   "soc2.cc7.2.alarm_vpc_changes": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc7.2.kubernetes_control_plane_logging": {
     "status": "skip",
     "resources_evaluated": 0,
     "resources_failed": 0
@@ -555,6 +610,11 @@
     "resources_failed": 0
   },
   "soc2.cc8.1.code_scanning_enabled": {
+    "status": "skip",
+    "resources_evaluated": 0,
+    "resources_failed": 0
+  },
+  "soc2.cc8.1.container_image_tags_immutable": {
     "status": "skip",
     "resources_evaluated": 0,
     "resources_failed": 0

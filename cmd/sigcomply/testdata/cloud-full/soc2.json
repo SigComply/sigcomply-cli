@@ -20,10 +20,10 @@
   "started_at": "2026-02-15T12:05:00Z",
   "completed_at": "2026-02-15T12:06:00Z",
   "summary": {
-    "policies_total": 133,
+    "policies_total": 145,
     "policies_passed": 49,
     "policies_failed": 3,
-    "policies_skipped": 81,
+    "policies_skipped": 93,
     "policies_error": 0,
     "policies_na": 0,
     "policies_waived": 0,
@@ -1010,6 +1010,270 @@
       "configured_cadence": "daily",
       "last_evaluated_at": "2026-02-15T12:05:00Z",
       "policy_content_hash": "sha256:1de43617bad53244f75345c273c8896f3832f9f0f6aed91dd496a141fe6dc588",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.6.no_public_compute_instances",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.6",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "network",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:a1fd3affe6fdb96725fc49b16f19208a8355f99e62029a1b9301322b9cdc576f",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.6.private_kubernetes_endpoint",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.6",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "network",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:bd8c772bd92d70291faa132096c4f4c6e00087c6caf3d788bb6bc9c4c9a2b1b0",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.2.inactive_user_accounts",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:8446e5561bde430849470c2250055af3b13157768bee7536dcf8406920ea8e5b",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.3.no_broad_admin_iam_bindings",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.3",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:26f45af5e5aa324d4e82311ff8634279dfcbda04245bc6a41831496227e8ae9d",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.3.no_external_admins",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.3",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "high",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:a82d71d9f1614884206f7d0d8e1837300c2a07369351a977f7631160282460be",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.3.members_cannot_create_public_repos",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.3",
+          "relationship": "equal"
+        },
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "C1.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:1b886d2d337c500470f012be61cda9895b858660d4c47adf9c4349ceb6d93925",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.c1.1.repositories_private",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "C1.1",
+          "relationship": "equal"
+        },
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "data-protection",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:2c3437a6366563415c00d4785bd7f44b9f06ede7cb41df1ead7d5e7ef54b472c",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc6.1.secret_scanning_on_by_default",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "access",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:b17fddf40c7d48e9d86bdcb8a29a7feec1eb8c9ec0eccfaac9a9b783f2a6a48b",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc7.1.dependency_alerts_on_by_default",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:835cd823af1836f715e0f8385bcd88652a2e9383abd70caa4ca31db766734db6",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc7.2.kubernetes_control_plane_logging",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "logging",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:0f671e9eea794607215ba2eae94315417099182343353e8bcefe80769495cb7c",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc7.1.kubernetes_node_auto_upgrade",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "low",
+      "category": "monitoring",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:52d8ddea7e368c12a488cfdf82e60256f7e144562a467964c2474241ddbd88dc",
+      "evidence_mode": "automated"
+    },
+    {
+      "policy_id": "soc2.cc8.1.container_image_tags_immutable",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC8.1",
+          "relationship": "equal"
+        }
+      ],
+      "status": "skip",
+      "severity": "low",
+      "category": "change-management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-02-15T12:05:00Z",
+      "policy_content_hash": "sha256:8af584a527d33241fec57810840add8a7a0eb2a7f8e7a0fdc5c1ccca97bcba9b",
       "evidence_mode": "automated"
     },
     {
